@@ -1,3 +1,48 @@
 <resources>
     <string name="app_name">BabyBloom</string>
+
+    <!-- Splash -->
+    <string name="splash_tagline">حيث يزدهر كل عقل صغير</string>
+
+    <!-- Register -->
+    <string name="register_title">أنشئ حسابًا جديدًا</string>
+    <string name="hint_full_name">الاسم الكامل</string>
+    <string name="hint_email">user@email.com</string>
+    <string name="hint_password">كلمة المرور</string>
+    <string name="hint_confirm_password">أكد كلمة المرور</string>
+    <string name="btn_create_account">إنشاء الحساب</string>
+    <string name="already_have_account">لديك حساب بالفعل؟</string>
+    <string name="btn_login">سجل الدخول</string>
+
+    <!-- Login -->
+    <string name="login_title">قم بتسجيل الدخول إلى حسابك</string>
+    <string name="forgot_password">نسيت كلمة المرور؟</string>
+    <string name="btn_sign_in">تسجيل الدخول</string>
+    <string name="no_account">ليس لديك حساب؟</string>
+    <string name="btn_register_new">أنشئ حساب جديد</string>
+
+    <!-- Add Child -->
+    <string name="add_child_title">اضافة طفل جديد</string>
+    <string name="hint_child_name">الاسم الكامل</string>
+    <string name="hint_child_age">العمر</string>
+    <string name="label_has_difficulties">هل يعاني طفلك من أي صعوبات في التعلم؟</string>
+    <string name="label_choose_avatar">اختر افاتار طفلك</string>
+    <string name="label_girl_avatars">افاتار البنات</string>
+    <string name="label_boy_avatars">افاتار الصبيان</string>
+    <string name="btn_save">حفظ</string>
+
+    <!-- Home -->
+    <string name="greeting_morning">صباح الخير،</string>
+    <string name="label_general_overview">نظرة عامة على أطفالي</string>
+    <string name="label_ai_recommendation">رأي الذكاء الاصطناعي لليوم</string>
+    <string name="label_week_achievements">أبرز إنجازات الأسبوع</string>
+    <string name="label_quick_actions">إجراءات سريعة</string>
+    <string name="action_browse_children">عرض أطفالي</string>
+    <string name="action_add_child">إضافة طفل</string>
+    <string name="action_needs_attention">الأطفال الذين يحتاجون إلى دعم</string>
+
+    <!-- Bottom Nav -->
+    <string name="nav_home">الرئيسية</string>
+    <string name="nav_children">أطفالي</string>
+    <string name="nav_settings">الإعدادات</string>
 </resources>
