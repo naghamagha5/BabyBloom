@@ -45,4 +45,23 @@
     <string name="nav_home">الرئيسية</string>
     <string name="nav_children">أطفالي</string>
     <string name="nav_settings">الإعدادات</string>
+
+    <!-- Login Screen -->
+    <string name="label_email">البريد الإلكتروني</string>
+    <string name="label_password">كلمة المرور</string>
+    <string name="divider_or">أو</string>
+    <string name="btn_register">أنشئ حساب جديد</string>
+
+    <!-- Errors -->
+    <string name="error_empty_email">يرجى إدخال البريد الإلكتروني</string>
+    <string name="error_invalid_email">البريد الإلكتروني غير صحيح</string>
+    <string name="error_empty_password">يرجى إدخال كلمة المرور</string>
+    <string name="error_short_password">كلمة المرور قصيرة جداً (6 أحرف على الأقل)</string>
+    <string name="error_invalid_credentials">البريد الإلكتروني أو كلمة المرور غير صحيحة</string>
+    <string name="error_unknown">حدث خطأ، يرجى المحاولة مرة أخرى</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_sun_character">شخصية الشمس</string>
+    <string name="cd_leaf_decoration">زخرفة نباتية</string>
+    <string name="cd_toggle_password">إظهار/إخفاء كلمة المرور</string>
 </resources>
