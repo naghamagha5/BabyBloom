@@ -11,15 +11,25 @@ val PurpleGrey40 = Color(0xFF625b71)
 val Pink40 = Color(0xFF7D5260)
 
 
-val DeepNavy = Color(0xFF1A1F3C)          // Home dark background, bottom nav
-val SoftLavender = Color(0xFFEDE7F6)      // Register/Login background
-val WarmPeach = Color(0xFFFFF3E0)         // Add child background
-val PrimaryPurple = Color(0xFF7B5EA7)     // Buttons, accents
-val AccentTeal = Color(0xFF4DB6AC)        // Overview cards
-val AccentOrange = Color(0xFFFF8A65)      // Achievement cards
-val AccentPink = Color(0xFFF48FB1)        // Hearts, soft accents
-val CardDark = Color(0xFF252A4A)          // Dark cards on home screen
-val TextOnDark = Color(0xFFFFFFFF)
-val TextOnLight = Color(0xFF2D2D2D)
-val TextSecondary = Color(0xFF757575)
-val InputBackground = Color(0xFFF5F5F5)
+// Brand palette — extracted from your design
+val PurpleLavender       = Color(0xFFD4C5F9)   // screen background gradient top
+val LavenderLight        = Color(0xFFE8DFF8)   // gradient bottom
+val NavyDark             = Color(0xFF1A1A3E)   // primary button background
+val White                = Color(0xFFFFFFFF)
+val TextPrimary          = Color(0xFF1A1A3E)   // dark navy for headings
+val TextSecondary        = Color(0xFF6B6B8A)   // hint/placeholder text
+val TextFieldBackground  = Color(0xFFF5F2FF)   // input field fill
+val TextFieldBorder      = Color(0xFFDDD5F3)   // input field border
+val ErrorRed             = Color(0xFFE53935)
+val DividerGray          = Color(0xFFCCC5E0)
+val ButtonText           = Color(0xFFFFFFFF)
+val LinkColor            = Color(0xFF6B4EFF)   // "forgot password" link
+
+
+val GradientPurpleLight = Color(0xFFE1E3F7)  // Top - Light lavender
+val GradientPurpleMedium = Color(0xFFB9BBEB) // Middle
+val GradientPurpleDark = Color(0xFF7F80DA)   // Bottom - Deeper purple
+val GradientPinkDark = Color(0xFFE5CDFE)  // Top - Light lavender
+val GradientPinkMedium = Color(0xFFE7E0FB)  // Top - Light lavender
+val GradientPinkLight = Color(0xFFE9F2F8)  // Top - Light lavender
+val BorderGray = Color(0xFFD1D1D1)
