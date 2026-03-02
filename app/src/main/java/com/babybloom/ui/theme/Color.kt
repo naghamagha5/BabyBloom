@@ -23,3 +23,6 @@ val TextOnDark = Color(0xFFFFFFFF)
 val TextOnLight = Color(0xFF2D2D2D)
 val TextSecondary = Color(0xFF757575)
 val InputBackground = Color(0xFFF5F5F5)
+
+// parent view
+val BlueMagenta = Color(0xFF2E2645)

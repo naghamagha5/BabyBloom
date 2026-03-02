@@ -32,3 +32,5 @@ val Typography = Typography(
     )
     */
 )
+
+// parent_view greeting message
