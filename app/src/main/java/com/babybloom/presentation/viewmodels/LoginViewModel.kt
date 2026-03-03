@@ -92,14 +92,14 @@ class LoginViewModel @Inject constructor(
 
     // ─── Validation helpers ───────────────────────────────────────────────
     private fun validateEmail(email: String): String? = when {
-        email.isBlank()                             -> app.getString(R.string.error_empty_email)
-        !Patterns.EMAIL_ADDRESS.matcher(email).matches() -> app.getString(R.string.error_invalid_email)
+        email.isBlank()                             -> app.getString(R.string.error_email_required)
+        !Patterns.EMAIL_ADDRESS.matcher(email).matches() -> app.getString(R.string.error_email_invalid_format)
         else                                        -> null
     }
 
     private fun validatePassword(password: String): String? = when {
-        password.isBlank()   -> app.getString(R.string.error_empty_password)
-        password.length < 6  -> app.getString(R.string.error_short_password)
+        password.isBlank()   -> app.getString(R.string.error_password_required)
+        password.length < 6  -> app.getString(R.string.error_password_min_length)
         else                 -> null
     }
 }

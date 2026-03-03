@@ -77,6 +77,7 @@
     <string name="error_email_invalid_format">صيغة البريد الإلكتروني غير صحيحة، مثال: user@email.com</string>
     <string name="error_email_too_long">البريد الإلكتروني طويل جداً</string>
     <string name="error_email_already_exists">هذا البريد الإلكتروني مسجل بالفعل، جرب بريداً آخر أو سجّل الدخول</string>
+    <string name="error_invalid_credentials">البريد الإلكتروني أو كلمة المرور غير صحيحة</string>
 
     <!-- ── Password Field Errors ─────────────────────────────────────────── -->
     <string name="error_password_required">كلمة المرور مطلوبة</string>

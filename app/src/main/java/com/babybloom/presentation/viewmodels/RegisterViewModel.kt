@@ -78,19 +78,25 @@ class RegisterViewModel @Inject constructor(
                     when (result.message) {
                         "EMAIL_EXISTS" -> {
                             _uiState.value = _uiState.value.copy(
-                                isLoading = false,
+                                isLoading  = false,
                                 emailError = app.getString(R.string.error_email_already_exists)
                             )
                         }
                         else -> {
                             _uiState.value = _uiState.value.copy(
-                                isLoading = false,
+                                isLoading    = false,
                                 errorMessage = app.getString(R.string.error_generic_unexpected)
                             )
                         }
                     }
                 }
-                is AuthResult.Loading -> { }
+                is AuthResult.InvalidCredentials -> {
+                    // register() never returns this but the when must be exhaustive
+                    _uiState.value = _uiState.value.copy(
+                        isLoading    = false,
+                        errorMessage = app.getString(R.string.error_generic_unexpected)
+                    )
+                }
             }
         }
     }

@@ -18,7 +18,7 @@ import com.babybloom.data.local.entity.*
         InteractionEventEntity::class,
     ],
     version = 1,
-    exportSchema = true
+    exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao

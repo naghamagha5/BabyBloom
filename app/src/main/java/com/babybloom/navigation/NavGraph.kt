@@ -1,6 +1,8 @@
 package com.babybloom.navigation
 
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
@@ -9,9 +11,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.babybloom.di.SessionManager
 import com.babybloom.presentation.screens.LoginScreen
-import com.babybloom.presentation.viewmodels.LoginViewModel
+import com.babybloom.presentation.screens.RegisterScreen
 
-// ─── Route constants (no hardcoded strings anywhere else) ─────────────────────
 object Routes {
     const val LOGIN    = "login"
     const val REGISTER = "register"
@@ -23,14 +24,21 @@ fun BabyBloomNavGraph(
     sessionManager: SessionManager,
     navController: NavHostController = rememberNavController()
 ) {
-    // Check if user is already logged in — auto-route to Home
     val isLoggedIn by sessionManager.isLoggedIn.collectAsStateWithLifecycle(initialValue = false)
 
-    val startDestination = if (isLoggedIn) Routes.HOME else Routes.LOGIN
+    // ── Handle session restore imperatively, NOT via startDestination ──────
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            navController.navigate(Routes.HOME) {
+                popUpTo(Routes.LOGIN) { inclusive = true }
+            }
+        }
+    }
 
+    // ── startDestination is always LOGIN — never changes ───────────────────
     NavHost(
         navController    = navController,
-        startDestination = startDestination
+        startDestination = Routes.LOGIN
     ) {
         composable(Routes.LOGIN) {
             LoginScreen(
@@ -46,11 +54,23 @@ fun BabyBloomNavGraph(
         }
 
         composable(Routes.REGISTER) {
-            // Your RegisterScreen goes here
+            RegisterScreen(
+                onCreateAccount = {
+                    navController.navigate(Routes.HOME) {
+                        popUpTo(Routes.REGISTER) { inclusive = true }
+                    }
+                },
+                onLoginClick = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(Routes.REGISTER) { inclusive = true }
+                    }
+                }
+            )
         }
 
-//        composable(Routes.HOME) {
-//            HomeScreen() // your existing HomeScreen
-//        }
+        composable(Routes.HOME) {
+            // TODO: replace with your real HomeScreen()
+            Text("Home — coming soon")
+        }
     }
 }

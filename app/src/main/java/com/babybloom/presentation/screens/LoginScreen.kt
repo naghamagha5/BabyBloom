@@ -311,7 +311,7 @@ fun LoginScreen(
                                     thickness = 1.dp
                                 )
                                 Text(
-                                    text     = stringResource(R.string.divider_or),
+                                    text     = stringResource(R.string.or),
                                     modifier = Modifier.padding(horizontal = 12.dp),
                                     style    = MaterialTheme.typography.bodyMedium,
                                     color    = TextSecondary
@@ -348,7 +348,7 @@ fun LoginScreen(
                                 )
                             ) {
                                 Text(
-                                    text  = stringResource(R.string.btn_register),
+                                    text  = stringResource(R.string.btn_register_new),
                                     style = MaterialTheme.typography.labelLarge
                                 )
                             }
@@ -376,7 +376,7 @@ fun LoginScreen(
             ) {
                 Image(
                     painter            = painterResource(id = R.drawable.ic_sun_character),
-                    contentDescription = stringResource(R.string.cd_sun_character),
+                    contentDescription = null,
                     contentScale       = ContentScale.Fit,
                     modifier           = Modifier
                         .size(screenWidth * 0.75f)
