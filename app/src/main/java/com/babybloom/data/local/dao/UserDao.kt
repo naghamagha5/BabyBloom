@@ -23,13 +23,4 @@ interface UserDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM users WHERE email = :email)")
     suspend fun emailExists(email: String): Boolean
-
-    @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
-    suspend fun findByEmail(email: String): UserEntity?
-
-    @Query("SELECT * FROM users WHERE id = :id LIMIT 1")
-    suspend fun findById(id: Long): UserEntity?
-
-    @Query("DELETE FROM users WHERE id = :id")
-    suspend fun deleteUser(id: Long)
 }
