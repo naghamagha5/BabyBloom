@@ -6,6 +6,10 @@
 
     <!-- Register -->
     <string name="register_title">أنشئ حسابًا جديدًا</string>
+    <string name="label_name">الاسم الكامل</string>
+    <string name="label_email">البريد الإلكتروني</string>
+    <string name="label_password">كلمة المرور</string>
+    <string name="label_confirm_password">تأكيد كلمة المرور</string>
     <string name="hint_full_name">الاسم الكامل</string>
     <string name="hint_email">user@email.com</string>
     <string name="hint_password">كلمة المرور</string>
@@ -13,6 +17,7 @@
     <string name="btn_create_account">إنشاء الحساب</string>
     <string name="already_have_account">لديك حساب بالفعل؟</string>
     <string name="btn_login">سجل الدخول</string>
+    <string name="or">أو</string>
 
     <!-- Login -->
     <string name="login_title">قم بتسجيل الدخول إلى حسابك</string>
@@ -23,11 +28,20 @@
 
     <!-- Add Child -->
     <string name="add_child_title">اضافة طفل جديد</string>
+    <string name="label_child_name">الأسم الكامل</string>
     <string name="hint_child_name">الاسم الكامل</string>
+    <string name="label_child_age">العمر</string>
     <string name="hint_child_age">العمر</string>
     <string name="label_has_difficulties">هل يعاني طفلك من أي صعوبات في التعلم؟</string>
+    <string name="yes">نعم</string>
+    <string name="no">لا</string>
+    <string name="label_difficulties_description">ما هي الصعوبات؟</string>
+    <string name="hint_difficulties_description">اكتب وصفًا للصعوبات التي يعاني منها الطفل...</string>
     <string name="label_choose_avatar">اختر افاتار طفلك</string>
-    <string name="label_girl_avatars">افاتار البنات</string>
+    <string name="label_select_gender">صبي ام فتاه</string>
+    <string name="boy">صبي</string>
+    <string name="girl">فتاة</string>
+    <string name="label_girl_avatars">افاتار الفتيات</string>
     <string name="label_boy_avatars">افاتار الصبيان</string>
     <string name="btn_save">حفظ</string>
 
@@ -45,4 +59,40 @@
     <string name="nav_home">الرئيسية</string>
     <string name="nav_children">أطفالي</string>
     <string name="nav_settings">الإعدادات</string>
+
+
+    <!-- ════════════════════════════════════════════════════════════════════
+     REGISTER SCREEN - VALIDATION ERRORS
+     ════════════════════════════════════════════════════════════════════ -->
+
+    <!-- ── Name Field Errors ─────────────────────────────────────────────── -->
+    <string name="error_name_required">الاسم مطلوب ولا يمكن تركه فارغاً</string>
+    <string name="error_name_min_length">الاسم يجب أن يكون 3 أحرف على الأقل</string>
+    <string name="error_name_max_length">الاسم طويل جداً، الحد الأقصى 50 حرفاً</string>
+    <string name="error_name_invalid_characters">الاسم يجب أن يحتوي على أحرف فقط</string>
+
+    <!-- ── Email Field Errors ────────────────────────────────────────────── -->
+    <string name="error_email_required">البريد الإلكتروني مطلوب</string>
+    <string name="error_email_no_spaces">البريد الإلكتروني لا يجب أن يحتوي على مسافات</string>
+    <string name="error_email_invalid_format">صيغة البريد الإلكتروني غير صحيحة، مثال: user@email.com</string>
+    <string name="error_email_too_long">البريد الإلكتروني طويل جداً</string>
+    <string name="error_email_already_exists">هذا البريد الإلكتروني مسجل بالفعل، جرب بريداً آخر أو سجّل الدخول</string>
+
+    <!-- ── Password Field Errors ─────────────────────────────────────────── -->
+    <string name="error_password_required">كلمة المرور مطلوبة</string>
+    <string name="error_password_min_length">كلمة المرور يجب أن تكون 8 أحرف على الأقل</string>
+    <string name="error_password_max_length">كلمة المرور يجب أن تكون أقل من 32 حرفاً</string>
+    <string name="error_password_no_uppercase">يجب أن تحتوي على حرف كبير (مثال: A)</string>
+    <string name="error_password_no_lowercase">يجب أن تحتوي على حرف صغير (مثال: a)</string>
+    <string name="error_password_no_digit">يجب أن تحتوي على رقم (مثال: 1)</string>
+    <string name="error_password_no_special_char">يجب أن تحتوي على رمز خاص (مثال: ! @ # $)</string>
+    <string name="error_password_no_spaces">كلمة المرور لا يجب أن تحتوي على مسافات</string>
+
+    <!-- ── Confirm Password Field Errors ─────────────────────────────────── -->
+    <string name="error_confirm_password_required">تأكيد كلمة المرور مطلوب</string>
+    <string name="error_passwords_mismatch">كلمتا المرور غير متطابقتين</string>
+
+    <!-- ── General Errors ────────────────────────────────────────────────── -->
+    <string name="error_generic_unexpected">حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى</string>
+
 </resources>
