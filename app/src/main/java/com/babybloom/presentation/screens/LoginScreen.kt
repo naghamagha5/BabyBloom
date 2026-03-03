@@ -66,344 +66,343 @@ fun LoginScreen(
     val screenHeight  = configuration.screenHeightDp.dp
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-            containerColor = Color.Transparent
-        ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(GradientPinkDark, GradientPinkMedium, GradientPinkLight)
+                    )
+                )
+        ) {
 
+            // ── Purple gradient top section (matches Register exactly) ─
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(screenHeight * 0.40f)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                GradientPurpleLight,
+                                GradientPurpleMedium,
+                                GradientPurpleDark
+                            )
+                        ),
+                        shape = RoundedCornerShape(
+                            bottomStart = 50.dp,
+                            bottomEnd   = 50.dp
+                        )
+                    )
+            )
+
+            // ── White scrollable card ──────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(GradientPinkDark, GradientPinkMedium, GradientPinkLight)
-                        )
+                    .padding(
+                        top    = screenHeight * 0.26f,
+                        bottom = 20.dp
                     )
             ) {
+                val scrollState = rememberScrollState()
 
-                // ── Purple gradient top section  ─
-                Box(
+                Card(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(screenHeight * 0.40f)
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    GradientPurpleLight,
-                                    GradientPurpleMedium,
-                                    GradientPurpleDark
-                                )
-                            ),
-                            shape = RoundedCornerShape(
-                                bottomStart = 50.dp,
-                                bottomEnd   = 50.dp
-                            )
-                        )
-                )
-
-                // ── White scrollable card ──────────────────────────────────
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(
-                            top    = screenHeight * 0.26f,
-                            bottom = 20.dp
-                        )
+                        .fillMaxWidth(0.9f)
+                        .align(Alignment.TopCenter)
+                        .border(
+                            width = 2.dp,
+                            color = BorderGray,
+                            shape = RoundedCornerShape(24.dp)
+                        ),
+                    shape     = RoundedCornerShape(24.dp),
+                    colors    = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
-                    val scrollState = rememberScrollState()
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(scrollState)
+                                .padding(
+                                    start   = 24.dp,
+                                    top     = 56.dp,
+                                    end     = 24.dp,
+                                    bottom  = 24.dp
+                                ),
+                            horizontalAlignment = Alignment.Start
+                        ) {
 
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth(0.9f)
-                            .align(Alignment.TopCenter)
-                            .border(
-                                width = 2.dp,
-                                color = BorderGray,
-                                shape = RoundedCornerShape(24.dp)
-                            ),
-                        shape     = RoundedCornerShape(24.dp),
-                        colors    = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                    ) {
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            Column(
+                            // ── Title ──────────────────────────────────────
+                            Text(
+                                text = stringResource(R.string.login_title),
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign  = TextAlign.Center,
+                                    fontSize   = 24.sp
+                                ),
+                                color    = NavyDark,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .verticalScroll(scrollState)
-                                    .padding(
-                                        start   = 24.dp,
-                                        top     = 56.dp,
-                                        end     = 24.dp,
-                                        bottom  = 24.dp
-                                    ),
-                                horizontalAlignment = Alignment.Start
+                                    .padding(bottom = 24.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // ── EMAIL ──────────────────────────────────────
+                            LoginLabel(text = stringResource(R.string.label_email))
+                            Spacer(modifier = Modifier.height(6.dp))
+                            OutlinedTextField(
+                                value         = uiState.email,
+                                onValueChange = viewModel::onEmailChange,
+                                placeholder   = {
+                                    Text(
+                                        text      = stringResource(R.string.hint_email),
+                                        color     = TextSecondary,
+                                        modifier  = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Start
+                                    )
+                                },
+                                textStyle      = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
+                                modifier       = Modifier.fillMaxWidth(),
+                                shape          = RoundedCornerShape(12.dp),
+                                isError        = uiState.emailError != null,
+                                supportingText = {
+                                    uiState.emailError?.let {
+                                        Text(
+                                            text      = it,
+                                            color     = MaterialTheme.colorScheme.error,
+                                            modifier  = Modifier.fillMaxWidth(),
+                                            textAlign = TextAlign.Start
+                                        )
+                                    }
+                                },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor   = NavyDark,
+                                    unfocusedBorderColor = BorderGray,
+                                    errorBorderColor     = MaterialTheme.colorScheme.error
+                                ),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Email,
+                                    imeAction    = ImeAction.Next
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                ),
+                                singleLine = true
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // ── PASSWORD ───────────────────────────────────
+                            LoginLabel(text = stringResource(R.string.label_password))
+                            Spacer(modifier = Modifier.height(6.dp))
+                            OutlinedTextField(
+                                value         = uiState.password,
+                                onValueChange = viewModel::onPasswordChange,
+                                placeholder   = {
+                                    Text(
+                                        text      = stringResource(R.string.hint_password),
+                                        color     = TextSecondary,
+                                        modifier  = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Start
+                                    )
+                                },
+                                textStyle      = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
+                                modifier       = Modifier.fillMaxWidth(),
+                                shape          = RoundedCornerShape(12.dp),
+                                isError        = uiState.passwordError != null,
+                                supportingText = {
+                                    uiState.passwordError?.let {
+                                        Text(
+                                            text      = it,
+                                            color     = MaterialTheme.colorScheme.error,
+                                            modifier  = Modifier.fillMaxWidth(),
+                                            textAlign = TextAlign.Start
+                                        )
+                                    }
+                                },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor   = NavyDark,
+                                    unfocusedBorderColor = BorderGray,
+                                    errorBorderColor     = MaterialTheme.colorScheme.error
+                                ),
+                                visualTransformation = if (uiState.isPasswordVisible)
+                                    VisualTransformation.None else PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Password,
+                                    imeAction    = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        focusManager.clearFocus()
+                                        viewModel.onLoginClick()
+                                    }
+                                ),
+                                singleLine   = true,
+                                trailingIcon = {
+                                    IconButton(onClick = viewModel::onTogglePasswordVisibility) {
+                                        Icon(
+                                            painter = painterResource(
+                                                if (uiState.isPasswordVisible) R.drawable.ic_eye_on
+                                                else R.drawable.ic_eye_off
+                                            ),
+                                            contentDescription = null,
+                                            tint = TextSecondary
+                                        )
+                                    }
+                                }
+                            )
+
+                            // ── Forgot Password ────────────────────────────
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                TextButton(
+                                    onClick  = { /* TODO */ },
+                                    modifier = Modifier.align(Alignment.CenterEnd)
+                                ) {
+                                    Text(
+                                        text  = stringResource(R.string.forgot_password),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = LinkColor
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // ── LOGIN BUTTON ───────────────────────────────
+                            Button(
+                                onClick  = viewModel::onLoginClick,
+                                enabled  = !uiState.isLoading,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp),
+                                shape  = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = NavyDark,
+                                    contentColor   = Color.White
+                                )
                             ) {
-
-                                // ── Title ──────────────────────────────────────
-                                Text(
-                                    text = stringResource(R.string.login_title),
-                                    style = MaterialTheme.typography.headlineMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        textAlign  = TextAlign.Center,
-                                        fontSize   = 24.sp
-                                    ),
-                                    color    = NavyDark,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(bottom = 24.dp)
-                                )
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                // ── EMAIL ──────────────────────────────────────
-                                LoginLabel(text = stringResource(R.string.label_email))
-                                Spacer(modifier = Modifier.height(6.dp))
-                                OutlinedTextField(
-                                    value         = uiState.email,
-                                    onValueChange = viewModel::onEmailChange,
-                                    placeholder   = {
-                                        Text(
-                                            text      = stringResource(R.string.hint_email),
-                                            color     = TextSecondary,
-                                            modifier  = Modifier.fillMaxWidth(),
-                                            textAlign = TextAlign.Start
-                                        )
-                                    },
-                                    textStyle      = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
-                                    modifier       = Modifier.fillMaxWidth(),
-                                    shape          = RoundedCornerShape(12.dp),
-                                    isError        = uiState.emailError != null,
-                                    supportingText = {
-                                        uiState.emailError?.let {
-                                            Text(
-                                                text      = it,
-                                                color     = MaterialTheme.colorScheme.error,
-                                                modifier  = Modifier.fillMaxWidth(),
-                                                textAlign = TextAlign.Start
-                                            )
-                                        }
-                                    },
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor   = NavyDark,
-                                        unfocusedBorderColor = BorderGray,
-                                        errorBorderColor     = MaterialTheme.colorScheme.error
-                                    ),
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Email,
-                                        imeAction    = ImeAction.Next
-                                    ),
-                                    keyboardActions = KeyboardActions(
-                                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                                    ),
-                                    singleLine = true
-                                )
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                // ── PASSWORD ───────────────────────────────────
-                                LoginLabel(text = stringResource(R.string.label_password))
-                                Spacer(modifier = Modifier.height(6.dp))
-                                OutlinedTextField(
-                                    value         = uiState.password,
-                                    onValueChange = viewModel::onPasswordChange,
-                                    placeholder   = {
-                                        Text(
-                                            text      = stringResource(R.string.hint_password),
-                                            color     = TextSecondary,
-                                            modifier  = Modifier.fillMaxWidth(),
-                                            textAlign = TextAlign.Start
-                                        )
-                                    },
-                                    textStyle      = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
-                                    modifier       = Modifier.fillMaxWidth(),
-                                    shape          = RoundedCornerShape(12.dp),
-                                    isError        = uiState.passwordError != null,
-                                    supportingText = {
-                                        uiState.passwordError?.let {
-                                            Text(
-                                                text      = it,
-                                                color     = MaterialTheme.colorScheme.error,
-                                                modifier  = Modifier.fillMaxWidth(),
-                                                textAlign = TextAlign.Start
-                                            )
-                                        }
-                                    },
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor   = NavyDark,
-                                        unfocusedBorderColor = BorderGray,
-                                        errorBorderColor     = MaterialTheme.colorScheme.error
-                                    ),
-                                    visualTransformation = if (uiState.isPasswordVisible)
-                                        VisualTransformation.None else PasswordVisualTransformation(),
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Password,
-                                        imeAction    = ImeAction.Done
-                                    ),
-                                    keyboardActions = KeyboardActions(
-                                        onDone = {
-                                            focusManager.clearFocus()
-                                            viewModel.onLoginClick()
-                                        }
-                                    ),
-                                    singleLine   = true,
-                                    trailingIcon = {
-                                        IconButton(onClick = viewModel::onTogglePasswordVisibility) {
-                                            Icon(
-                                                painter = painterResource(
-                                                    if (uiState.isPasswordVisible) R.drawable.ic_eye_on
-                                                    else R.drawable.ic_eye_off
-                                                ),
-                                                contentDescription = null,
-                                                tint = TextSecondary
-                                            )
-                                        }
-                                    }
-                                )
-
-                                // ── Forgot Password ────────────────────────────
-                                Box(modifier = Modifier.fillMaxWidth()) {
-                                    TextButton(
-                                        onClick  = { /* TODO */ },
-                                        modifier = Modifier.align(Alignment.CenterStart)
-                                    ) {
-                                        Text(
-                                            text  = stringResource(R.string.forgot_password),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = LinkColor
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                // ── LOGIN BUTTON ───────────────────────────────
-                                Button(
-                                    onClick  = viewModel::onLoginClick,
-                                    enabled  = !uiState.isLoading,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(52.dp),
-                                    shape  = RoundedCornerShape(14.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = NavyDark,
-                                        contentColor   = Color.White
+                                if (uiState.isLoading) {
+                                    CircularProgressIndicator(
+                                        modifier    = Modifier.size(22.dp),
+                                        color       = Color.White,
+                                        strokeWidth = 2.dp
                                     )
-                                ) {
-                                    if (uiState.isLoading) {
-                                        CircularProgressIndicator(
-                                            modifier    = Modifier.size(22.dp),
-                                            color       = Color.White,
-                                            strokeWidth = 2.dp
-                                        )
-                                    } else {
-                                        Text(
-                                            text  = stringResource(R.string.btn_login),
-                                            style = MaterialTheme.typography.labelLarge
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(20.dp))
-
-                                // ── OR Divider ─────────────────────────────────
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    HorizontalDivider(
-                                        modifier  = Modifier.weight(1f),
-                                        color     = BorderGray,
-                                        thickness = 1.dp
-                                    )
+                                } else {
                                     Text(
-                                        text     = stringResource(R.string.divider_or),
-                                        modifier = Modifier.padding(horizontal = 12.dp),
-                                        style    = MaterialTheme.typography.bodyMedium,
-                                        color    = TextSecondary
-                                    )
-                                    HorizontalDivider(
-                                        modifier  = Modifier.weight(1f),
-                                        color     = BorderGray,
-                                        thickness = 1.dp
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                Text(
-                                    text      = stringResource(R.string.no_account),
-                                    style     = MaterialTheme.typography.bodyMedium,
-                                    textAlign = TextAlign.Center,
-                                    color     = TextSecondary,
-                                    modifier  = Modifier.fillMaxWidth()
-                                )
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                // ── REGISTER BUTTON ────────────────────────────
-                                Button(
-                                    onClick  = onNavigateToRegister,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(52.dp),
-                                    shape  = RoundedCornerShape(14.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = NavyDark,
-                                        contentColor   = Color.White
-                                    )
-                                ) {
-                                    Text(
-                                        text  = stringResource(R.string.btn_register),
+                                        text  = stringResource(R.string.btn_login),
                                         style = MaterialTheme.typography.labelLarge
                                     )
                                 }
+                            }
 
-                                Spacer(modifier = Modifier.height(24.dp))
-                            } // end Column
+                            Spacer(modifier = Modifier.height(20.dp))
 
-                            // ── Scrollbar (CenterEnd = left side in RTL) ───────
-                            LoginVerticalScrollbar(
-                                scrollState = scrollState,
-                                modifier    = Modifier
-                                    .align(Alignment.CenterEnd)
-                                    .fillMaxHeight()
-                                    .padding(vertical = 8.dp, horizontal = 3.dp)
+                            // ── OR Divider ─────────────────────────────────
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                HorizontalDivider(
+                                    modifier  = Modifier.weight(1f),
+                                    color     = BorderGray,
+                                    thickness = 1.dp
+                                )
+                                Text(
+                                    text     = stringResource(R.string.divider_or),
+                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                    style    = MaterialTheme.typography.bodyMedium,
+                                    color    = TextSecondary
+                                )
+                                HorizontalDivider(
+                                    modifier  = Modifier.weight(1f),
+                                    color     = BorderGray,
+                                    thickness = 1.dp
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Text(
+                                text      = stringResource(R.string.no_account),
+                                style     = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center,
+                                color     = TextSecondary,
+                                modifier  = Modifier.fillMaxWidth()
                             )
-                        } // end Box
-                    } // end Card
-                }
 
-                // ── Sun image ────────────────────────────────────────────────
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .offset(y = screenHeight * 0.001f)
-                ) {
-                    Image(
-                        painter            = painterResource(id = R.drawable.ic_sun_character),
-                        contentDescription = stringResource(R.string.cd_sun_character),
-                        contentScale       = ContentScale.Fit,
-                        modifier           = Modifier
-                            .size(screenWidth * 0.75f)
-                            .align(Alignment.TopCenter)
-                    )
-                }
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                // ── Heart decoration
+                            // ── REGISTER BUTTON ────────────────────────────
+                            Button(
+                                onClick  = onNavigateToRegister,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp),
+                                shape  = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = NavyDark,
+                                    contentColor   = Color.White
+                                )
+                            ) {
+                                Text(
+                                    text  = stringResource(R.string.btn_register),
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(24.dp))
+                        } // end Column
+
+                        // ── Scrollbar (CenterEnd = left side in RTL) ───────
+                        LoginVerticalScrollbar(
+                            scrollState = scrollState,
+                            modifier    = Modifier
+                                .align(Alignment.CenterEnd)
+                                .fillMaxHeight()
+                                .padding(vertical = 8.dp, horizontal = 3.dp)
+                        )
+                    } // end Box
+                } // end Card
+            }
+
+            // ── Sun image (same position as Register) ──────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = screenHeight * 0.001f)
+            ) {
                 Image(
-                    painter            = painterResource(id = R.drawable.ic_heart_pink),
-                    contentDescription = null,
+                    painter            = painterResource(id = R.drawable.ic_sun_character),
+                    contentDescription = stringResource(R.string.cd_sun_character),
                     contentScale       = ContentScale.Fit,
                     modifier           = Modifier
-                        .size(screenWidth * 0.30f)
-                        .align(Alignment.TopStart)
-                        .offset(
-                            x = screenWidth * 0.75f,
-                            y = screenHeight * 0.20f
-                        )
+                        .size(screenWidth * 0.75f)
+                        .align(Alignment.TopCenter)
                 )
             }
+
+            // ── Heart decoration (same position as Register) ───────────
+            Image(
+                painter            = painterResource(id = R.drawable.ic_heart_pink),
+                contentDescription = null,
+                contentScale       = ContentScale.Fit,
+                modifier           = Modifier
+                    .size(screenWidth * 0.30f)
+                    .align(Alignment.TopStart)
+                    .offset(
+                        x = screenWidth * 0.75f,
+                        y = screenHeight * 0.20f
+                    )
+            )
+
+            // ── Snackbar ───────────────────────────────────────────────
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier  = Modifier.align(Alignment.BottomCenter)
+            )
         }
     }
 }

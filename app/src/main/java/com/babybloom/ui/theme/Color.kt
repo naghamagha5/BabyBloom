@@ -25,11 +25,29 @@ val DividerGray          = Color(0xFFCCC5E0)
 val ButtonText           = Color(0xFFFFFFFF)
 val LinkColor            = Color(0xFF6B4EFF)   // "forgot password" link
 
-
+// ── Register Screen specific ──────────────────────────────────────────────
+val GradientTop         = Color(0xFFB8A9E8)   // top of background gradient (deeper purple)
+val GradientBottom      = Color(0xFFD8D0F0)   // bottom of background gradient (soft lavender)
+val CardWhite           = Color(0xFFFFFFFF)   // white card surface
+val SunBackground       = Color(0xFFF0E8FF)   // subtle sun area background
+val TextFieldBorderFocused = Color(0xFF7B68C8) // focused border color
+// New Gradient Colors (from your image)
 val GradientPurpleLight = Color(0xFFE1E3F7)  // Top - Light lavender
 val GradientPurpleMedium = Color(0xFFB9BBEB) // Middle
 val GradientPurpleDark = Color(0xFF7F80DA)   // Bottom - Deeper purple
-val GradientPinkDark = Color(0xFFE5CDFE)  // Top - Light lavender
-val GradientPinkMedium = Color(0xFFE7E0FB)  // Top - Light lavender
-val GradientPinkLight = Color(0xFFE9F2F8)  // Top - Light lavender
+
+val GradientPinkDark = Color(0xFFE5CDFE)
+
+val GradientPinkMedium = Color(0xFFE7E0FB)
+
+val GradientPinkLight = Color(0xFFE9F2F8)
+
 val BorderGray = Color(0xFFD1D1D1)
+
+val GradientOrangeLight = Color(0xFFFDCC6D)  // Top - Light lavender
+
+val GradientOrangeMedium= Color(0xFFF9A45E)  // Top - Light lavender
+
+val GradientOrangeDark = Color(0xFFF5734C)
+
+

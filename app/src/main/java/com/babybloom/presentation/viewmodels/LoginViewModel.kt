@@ -1,8 +1,10 @@
 package com.babybloom.presentation.viewmodels
 
+import android.app.Application
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.babybloom.R
 import com.babybloom.data.repository.AuthRepository
 import com.babybloom.data.repository.AuthResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,7 +30,8 @@ data class LoginUiState(
 // ─── ViewModel ────────────────────────────────────────────────────────────────
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val app: Application
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -74,7 +77,7 @@ class LoginViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            loginError = "البريد الإلكتروني أو كلمة المرور غير صحيحة"
+                            loginError = app.getString(R.string.error_invalid_credentials)
                         )
                     }
                 }
@@ -89,14 +92,14 @@ class LoginViewModel @Inject constructor(
 
     // ─── Validation helpers ───────────────────────────────────────────────
     private fun validateEmail(email: String): String? = when {
-        email.isBlank()                             -> "يرجى إدخال البريد الإلكتروني"
-        !Patterns.EMAIL_ADDRESS.matcher(email).matches() -> "البريد الإلكتروني غير صحيح"
+        email.isBlank()                             -> app.getString(R.string.error_empty_email)
+        !Patterns.EMAIL_ADDRESS.matcher(email).matches() -> app.getString(R.string.error_invalid_email)
         else                                        -> null
     }
 
     private fun validatePassword(password: String): String? = when {
-        password.isBlank()   -> "يرجى إدخال كلمة المرور"
-        password.length < 6  -> "كلمة المرور قصيرة جداً (6 أحرف على الأقل)"
+        password.isBlank()   -> app.getString(R.string.error_empty_password)
+        password.length < 6  -> app.getString(R.string.error_short_password)
         else                 -> null
     }
 }
