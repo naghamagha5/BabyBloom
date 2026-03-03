@@ -10,10 +10,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.babybloom.di.SessionManager
+import com.babybloom.presentation.screens.LandingScreen
 import com.babybloom.presentation.screens.LoginScreen
 import com.babybloom.presentation.screens.RegisterScreen
 
 object Routes {
+    const val LANDING  = "landing"   // ← NEW
     const val LOGIN    = "login"
     const val REGISTER = "register"
     const val HOME     = "home"
@@ -24,27 +26,53 @@ fun BabyBloomNavGraph(
     sessionManager: SessionManager,
     navController: NavHostController = rememberNavController()
 ) {
-    val isLoggedIn by sessionManager.isLoggedIn.collectAsStateWithLifecycle(initialValue = false)
+    // ── Observe both flags from DataStore ──────────────────────────────────
+    val isLoggedIn     by sessionManager.isLoggedIn.collectAsStateWithLifecycle(initialValue = false)
+    val hasSeenLanding by sessionManager.hasSeenLanding.collectAsStateWithLifecycle(initialValue = false)
 
-    // ── Handle session restore imperatively, NOT via startDestination ──────
+    // ── If already logged in from a previous session → go straight to Home ─
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
             navController.navigate(Routes.HOME) {
-                popUpTo(Routes.LOGIN) { inclusive = true }
+                popUpTo(0) { inclusive = true }   // clear entire back stack
             }
         }
     }
 
-    // ── startDestination is always LOGIN — never changes ───────────────────
+    // ── If landing was already seen → skip it, go to Login ────────────────
+    // This only fires on first composition, not on every recomposition
+    LaunchedEffect(hasSeenLanding) {
+        if (hasSeenLanding) {
+            navController.navigate(Routes.LOGIN) {
+                popUpTo(Routes.LANDING) { inclusive = true }
+            }
+        }
+    }
+
+    // ── startDestination is LANDING — NavGraph decides where to redirect ───
     NavHost(
         navController    = navController,
-        startDestination = Routes.LOGIN
+        startDestination = Routes.LANDING
     ) {
+
+        // ── LANDING — shown only once on new device ────────────────────────
+        composable(Routes.LANDING) {
+            LandingScreen(
+                sessionManager = sessionManager,
+                onStartClick = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(Routes.LANDING) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        // ── LOGIN ──────────────────────────────────────────────────────────
         composable(Routes.LOGIN) {
             LoginScreen(
                 onNavigateToHome = {
                     navController.navigate(Routes.HOME) {
-                        popUpTo(Routes.LOGIN) { inclusive = true }
+                        popUpTo(0) { inclusive = true }
                     }
                 },
                 onNavigateToRegister = {
@@ -53,11 +81,12 @@ fun BabyBloomNavGraph(
             )
         }
 
+        // ── REGISTER ───────────────────────────────────────────────────────
         composable(Routes.REGISTER) {
             RegisterScreen(
                 onCreateAccount = {
                     navController.navigate(Routes.HOME) {
-                        popUpTo(Routes.REGISTER) { inclusive = true }
+                        popUpTo(0) { inclusive = true }
                     }
                 },
                 onLoginClick = {
@@ -68,6 +97,7 @@ fun BabyBloomNavGraph(
             )
         }
 
+        // ── HOME ───────────────────────────────────────────────────────────
         composable(Routes.HOME) {
             // TODO: replace with your real HomeScreen()
             Text("Home — coming soon")
