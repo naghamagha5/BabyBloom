@@ -464,9 +464,7 @@ fun RegisterScreen(
                     )
                 }
 
-                // ── FIX 2: Heart — proportional position ──────────────────
-                // Placed at 28% from left, 29% from top of screen
-                // This ratio stays the same on every device
+                // ──  Heart — proportional position ──────────────────
                 Image(
                     painter            = painterResource(id = R.drawable.ic_heart_pink),
                     contentDescription = "Decorative Heart",
