@@ -49,6 +49,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation(libs.androidx.compose.foundation.layout)
 
     // ── Compose ─────────────────────────────────────────────────────────────
     val composeBom = platform(libs.androidx.compose.bom)
