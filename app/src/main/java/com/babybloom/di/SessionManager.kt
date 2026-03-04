@@ -50,4 +50,13 @@ class SessionManager @Inject constructor(
 
     val userName: Flow<String> = context.dataStore.data
         .map { prefs -> prefs[KEY_USER_NAME] ?: "" }
+    val userEmail: Flow<String> = context.dataStore.data
+        .map { prefs -> prefs[KEY_USER_EMAIL] ?: "" }
+
+
+    private val KEY_CREATED_AT = longPreferencesKey("created_at")
+    // expose it:
+    val createdAt: Flow<Long> = context.dataStore.data
+        .map { prefs -> prefs[KEY_CREATED_AT] ?: 0L }
 }
+

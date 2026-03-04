@@ -1,6 +1,5 @@
 package com.babybloom.navigation
 
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -12,11 +11,13 @@ import androidx.navigation.compose.rememberNavController
 import com.babybloom.di.SessionManager
 import com.babybloom.presentation.screens.LoginScreen
 import com.babybloom.presentation.screens.RegisterScreen
+import com.babybloom.presentation.screens.ParentView
 
 object Routes {
     const val LOGIN    = "login"
     const val REGISTER = "register"
     const val HOME     = "home"
+    const val PARNET   = "PARNETVIEW"
 }
 
 @Composable
@@ -26,16 +27,14 @@ fun BabyBloomNavGraph(
 ) {
     val isLoggedIn by sessionManager.isLoggedIn.collectAsStateWithLifecycle(initialValue = false)
 
-    // ── Handle session restore imperatively, NOT via startDestination ──────
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
-            navController.navigate(Routes.HOME) {
+            navController.navigate(Routes.PARNET) {
                 popUpTo(Routes.LOGIN) { inclusive = true }
             }
         }
     }
 
-    // ── startDestination is always LOGIN — never changes ───────────────────
     NavHost(
         navController    = navController,
         startDestination = Routes.LOGIN
@@ -43,7 +42,7 @@ fun BabyBloomNavGraph(
         composable(Routes.LOGIN) {
             LoginScreen(
                 onNavigateToHome = {
-                    navController.navigate(Routes.HOME) {
+                    navController.navigate(Routes.PARNET) {
                         popUpTo(Routes.LOGIN) { inclusive = true }
                     }
                 },
@@ -56,7 +55,7 @@ fun BabyBloomNavGraph(
         composable(Routes.REGISTER) {
             RegisterScreen(
                 onCreateAccount = {
-                    navController.navigate(Routes.HOME) {
+                    navController.navigate(Routes.PARNET) {
                         popUpTo(Routes.REGISTER) { inclusive = true }
                     }
                 },
@@ -69,8 +68,11 @@ fun BabyBloomNavGraph(
         }
 
         composable(Routes.HOME) {
-            // TODO: replace with your real HomeScreen()
-            Text("Home — coming soon")
+            // reserved for future use
+        }
+
+        composable(Routes.PARNET) {
+            ParentView()  // ← no callbacks for now
         }
     }
 }
