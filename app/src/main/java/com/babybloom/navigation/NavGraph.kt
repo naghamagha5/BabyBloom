@@ -1,6 +1,5 @@
 package com.babybloom.navigation
 
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -10,37 +9,39 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.babybloom.di.SessionManager
+import com.babybloom.presentation.screens.AddChildScreen
 import com.babybloom.presentation.screens.LandingScreen
 import com.babybloom.presentation.screens.LoginScreen
 import com.babybloom.presentation.screens.RegisterScreen
+import com.babybloom.presentation.screens.ParentView
 
 object Routes {
-    const val LANDING  = "landing"   // ← NEW
-    const val LOGIN    = "login"
-    const val REGISTER = "register"
-    const val HOME     = "home"
+    const val LANDING   = "landing"
+    const val LOGIN     = "login"
+    const val REGISTER  = "register"
+    const val ADD_CHILD = "add_child"   // only reached from Register
+    const val HOME      = "home"
+    const val PARNET    = "PARNETVIEW"
 }
 
 @Composable
 fun BabyBloomNavGraph(
     sessionManager: SessionManager,
-    navController: NavHostController = rememberNavController()
+    navController : NavHostController = rememberNavController()
 ) {
-    // ── Observe both flags from DataStore ──────────────────────────────────
     val isLoggedIn     by sessionManager.isLoggedIn.collectAsStateWithLifecycle(initialValue = false)
     val hasSeenLanding by sessionManager.hasSeenLanding.collectAsStateWithLifecycle(initialValue = false)
 
-    // ── If already logged in from a previous session → go straight to Home ─
+    // ── Already have an active session → go straight to Home ──────────────
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
             navController.navigate(Routes.HOME) {
-                popUpTo(0) { inclusive = true }   // clear entire back stack
+                popUpTo(0) { inclusive = true }
             }
         }
     }
 
-    // ── If landing was already seen → skip it, go to Login ────────────────
-    // This only fires on first composition, not on every recomposition
+    // ── Already saw Landing → skip it, go to Login ─────────────────────────
     LaunchedEffect(hasSeenLanding) {
         if (hasSeenLanding) {
             navController.navigate(Routes.LOGIN) {
@@ -49,17 +50,15 @@ fun BabyBloomNavGraph(
         }
     }
 
-    // ── startDestination is LANDING — NavGraph decides where to redirect ───
     NavHost(
         navController    = navController,
         startDestination = Routes.LANDING
     ) {
 
-        // ── LANDING — shown only once on new device ────────────────────────
         composable(Routes.LANDING) {
             LandingScreen(
                 sessionManager = sessionManager,
-                onStartClick = {
+                onStartClick   = {
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(Routes.LANDING) { inclusive = true }
                     }
@@ -67,7 +66,6 @@ fun BabyBloomNavGraph(
             )
         }
 
-        // ── LOGIN ──────────────────────────────────────────────────────────
         composable(Routes.LOGIN) {
             LoginScreen(
                 onNavigateToHome = {
@@ -81,12 +79,11 @@ fun BabyBloomNavGraph(
             )
         }
 
-        // ── REGISTER ───────────────────────────────────────────────────────
         composable(Routes.REGISTER) {
             RegisterScreen(
                 onCreateAccount = {
-                    navController.navigate(Routes.HOME) {
-                        popUpTo(0) { inclusive = true }
+                    navController.navigate(Routes.ADD_CHILD) {
+                        popUpTo(Routes.REGISTER) { inclusive = true }
                     }
                 },
                 onLoginClick = {
@@ -97,10 +94,22 @@ fun BabyBloomNavGraph(
             )
         }
 
-        // ── HOME ───────────────────────────────────────────────────────────
+        composable(Routes.ADD_CHILD) {
+            AddChildScreen(
+                onSaveChild = {
+                    navController.navigate(Routes.HOME) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
+
         composable(Routes.HOME) {
-            // TODO: replace with your real HomeScreen()
-            Text("Home — coming soon")
+            // reserved for future use
+        }
+
+        composable(Routes.PARNET) {
+            ParentView()
         }
     }
 }

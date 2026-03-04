@@ -50,4 +50,5 @@ val GradientOrangeMedium= Color(0xFFF9A45E)  // Top - Light lavender
 
 val GradientOrangeDark = Color(0xFFF5734C)
 
+val  DarkNavy = Color(0xFF1A1A2E)
 
