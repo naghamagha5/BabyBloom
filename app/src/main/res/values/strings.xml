@@ -36,7 +36,7 @@
     <string name="yes">نعم</string>
     <string name="no">لا</string>
     <string name="label_difficulties_description">ما هي الصعوبات؟</string>
-    <string name="hint_difficulties_description">اكتب وصفًا للصعوبات التي يعاني منها الطفل...</string>
+    <string name="hint_difficulties_description">اختياري: إن رغبت، اكتب هنا ما يواجهه طفلك من صعوبات في التعلّم ، لنفهم احتياجاته بلطف ونُقدّم له تجربة أكثر ملاءمة...</string>
     <string name="label_choose_avatar">اختر افاتار طفلك</string>
     <string name="label_select_gender">صبي ام فتاه</string>
     <string name="hint_select_gender_first">اختر جنس الطفل أولاً لعرض الصور</string>
@@ -103,7 +103,7 @@
     <string name="error_age_required">عمر الطفل مطلوب</string>
     <string name="error_age_not_number">العمر يجب أن يكون رقماً</string>
     <string name="error_age_too_low">العمر يجب أن يكون سنة واحدة على الأقل</string>
-    <string name="error_age_too_high">العمر يجب أن يكون رقماً واحداً فقط من ١ إلى ٩</string>
+    <string name="error_age_too_high">العمر يجب أن يكون رقمين فقط من 1 إلى 20</string>
 
     <!-- Gender / Avatar errors -->
     <string name="error_gender_required">يرجى تحديد جنس الطفل</string>
