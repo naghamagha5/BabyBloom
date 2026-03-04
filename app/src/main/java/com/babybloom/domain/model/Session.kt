@@ -6,5 +6,6 @@ data class Session(
     val childId: Long,
     val startTime: Long = System.currentTimeMillis(),
     val endTime: Long? = null,
-    val isAssessment: Boolean = false
+    val isAssessment: Boolean = false,
+    val attentionScore: Float = 0f
 )

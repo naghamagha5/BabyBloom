@@ -27,5 +27,5 @@ class SessionRepositoryImpl @Inject constructor(
         sessionDao.getRecentSessions(childId, limit).map { it.toDomain() }
 }
 
-fun SessionEntity.toDomain() = Session(id, userId, childId, startTime, endTime, isAssessment)
-fun Session.toEntity() = SessionEntity(id, userId, childId, startTime, endTime, isAssessment)
+fun SessionEntity.toDomain() = Session(id, userId, childId, startTime, endTime, isAssessment, attentionScore)
+fun Session.toEntity() = SessionEntity(id, userId, childId, startTime, endTime, isAssessment, attentionScore)

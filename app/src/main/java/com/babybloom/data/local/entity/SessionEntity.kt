@@ -30,5 +30,6 @@ data class SessionEntity(
     val childId: Long,
     val startTime: Long = System.currentTimeMillis(),
     val endTime: Long? = null,        // null while session is still active
-    val isAssessment: Boolean = false // true only for the onboarding assessment
+    val isAssessment: Boolean = false, // true only for the onboarding assessment
+    val attentionScore: Float = 0f
 )

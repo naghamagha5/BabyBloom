@@ -28,5 +28,5 @@ class ChildRepositoryImpl @Inject constructor(
         childDao.getById(id)?.toDomain()
 }
 
-fun ChildEntity.toDomain() = Child(id, userId, name, age, notes, avatar, musicEnabled, reducedAnimation, uiTheme, createdAt)
-fun Child.toEntity() = ChildEntity(id, userId, name, age, notes, avatar, musicEnabled, reducedAnimation, uiTheme, createdAt)
+fun ChildEntity.toDomain() = Child(id, userId, name, age, notes, avatar, musicEnabled, reducedAnimation, uiTheme, createdAt, isActive, sessionDurationMinutes, backgroundMusicEnabled)
+fun Child.toEntity() = ChildEntity(id, userId, name, age, notes, avatar, musicEnabled, reducedAnimation, uiTheme, createdAt, isActive, sessionDurationMinutes, backgroundMusicEnabled)

@@ -26,5 +26,8 @@ data class ChildEntity(
     val musicEnabled: Boolean = true,
     val reducedAnimation: Boolean = false,
     val uiTheme: Boolean = false,  // "false" for "ACTIVE" and "true" for "CALM"
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val isActive: Boolean = true,
+    val sessionDurationMinutes: Int = 10,
+    val backgroundMusicEnabled: Boolean = true
 )
