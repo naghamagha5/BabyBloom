@@ -58,3 +58,44 @@ class MainActivity : ComponentActivity() {
 //        Greeting("Android")
 //    }
 //}
+
+//package com.babybloom
+//
+//import android.os.Bundle
+//import androidx.activity.ComponentActivity
+//import androidx.activity.compose.setContent
+//import androidx.activity.enableEdgeToEdge
+//import androidx.compose.runtime.CompositionLocalProvider
+//import androidx.compose.ui.platform.LocalLayoutDirection
+//import androidx.compose.ui.unit.LayoutDirection
+//import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+//import com.babybloom.presentation.screens.LandingScreen
+//import com.babybloom.ui.theme.BabyBloomTheme
+//import dagger.hilt.android.AndroidEntryPoint
+//
+//@AndroidEntryPoint
+//class MainActivity : ComponentActivity() {
+//    override fun onCreate(savedInstanceState: Bundle?) {
+//        super.onCreate(savedInstanceState)
+//
+//        installSplashScreen().apply {
+//            setKeepOnScreenCondition { false }
+//        }
+//
+//        enableEdgeToEdge()
+//
+//        setContent {
+//            BabyBloomTheme {
+//                // Force RTL for Arabic layout
+//                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+//                    LandingScreen(  // ✅ Show Landing Screen first
+//                        onStartClick = {
+//                            // TODO: Navigate to Register Screen
+//                            // Example: navController.navigate("register")
+//                        }
+//                    )
+//                }
+//            }
+//        }
+//    }
+//}
