@@ -117,5 +117,8 @@
     <string name="label_new_password">كلمة مرور جديدة</string>
     <string name="hint_new_password">أنشئ كلمة مرور قوية</string>
     <string name="btn_confirm_change_password">تأكيد تغيير كلمة المرور</string>
+    <string name="error_name_mismatch">الأسم غير متطابق</string>
+    <string name="error_email_not_found">البريد الإلكتروني غير موجود</string>
+    <string name="error_password_same_as_old">كلمة المرور يجب ان تكون مختلفة عن القديمة </string>
 
 </resources>
