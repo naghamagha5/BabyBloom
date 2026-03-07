@@ -38,15 +38,15 @@ import com.babybloom.ui.theme.*
 
 @Composable
 fun LoginScreen(
-    onNavigateToHome: () -> Unit = {},
-    onNavigateToRegister: () -> Unit = {},
+    onNavigateToHome           : () -> Unit = {},
+    onNavigateToRegister       : () -> Unit = {},
+    onNavigateToChangePassword : () -> Unit = {},   // ← NEW: wires forgot password button
     viewModel: LoginViewModel = hiltViewModel()
 ) {
-    val uiState       by viewModel.uiState.collectAsState()
-    val focusManager  = LocalFocusManager.current
+    val uiState           by viewModel.uiState.collectAsState()
+    val focusManager      = LocalFocusManager.current
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // ── Navigation trigger ─────────────────────────────────────────────────
     LaunchedEffect(uiState.navigateToHome) {
         if (uiState.navigateToHome) {
             viewModel.onNavigationHandled()
@@ -54,7 +54,6 @@ fun LoginScreen(
         }
     }
 
-    // ── Error snackbar ─────────────────────────────────────────────────────
     LaunchedEffect(uiState.loginError) {
         uiState.loginError?.let {
             snackbarHostState.showSnackbar(it)
@@ -76,34 +75,22 @@ fun LoginScreen(
                 )
         ) {
 
-            // ── Purple gradient top section (matches Register exactly) ─
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(screenHeight * 0.40f)
                     .background(
                         brush = Brush.verticalGradient(
-                            colors = listOf(
-                                GradientPurpleLight,
-                                GradientPurpleMedium,
-                                GradientPurpleDark
-                            )
+                            colors = listOf(GradientPurpleLight, GradientPurpleMedium, GradientPurpleDark)
                         ),
-                        shape = RoundedCornerShape(
-                            bottomStart = 50.dp,
-                            bottomEnd   = 50.dp
-                        )
+                        shape = RoundedCornerShape(bottomStart = 50.dp, bottomEnd = 50.dp)
                     )
             )
 
-            // ── White scrollable card ──────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(
-                        top    = screenHeight * 0.26f,
-                        bottom = 20.dp
-                    )
+                    .padding(top = screenHeight * 0.26f, bottom = 20.dp)
             ) {
                 val scrollState = rememberScrollState()
 
@@ -111,11 +98,7 @@ fun LoginScreen(
                     modifier = Modifier
                         .fillMaxWidth(0.9f)
                         .align(Alignment.TopCenter)
-                        .border(
-                            width = 2.dp,
-                            color = BorderGray,
-                            shape = RoundedCornerShape(24.dp)
-                        ),
+                        .border(width = 2.dp, color = BorderGray, shape = RoundedCornerShape(24.dp)),
                     shape     = RoundedCornerShape(24.dp),
                     colors    = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -125,27 +108,19 @@ fun LoginScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .verticalScroll(scrollState)
-                                .padding(
-                                    start   = 24.dp,
-                                    top     = 56.dp,
-                                    end     = 24.dp,
-                                    bottom  = 24.dp
-                                ),
+                                .padding(start = 24.dp, top = 56.dp, end = 24.dp, bottom = 24.dp),
                             horizontalAlignment = Alignment.Start
                         ) {
 
-                            // ── Title ──────────────────────────────────────
                             Text(
-                                text = stringResource(R.string.login_title),
-                                style = MaterialTheme.typography.headlineMedium.copy(
+                                text     = stringResource(R.string.login_title),
+                                style    = MaterialTheme.typography.headlineMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     textAlign  = TextAlign.Center,
                                     fontSize   = 24.sp
                                 ),
                                 color    = NavyDark,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 24.dp)
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
                             )
 
                             Spacer(modifier = Modifier.height(16.dp))
@@ -258,7 +233,7 @@ fun LoginScreen(
                             // ── Forgot Password ────────────────────────────
                             Box(modifier = Modifier.fillMaxWidth()) {
                                 TextButton(
-                                    onClick  = { /* TODO */ },
+                                    onClick  = onNavigateToChangePassword,  // ← was /* TODO */
                                     modifier = Modifier.align(Alignment.CenterEnd)
                                 ) {
                                     Text(
@@ -275,11 +250,9 @@ fun LoginScreen(
                             Button(
                                 onClick  = viewModel::onLoginClick,
                                 enabled  = !uiState.isLoading,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(52.dp),
-                                shape  = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.buttonColors(
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                shape    = RoundedCornerShape(14.dp),
+                                colors   = ButtonDefaults.buttonColors(
                                     containerColor = NavyDark,
                                     contentColor   = Color.White
                                 )
@@ -302,25 +275,17 @@ fun LoginScreen(
 
                             // ── OR Divider ─────────────────────────────────
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier          = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                HorizontalDivider(
-                                    modifier  = Modifier.weight(1f),
-                                    color     = BorderGray,
-                                    thickness = 1.dp
-                                )
+                                HorizontalDivider(modifier = Modifier.weight(1f), color = BorderGray, thickness = 1.dp)
                                 Text(
                                     text     = stringResource(R.string.or),
                                     modifier = Modifier.padding(horizontal = 12.dp),
                                     style    = MaterialTheme.typography.bodyMedium,
                                     color    = TextSecondary
                                 )
-                                HorizontalDivider(
-                                    modifier  = Modifier.weight(1f),
-                                    color     = BorderGray,
-                                    thickness = 1.dp
-                                )
+                                HorizontalDivider(modifier = Modifier.weight(1f), color = BorderGray, thickness = 1.dp)
                             }
 
                             Spacer(modifier = Modifier.height(16.dp))
@@ -338,11 +303,9 @@ fun LoginScreen(
                             // ── REGISTER BUTTON ────────────────────────────
                             Button(
                                 onClick  = onNavigateToRegister,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(52.dp),
-                                shape  = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.buttonColors(
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                shape    = RoundedCornerShape(14.dp),
+                                colors   = ButtonDefaults.buttonColors(
                                     containerColor = NavyDark,
                                     contentColor   = Color.White
                                 )
@@ -354,9 +317,8 @@ fun LoginScreen(
                             }
 
                             Spacer(modifier = Modifier.height(24.dp))
-                        } // end Column
+                        }
 
-                        // ── Scrollbar (CenterEnd = left side in RTL) ───────
                         LoginVerticalScrollbar(
                             scrollState = scrollState,
                             modifier    = Modifier
@@ -364,27 +326,21 @@ fun LoginScreen(
                                 .fillMaxHeight()
                                 .padding(vertical = 8.dp, horizontal = 3.dp)
                         )
-                    } // end Box
-                } // end Card
+                    }
+                }
             }
 
-            // ── Sun image (same position as Register) ──────────────────
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset(y = screenHeight * 0.001f)
+                modifier = Modifier.fillMaxWidth().offset(y = screenHeight * 0.001f)
             ) {
                 Image(
                     painter            = painterResource(id = R.drawable.ic_sun_character),
                     contentDescription = null,
                     contentScale       = ContentScale.Fit,
-                    modifier           = Modifier
-                        .size(screenWidth * 0.75f)
-                        .align(Alignment.TopCenter)
+                    modifier           = Modifier.size(screenWidth * 0.75f).align(Alignment.TopCenter)
                 )
             }
 
-            // ── Heart decoration (same position as Register) ───────────
             Image(
                 painter            = painterResource(id = R.drawable.ic_heart_pink),
                 contentDescription = null,
@@ -392,13 +348,9 @@ fun LoginScreen(
                 modifier           = Modifier
                     .size(screenWidth * 0.30f)
                     .align(Alignment.TopStart)
-                    .offset(
-                        x = screenWidth * 0.75f,
-                        y = screenHeight * 0.20f
-                    )
+                    .offset(x = screenWidth * 0.75f, y = screenHeight * 0.20f)
             )
 
-            // ── Snackbar ───────────────────────────────────────────────
             SnackbarHost(
                 hostState = snackbarHostState,
                 modifier  = Modifier.align(Alignment.BottomCenter)
@@ -407,7 +359,6 @@ fun LoginScreen(
     }
 }
 
-// ── Reusable label (identical to RegisterLabel) ────────────────────────────
 @Composable
 private fun LoginLabel(text: String) {
     Text(
@@ -419,31 +370,24 @@ private fun LoginLabel(text: String) {
     )
 }
 
-// ── Scroll indicator (identical to RegisterScreen's VerticalScrollbar) ─────
 @Composable
 private fun LoginVerticalScrollbar(
     scrollState: androidx.compose.foundation.ScrollState,
-    modifier: Modifier = Modifier
+    modifier   : Modifier = Modifier
 ) {
     if (scrollState.maxValue > 0) {
         val scrollProgress = scrollState.value.toFloat() / scrollState.maxValue.toFloat()
         Box(
             modifier = modifier
                 .width(4.dp)
-                .background(
-                    color = BorderGray,
-                    shape = RoundedCornerShape(2.dp)
-                )
+                .background(color = BorderGray, shape = RoundedCornerShape(2.dp))
         ) {
             Box(
                 modifier = Modifier
                     .width(4.dp)
                     .fillMaxHeight(0.3f)
                     .offset(y = (scrollProgress * 450).dp)
-                    .background(
-                        color = NavyDark.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(2.dp)
-                    )
+                    .background(color = NavyDark.copy(alpha = 0.5f), shape = RoundedCornerShape(2.dp))
             )
         }
     }
