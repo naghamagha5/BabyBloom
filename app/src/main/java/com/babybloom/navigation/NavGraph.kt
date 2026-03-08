@@ -15,7 +15,7 @@ import com.babybloom.presentation.screens.ChangePasswordScreen
 import com.babybloom.presentation.screens.LandingScreen
 import com.babybloom.presentation.screens.LoginScreen
 import com.babybloom.presentation.screens.RegisterScreen
-
+import com.babybloom.presentation.screens.ParentHomeScreen
 object Routes {
     const val LANDING         = "landing"
     const val LOGIN           = "login"
@@ -135,8 +135,24 @@ fun BabyBloomNavGraph(
 
         // ── HOME ───────────────────────────────────────────────────────────
         composable(Routes.HOME) {
-            // TODO: replace with your real HomeScreen()
-            Text("Home — coming soon")
+            ParentHomeScreen(
+                onNavigate = { route ->
+                    when (route) {
+                        "children" -> {
+                            // TODO: Navigate to Children screen when created
+                            // navController.navigate(Routes.CHILDREN)
+                        }
+                        "settings" -> {
+                            // TODO: Navigate to Settings screen when created
+                            // navController.navigate(Routes.SETTINGS)
+                        }
+                        "add_child" -> {
+                            navController.navigate(Routes.ADD_CHILD)
+                        }
+                        else -> {}
+                    }
+                }
+            )
         }
     }
 }

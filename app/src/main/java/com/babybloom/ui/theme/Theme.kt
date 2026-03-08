@@ -10,10 +10,11 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+
 private val LightColors = lightColorScheme(
     primary          = NavyDark,
     onPrimary        = White,
-    background       = LavenderLight,
+    background       = ScreenBackgroundLight,
     onBackground     = TextPrimary,
     surface          = TextFieldBackground,
     onSurface        = TextPrimary,
