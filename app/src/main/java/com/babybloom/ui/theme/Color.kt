@@ -10,7 +10,6 @@ val Purple40 = Color(0xFF6650a4)
 val PurpleGrey40 = Color(0xFF625b71)
 val Pink40 = Color(0xFF7D5260)
 
-
 // Brand palette — extracted from your design
 val PurpleLavender       = Color(0xFFD4C5F9)   // screen background gradient top
 val LavenderLight        = Color(0xFFE8DFF8)   // gradient bottom
@@ -31,27 +30,51 @@ val GradientBottom      = Color(0xFFD8D0F0)   // bottom of background gradient (
 val CardWhite           = Color(0xFFFFFFFF)   // white card surface
 val SunBackground       = Color(0xFFF0E8FF)   // subtle sun area background
 val TextFieldBorderFocused = Color(0xFF7B68C8) // focused border color
+
+// New Gradient Colors (from your image)
 // New Gradient Colors
 val GradientPurpleLight = Color(0xFFE1E3F7)  // Top - Light lavender
 val GradientPurpleMedium = Color(0xFFB9BBEB) // Middle
 val GradientPurpleDark = Color(0xFF7F80DA)   // Bottom - Deeper purple
 
 val GradientPinkDark = Color(0xFFE5CDFE)
-
 val GradientPinkMedium = Color(0xFFE7E0FB)
-
 val GradientPinkLight = Color(0xFFE9F2F8)
 
 val BorderGray = Color(0xFFD1D1D1)
 
-val GradientOrangeLight = Color(0xFFFDCC6D)  // Top - Light lavender
+val GradientOrangeLight = Color(0xFFFDCC6D)  // Light orange
+val GradientOrangeMedium = Color(0xFFF9A45E) // Medium orange
+val GradientOrangeDark = Color(0xFFF5734C)   // Dark orange
 
-val GradientOrangeMedium= Color(0xFFF9A45E)  // Top - Light lavender
+val DarkNavy = Color(0xFF1A1A2E)
 
-val GradientOrangeDark = Color(0xFFF5734C)
+// ── Parent Home Screen Colors ──────────────────────────────────────────────
+// Screen Background
+val ScreenBackgroundLight = Color(0xFFFFFFFF)  // Clean white background
 
-val  DarkNavy = Color(0xFF1A1A2E)
+// Header Colors
+val HeaderGreetingColor = Color(0xFF6B6B8A)   // Subtle gray for "Good Morning"
+val HeaderTitleColor = Color(0xFF1A1A3E)      // Navy for main title
 
+// Overview Card Colors
+val ParentStatsBlueBG = Color(0xFFE3F2FD)     // Light blue background
+val ParentCardBlue = Color(0xFF2196F3)        // Bright blue accent
+
+val ParentStatsOrangeBG = Color(0xFFFEE3C3)   // Light orange background
+val ParentCardOrange = Color(0xFFFF9800)      // Bright orange accent
+
+val ParentStatsPurpleBG = Color(0xFFF3E5F5)   // Light purple background
+val ParentCardPurple = Color(0xFF9C27B0)      // Bright purple accent
+
+// AI Insights Box Colors
+val AIInsightsDarkBg = Color(0xFF2C2C4C)      // Dark navy/purple background
+val AIInsightsIconBg = Color(0xFFFFB74D)      // Golden/amber icon background
+
+// Quick Action Colors
+val QuickActionIconPurple = Color(0xFF9C27B0) // Purple for search/explore action
+val QuickActionIconBlue = Color(0xFF2196F3)   // Blue for add child action
+val QuickActionIconOrange = Color(0xFFFF9800) // Orange for support action
 val  ParentBackground = Color(0xFFF5F6F9)
 val  ComponentBackground = Color(0xFFEAEFFF)
 val DotNotification = Color(0xFFFF7A76)

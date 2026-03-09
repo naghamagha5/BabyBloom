@@ -1,29 +1,22 @@
 package com.babybloom.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.babybloom.R
 import com.babybloom.di.SessionManager
 import com.babybloom.presentation.screens.AddChildScreen
 import com.babybloom.presentation.screens.ChangePasswordScreen
 import com.babybloom.presentation.screens.LandingScreen
 import com.babybloom.presentation.screens.LoginScreen
 import com.babybloom.presentation.screens.MyChildrenContent
+import com.babybloom.presentation.screens.ParentHomeScreen
 import com.babybloom.presentation.screens.ParentView
 import com.babybloom.presentation.screens.RegisterScreen
 import kotlinx.coroutines.flow.combine
@@ -138,28 +131,24 @@ fun BabyBloomNavGraph(
             )
         }
 
-        // ── HOME — temporary screen with button to ParentView ──────────────
-        // TODO: replace this entire composable with your real HomeScreen
+        // ── HOME ───────────────────────────────────────────────────────────
         composable(Routes.HOME) {
-            Box(
-                modifier         = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Button(
-                    onClick = {
-                        navController.navigate(Routes.PARENT_VIEW)
+            ParentHomeScreen(
+                onNavigate = { route ->
+                    when (route) {
+                        "children" -> navController.navigate(Routes.MY_CHILDREN)
+                        "settings" -> navController.navigate(Routes.PARENT_VIEW)
+                        "add_child" -> navController.navigate(Routes.ADD_CHILD)
+                        else -> {}
                     }
-                ) {
-                    Text(text = stringResource(R.string.btn_go_to_parent_view))
                 }
-            }
+            )
         }
 
         // ── PARENT VIEW ────────────────────────────────────────────────────
         composable(Routes.PARENT_VIEW) {
             ParentView(
                 onNavigateToLogin = {
-                    // After logout or delete → clear entire back stack → Login
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(0) { inclusive = true }
                     }
@@ -173,7 +162,7 @@ fun BabyBloomNavGraph(
             )
         }
 
-        // Inside BabyBloomNavGraph
+        // ── MY CHILDREN ────────────────────────────────────────────────────
         composable(Routes.MY_CHILDREN) {
             MyChildrenContent(
                 onAddChildClick = {
@@ -181,6 +170,5 @@ fun BabyBloomNavGraph(
                 }
             )
         }
-
     }
 }

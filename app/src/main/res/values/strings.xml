@@ -46,15 +46,59 @@
     <string name="label_boy_avatars">افاتار الصبيان</string>
     <string name="btn_save">حفظ</string>
 
-    <!-- Home -->
-    <string name="greeting_morning">صباح الخير،</string>
-    <string name="label_general_overview">نظرة عامة على أطفالي</string>
-    <string name="label_ai_recommendation">رأي الذكاء الاصطناعي لليوم</string>
-    <string name="label_week_achievements">أبرز إنجازات الأسبوع</string>
-    <string name="label_quick_actions">إجراءات سريعة</string>
-    <string name="action_browse_children">عرض أطفالي</string>
-    <string name="action_add_child">إضافة طفل</string>
-    <string name="action_needs_attention">الأطفال الذين يحتاجون إلى دعم</string>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+       PARENT HOME SCREEN - PROFESSIONAL VERSION
+       ════════════════════════════════════════════════════════════════════ -->
+
+    <!-- Header Section -->
+    <string name="parent_home_greeting">صباح الخير</string>
+    <string name="parent_home_title">هدى</string>
+
+    <!-- Section 1: Children Overview (نظرة عامة على أطفالي) -->
+    <string name="parent_home_cards_title">نظرة عامة على أطفالي</string>
+
+    <string name="parent_home_card_1_title">إجمالي عدد الأطفال</string>
+    <string name="parent_home_card_1_subtitle">نظرة عامة</string>
+
+    <string name="parent_home_card_2_title">النشطون اليوم</string>
+    <string name="parent_home_card_2_subtitle">الانشراقة</string>
+
+    <string name="parent_home_card_3_title">بحاجة إلى دعم</string>
+    <string name="parent_home_card_3_subtitle">الدعم المطلوب</string>
+
+    <!-- Section 2: Weekly Achievements (أبرز إنجازات الأسبوع) -->
+    <string name="parent_home_stats_title">أبرز إنجازات الأسبوع</string>
+
+    <string name="parent_home_stat_1_number">18</string>
+    <string name="parent_home_stat_1_label">إجمالي الإنجازات المحققة</string>
+
+    <string name="parent_home_stat_2_number">47</string>
+    <string name="parent_home_stat_2_label">إجمالي الإنجازات المحققة</string>
+
+    <string name="parent_home_stat_3_number">+12%</string>
+    <string name="parent_home_stat_3_label">متوسط التقدم هذا الأسبوع</string>
+
+    <!-- Section 3: AI Insights (رؤى الذكاء الاصطناعي) -->
+    <string name="parent_home_featured_title">رؤى الذكاء الاصطناعي لليوم</string>
+    <string name="parent_home_featured_desc">أظهر 3 أطفال تحسّنًا في مستوى التركيز مع أنشطة الصباح.</string>
+    <string name="parent_home_featured_more">اضغط لعرض المزيد...</string>
+
+    <!-- Quick Actions Section (for future use) -->
+    <string name="parent_home_sections_title">إجراءات سريعة</string>
+
+    <string name="parent_home_section_1_title">البحث عن محتوى</string>
+    <string name="parent_home_section_1_desc">ابحث عن تفاصيل جميع الاطفال</string>
+
+    <string name="parent_home_section_2_title">إضافة طفل</string>
+    <string name="parent_home_section_2_desc">إضافة طفل جديد</string>
+
+    <string name="parent_home_section_3_title">الأطفال الذين يحتاجون إلى دعم</string>
+    <string name="parent_home_section_3_desc">طفل بحاجة إلى اهتمام</string>
+
+    <!-- Common -->
+
+    <string name="parent_home_retry">حاول مرة أخرى</string>
 
     <!-- Bottom Nav -->
     <string name="nav_home">الرئيسية</string>
