@@ -1,0 +1,718 @@
+package com.babybloom.presentation.screens
+
+import androidx.compose.animation.*
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.zIndex
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.babybloom.R
+import com.babybloom.presentation.viewmodels.EditProfileState
+import com.babybloom.presentation.viewmodels.ParentViewModel
+import com.babybloom.ui.theme.*
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROOT COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun ParentView(
+    onNavigateToLogin     : () -> Unit = {},
+    onNavigateToChangePwd : () -> Unit = {},
+    onNavigateToAddChild  : () -> Unit = {},
+    modifier              : Modifier   = Modifier,
+    viewModel             : ParentViewModel = hiltViewModel()
+) {
+    val uiState       by viewModel.uiState.collectAsStateWithLifecycle()
+    val editState     by viewModel.editState.collectAsStateWithLifecycle()
+    val userName      by viewModel.userName.collectAsStateWithLifecycle()
+    val userEmail     by viewModel.userEmail.collectAsStateWithLifecycle()
+    val createdAt     by viewModel.createdAt.collectAsStateWithLifecycle()
+    val childCount    by viewModel.childCount.collectAsStateWithLifecycle()
+
+    var selectedTab       by remember { mutableStateOf(2) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val configuration = LocalConfiguration.current
+    val screenWidth   = configuration.screenWidthDp.dp
+    val screenHeight  = configuration.screenHeightDp.dp
+
+    LaunchedEffect(uiState.navigateToLogin) {
+        if (uiState.navigateToLogin) { viewModel.onNavigationHandled(); onNavigateToLogin() }
+    }
+
+    LaunchedEffect(uiState.navigateToChangePwd) {
+        if (uiState.navigateToChangePwd) { viewModel.onNavigationHandled(); onNavigateToChangePwd() }
+    }
+
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let { snackbarHostState.showSnackbar(it); viewModel.clearError() }
+    }
+
+    Scaffold(
+        snackbarHost        = { SnackbarHost(snackbarHostState) },
+        contentWindowInsets = WindowInsets(0),
+        containerColor      = BackgroundLight
+    ) { paddingValues ->
+
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(BackgroundLight)
+        ) {
+            when (selectedTab) {
+                0 -> {
+                    // Placeholder for Home Tab
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(text = "الرئيسية", color = NavyDark, fontSize = 24.sp)
+                    }
+                }
+                1 -> {
+                    MyChildrenContent(
+                        onAddChildClick = onNavigateToAddChild
+                    )
+                }
+                2 -> {
+                    Box(modifier = Modifier.fillMaxSize()) {
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(top = 40.dp, bottom = 80.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            ProfileCard(
+                                userName   = userName,
+                                userEmail  = userEmail,
+                                createdAt  = createdAt,
+                                childCount = childCount,
+                                viewModel  = viewModel
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            SettingsCard(viewModel = viewModel)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            AboutCard()
+                            Spacer(modifier = Modifier.height(16.dp))
+                            DangerCard(
+                                onLogoutClick = { viewModel.showLogoutDialog() },
+                                onDeleteClick = { viewModel.showDeleteDialog() }
+                            )
+                            Spacer(modifier = Modifier.height(30.dp))
+                        }
+                    }
+                }
+            }
+
+            ParentBottomNav(
+                selectedTab   = selectedTab,
+                onTabSelected = { selectedTab = it },
+                modifier      = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .zIndex(2f)
+            )
+
+            if (uiState.isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f))
+                        .zIndex(10f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = NavyDark)
+                }
+            }
+        }
+    }
+
+    // ── Dialogs ───────────────────────────────────────────────────────────────
+    if (uiState.showEditDialog) {
+        EditProfileDialog(
+            editState             = editState,
+            onNameChange          = viewModel::onEditNameChanged,
+            onEmailChange         = viewModel::onEditEmailChanged,
+            onSave                = viewModel::saveProfileChanges,
+            onDismiss             = viewModel::closeEditDialog,
+            onChangePasswordClick = { viewModel.onChangePasswordClick() }
+        )
+    }
+
+    if (uiState.showLogoutDialog) {
+        ConfirmDialog(
+            title         = stringResource(R.string.dialog_logout_title),
+            message       = stringResource(R.string.dialog_logout_message),
+            confirmText   = stringResource(R.string.btn_confirm_logout),
+            onConfirm     = viewModel::confirmLogout,
+            onDismiss     = viewModel::dismissLogoutDialog,
+            isDestructive = false
+        )
+    }
+
+    if (uiState.showDeleteDialog) {
+        ConfirmDialog(
+            title         = stringResource(R.string.dialog_delete_title),
+            message       = stringResource(R.string.dialog_delete_message),
+            confirmText   = stringResource(R.string.btn_confirm_delete),
+            onConfirm     = viewModel::confirmDeleteAccount,
+            onDismiss     = viewModel::dismissDeleteDialog,
+            isDestructive = true
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOTTOM NAVIGATION
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun ParentBottomNav(
+    selectedTab   : Int,
+    onTabSelected : (Int) -> Unit,
+    modifier      : Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .height(100.dp)
+            .shadow(
+                elevation    = 12.dp,
+                shape        = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+                ambientColor = ProgressPurple.copy(alpha = 0.06f)
+            )
+            .background(
+                color = Color.White,
+                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+            )
+    ) {
+        Row(
+            modifier              = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment     = Alignment.CenterVertically
+        ) {
+            NavTab(iconRes = R.drawable.ic_home,     label = stringResource(R.string.nav_home),     selected = selectedTab == 0, onClick = { onTabSelected(0) })
+            NavTab(iconRes = R.drawable.ic_children, label = stringResource(R.string.nav_children), selected = selectedTab == 1, onClick = { onTabSelected(1) })
+            NavTab(iconRes = R.drawable.ic_profile,  label = stringResource(R.string.nav_settings), selected = selectedTab == 2, onClick = { onTabSelected(2) })
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NAV TAB
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun NavTab(
+    iconRes  : Int,
+    label    : String,
+    selected : Boolean,
+    onClick  : () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication        = null
+            ) { onClick() }
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .then(
+                    if (selected) Modifier.background(ProgressPurple.copy(alpha = 0.15f))
+                    else Modifier
+                )
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter            = painterResource(id = iconRes),
+                contentDescription = label,
+                tint               = if (selected) ProgressPurple else TextSecondary,
+                modifier           = Modifier.size(22.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text       = label,
+            fontSize   = 12.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color      = if (selected) ProgressPurple else TextSecondary
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROFILE CARD
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun ProfileCard(
+    userName   : String,
+    userEmail  : String,
+    createdAt  : Long,
+    childCount : Int,
+    viewModel  : ParentViewModel
+) {
+    SectionCard {
+        Row(
+            modifier              = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment     = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier            = Modifier.weight(1f),
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(text = userName,  fontSize = 20.sp, fontWeight = FontWeight.Bold,     color = NavyDark)
+                Text(text = stringResource(R.string.label_your_children_count, childCount),
+                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Purple)
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(GradientPurpleMedium.copy(alpha = 0.4f))
+                        .clickable { viewModel.openEditDialog() }
+                        .padding(horizontal = 12.dp, vertical = 5.dp)
+                ) {
+                    Text(text = stringResource(R.string.dialog_edit_profile_title),
+                        fontSize = 12.sp, fontWeight = FontWeight.Normal, color = NavyDark)
+                }
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Image(
+                painter            = painterResource(id = R.drawable.family_image),
+                contentDescription = null,
+                modifier           = Modifier.size(78.dp).clip(CircleShape),
+                contentScale       = ContentScale.Crop
+            )
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+        InfoCard(label = stringResource(R.string.label_email_info), value = userEmail,                      iconRes = R.drawable.ic_mail)
+        Spacer(modifier = Modifier.height(10.dp))
+        InfoCard(label = stringResource(R.string.label_join_date),  value = viewModel.formatJoinDate(createdAt), iconRes = R.drawable.ic_date)
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SETTINGS CARD
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun SettingsCard(viewModel: ParentViewModel) {
+    val notificationsEnabled by viewModel.notificationsEnabled.collectAsStateWithLifecycle()
+    val soundEnabled         by viewModel.soundEnabled.collectAsStateWithLifecycle()
+    val musicEnabled         by viewModel.musicEnabled.collectAsStateWithLifecycle()
+
+    SectionCard {
+        SectionTitle(text = stringResource(R.string.label_app_settings))
+        SettingsToggleItem(
+            label           = stringResource(R.string.label_notifications),
+            subLabel        = stringResource(R.string.label_notifications_sub),
+            iconRes         = R.drawable.ic_bell_filled,
+            checked         = notificationsEnabled,
+            onCheckedChange = { viewModel.toggleNotifications(it) }
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        SettingsToggleItem(
+            label           = stringResource(R.string.label_sound),
+            subLabel        = stringResource(R.string.label_sound_sub),
+            iconRes         = R.drawable.ic_sound,
+            checked         = soundEnabled,
+            onCheckedChange = { viewModel.toggleSound(it) }
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        SettingsToggleItem(
+            label           = stringResource(R.string.label_music),
+            subLabel        = stringResource(R.string.label_music_sub),
+            iconRes         = R.drawable.ic_music,
+            checked         = musicEnabled,
+            onCheckedChange = { viewModel.toggleMusic(it) }
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ABOUT CARD
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun AboutCard() {
+    SectionCard {
+        SectionTitle(text = stringResource(R.string.label_about))
+        AboutItem(label = stringResource(R.string.label_privacy_policy))
+        Spacer(modifier = Modifier.height(10.dp))
+        AboutItem(label = stringResource(R.string.label_terms))
+        Spacer(modifier = Modifier.height(10.dp))
+        AboutItem(label = stringResource(R.string.label_help))
+        Spacer(modifier = Modifier.height(10.dp))
+        AboutItem(label = stringResource(R.string.label_about_app))
+        Spacer(modifier = Modifier.height(14.dp))
+        Text(
+            text      = stringResource(R.string.label_app_version),
+            fontSize  = 12.sp,
+            color     = TextSecondary,
+            textAlign = TextAlign.Center,
+            modifier  = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DANGER CARD
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun DangerCard(
+    onLogoutClick : () -> Unit,
+    onDeleteClick : () -> Unit
+) {
+    SectionCard {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(elevation = 4.dp, shape = RoundedCornerShape(14.dp))
+                .background(Color.White, RoundedCornerShape(14.dp))
+                .clickable { onLogoutClick() }
+                .padding(horizontal = 18.dp, vertical = 14.dp)
+        ) {
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                Text(text = stringResource(R.string.btn_logout), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = NavyDark)
+                Spacer(modifier = Modifier.width(10.dp))
+                Box(
+                    modifier = Modifier.size(34.dp).background(PurpleLavender.copy(alpha = 0.45f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(painter = painterResource(id = R.drawable.ic_logout), contentDescription = null, tint = NavyDark, modifier = Modifier.size(17.dp))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(elevation = 4.dp, shape = RoundedCornerShape(14.dp))
+                .background(DeleteRowBackground, RoundedCornerShape(14.dp))
+                .clickable { onDeleteClick() }
+                .padding(horizontal = 18.dp, vertical = 14.dp)
+        ) {
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                Text(text = stringResource(R.string.btn_delete_account), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = ErrorRed)
+                Spacer(modifier = Modifier.width(10.dp))
+                Box(
+                    modifier = Modifier.size(34.dp).background(ErrorRed.copy(alpha = 0.12f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(painter = painterResource(id = R.drawable.ic_delete), contentDescription = null, tint = ErrorRed, modifier = Modifier.size(17.dp))
+                }
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EDIT PROFILE DIALOG
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun EditProfileDialog(
+    editState             : EditProfileState,
+    onNameChange          : (String) -> Unit,
+    onEmailChange         : (String) -> Unit,
+    onSave                : () -> Unit,
+    onDismiss             : () -> Unit,
+    onChangePasswordClick : () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape     = RoundedCornerShape(20.dp),
+            colors    = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(8.dp)
+        ) {
+            Column(
+                modifier            = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(
+                    text      = stringResource(R.string.dialog_edit_profile_title),
+                    fontSize  = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color     = NavyDark,
+                    modifier  = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.End
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value          = editState.name,
+                    onValueChange  = onNameChange,
+                    label          = { Text(stringResource(R.string.label_name)) },
+                    isError        = editState.nameError != null,
+                    supportingText = { editState.nameError?.let { Text(it, color = MaterialTheme.colorScheme.error) } },
+                    modifier       = Modifier.fillMaxWidth(),
+                    shape          = RoundedCornerShape(12.dp),
+                    colors         = OutlinedTextFieldDefaults.colors(focusedBorderColor = NavyDark, unfocusedBorderColor = BorderGray),
+                    singleLine     = true
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value           = editState.email,
+                    onValueChange   = onEmailChange,
+                    label           = { Text(stringResource(R.string.label_email)) },
+                    isError         = editState.emailError != null,
+                    supportingText  = { editState.emailError?.let { Text(it, color = MaterialTheme.colorScheme.error) } },
+                    modifier        = Modifier.fillMaxWidth(),
+                    shape           = RoundedCornerShape(12.dp),
+                    colors          = OutlinedTextFieldDefaults.colors(focusedBorderColor = NavyDark, unfocusedBorderColor = BorderGray),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    singleLine      = true
+                )
+                editState.errorMessage?.let {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = it, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
+                }
+                editState.successMessage?.let {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = it, color = SuccessGreen, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = BorderGray, thickness = 1.dp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { onChangePasswordClick() }
+                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment     = Alignment.CenterVertically
+                ) {
+                    Text(text = stringResource(R.string.label_change_password), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = GradientPurpleDark)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(painter = painterResource(id = R.drawable.arrow_left_circle), contentDescription = null, tint = NavyDark, modifier = Modifier.size(16.dp))
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier              = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(R.string.btn_cancel), color = TextSecondary)
+                    }
+                    Button(
+                        onClick = onSave,
+                        enabled = !editState.isLoading,
+                        shape   = RoundedCornerShape(12.dp),
+                        colors  = ButtonDefaults.buttonColors(containerColor = ProgressPurple)
+                    ) {
+                        if (editState.isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                        } else {
+                            Text(stringResource(R.string.btn_save_changes), color = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIRM DIALOG
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun ConfirmDialog(
+    title         : String,
+    message       : String,
+    confirmText   : String,
+    onConfirm     : () -> Unit,
+    onDismiss     : () -> Unit,
+    isDestructive : Boolean = false
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor   = Color.White,
+        shape            = RoundedCornerShape(20.dp),
+        title = {
+            Text(text = title, fontWeight = FontWeight.Bold, color = NavyDark, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+        },
+        text = {
+            Text(text = message, color = TextSecondary, textAlign = TextAlign.End, fontSize = 14.sp, modifier = Modifier.fillMaxWidth())
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors  = ButtonDefaults.buttonColors(containerColor = if (isDestructive) ErrorRed else ProgressPurple),
+                shape   = RoundedCornerShape(10.dp)
+            ) {
+                Text(confirmText, color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.btn_cancel), color = TextSecondary)
+            }
+        }
+    )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REUSABLE COMPONENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 17.dp)
+            .fillMaxWidth()
+            .shadow(elevation = 8.dp, shape = RoundedCornerShape(24.dp), ambientColor = ShadowColor.copy(alpha = 0.07f), spotColor = ShadowColor.copy(alpha = 0.07f))
+            .background(color = SectionCardBackground, shape = RoundedCornerShape(24.dp))
+            .padding(20.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth(), content = content)
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text      = text,
+        fontSize  = 18.sp,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.End,
+        color     = NavyDark,
+        modifier  = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+    )
+}
+
+@Composable
+fun SettingsToggleItem(
+    label           : String,
+    subLabel        : String,
+    iconRes         : Int,
+    checked         : Boolean,
+    onCheckedChange : (Boolean) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 4.dp, shape = RoundedCornerShape(14.dp))
+            .background(Color.White, RoundedCornerShape(14.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+    ) {
+        Row(
+            modifier              = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment     = Alignment.CenterVertically
+        ) {
+            Switch(
+                checked         = checked,
+                onCheckedChange = onCheckedChange,
+                colors          = SwitchDefaults.colors(
+                    checkedThumbColor   = Color.White,
+                    checkedTrackColor   = ProgressPurple,
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = BorderGray
+                )
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                    Text(label,    fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NavyDark)
+                    Text(subLabel, fontSize = 12.sp, color = TextSecondary)
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Box(
+                    modifier = Modifier.size(40.dp).background(PurpleLavender.copy(alpha = 0.5f), RoundedCornerShape(30.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(painter = painterResource(id = iconRes), contentDescription = label, tint = ProgressPurple, modifier = Modifier.size(22.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AboutItem(
+    label   : String,
+    onClick : (() -> Unit)? = null
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 4.dp, shape = RoundedCornerShape(14.dp))
+            .background(Color.White, RoundedCornerShape(14.dp))
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
+            .padding(horizontal = 18.dp, vertical = 14.dp)
+    ) {
+        Row(
+            modifier              = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment     = Alignment.CenterVertically
+        ) {
+            Text(text = label, fontSize = 15.sp, color = TextPrimary, textAlign = TextAlign.End)
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+    }
+}
+
+@Composable
+fun InfoCard(label: String, value: String, iconRes: Int) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 4.dp, shape = RoundedCornerShape(14.dp))
+            .background(Color.White, RoundedCornerShape(14.dp))
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier              = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment     = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                Text(label, fontSize = 11.sp, color = TextSecondary)
+                Text(value, fontSize = 14.sp, color = NavyDark)
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Icon(painter = painterResource(id = iconRes), contentDescription = label, tint = NavyDark, modifier = Modifier.size(28.dp))
+        }
+    }
+}

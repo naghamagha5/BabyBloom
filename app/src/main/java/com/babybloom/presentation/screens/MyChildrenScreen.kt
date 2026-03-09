@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
@@ -36,31 +37,15 @@ import androidx.fragment.app.Fragment
 import com.babybloom.R
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.Canvas
-import com.babybloom.ui.theme.AddChildButton
-import com.babybloom.ui.theme.AvatarBorder
-import com.babybloom.ui.theme.MyChildrenTextDark
-import com.babybloom.ui.theme.ChildCardBackground
-import com.babybloom.ui.theme.ChildName
-import com.babybloom.ui.theme.ProgressBarFill
-import com.babybloom.ui.theme.ProgressBarTrack
-import com.babybloom.ui.theme.ScreenBackground
-import com.babybloom.ui.theme.SearchBarIcon
-import com.babybloom.ui.theme.StatusActiveBackground
-import com.babybloom.ui.theme.StatusActiveDot
-import com.babybloom.ui.theme.StatusCalmBackground
-import com.babybloom.ui.theme.StatusCalmDot
-import com.babybloom.ui.theme.StatusNeedsSupportBackground
-import com.babybloom.ui.theme.StatusNeedsSupportDot
-import com.babybloom.ui.theme.TextOnLight
-import com.babybloom.ui.theme.TextSecondary
-import com.babybloom.ui.theme.rakkas
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.babybloom.presentation.viewmodels.MyChildrenViewModel
+import com.babybloom.ui.theme.*
 
 // ─────────────────────────────────────────────
 //  Color aliases (all from Color.kt)
@@ -73,7 +58,9 @@ private val colorSearchIcon    = SearchBarIcon
 private val colorProgressFill  = ProgressBarFill
 private val colorProgressTrack = ProgressBarTrack
 private val colorHeaderCard    = ChildCardBackground
-private val colorAvatarBorder  = AvatarBorder
+val colorAvatarBorder = Brush.linearGradient(
+    colors = listOf(Gradient3, Gradient2, Gradient1)
+)
 private val colorChildName     = ChildName
 
 // ─────────────────────────────────────────────
@@ -88,16 +75,6 @@ data class ChildUiModel(
     val progressPercent: Int,
     val status: ChildStatus,
     val avatarRes: Int
-)
-
-// ─────────────────────────────────────────────
-//  Sample data — replace with ViewModel later
-// ─────────────────────────────────────────────
-private val sampleChildren = listOf(
-    ChildUiModel(id = 1, name = "أبرار يسري",  ageYears = 4, progressPercent = 78, status = ChildStatus.ACTIVE,        avatarRes = R.drawable.avatar_girl_1),
-    ChildUiModel(id = 2, name = "فاطمة يسري", ageYears = 4, progressPercent = 87, status = ChildStatus.CALM,          avatarRes = R.drawable.avatar_girl_2),
-    ChildUiModel(id = 3, name = "إسراء يسري", ageYears = 5, progressPercent = 92, status = ChildStatus.ACTIVE,        avatarRes = R.drawable.avatar_girl_3),
-    ChildUiModel(id = 4, name = "بودي يسري",  ageYears = 4, progressPercent = 62, status = ChildStatus.NEEDS_SUPPORT, avatarRes = R.drawable.avatar_boy_1)
 )
 
 // ─────────────────────────────────────────────
@@ -149,28 +126,23 @@ fun MyChildrenContent(
             .fillMaxSize()
             .background(colorBackground)
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.ic_leaf_corner_br),
-            contentDescription = null,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .size(90.dp),
-
-            contentScale = ContentScale.Fit
-        )
-
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.End
         ) {
-            Spacer(Modifier.height(32.dp))
             HeaderCard(query = searchQuery, onQueryChange = { searchQuery = it })
-            Spacer(Modifier.height(16.dp))
-            AddChildButton(onClick = onAddChildClick)
-            Spacer(Modifier.height(16.dp))
-            ChildrenGrid(children = filteredChildren)
+            
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                Spacer(Modifier.height(16.dp))
+                AddChildButton(onClick = onAddChildClick)
+                Spacer(Modifier.height(16.dp))
+                ChildrenGrid(children = filteredChildren)
+            }
         }
     }
 }
@@ -180,20 +152,27 @@ fun MyChildrenContent(
 // ─────────────────────────────────────────────
 @Composable
 fun HeaderCard(query: String, onQueryChange: (String) -> Unit) {
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(colorHeaderCard),  // ← remove padding from here
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp)
+            )
+            .background(
+                color = colorHeaderCard,
+                shape = RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp)
+            ),
         horizontalAlignment = Alignment.End
     ) {
         // ── Leaf chain — no padding, full width ──
         Image(
-            painter = painterResource(id = R.drawable.ic_leaf_chain),
+            painter = painterResource(id = R.drawable.ic_leaf_horizontal),
             contentDescription = null,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(30.dp),
+                .height(50.dp),
             contentScale = ContentScale.Crop
         )
 
@@ -215,6 +194,7 @@ fun HeaderCard(query: String, onQueryChange: (String) -> Unit) {
             )
             Spacer(Modifier.height(10.dp))
             ChildSearchBar(query = query, onQueryChange = onQueryChange)
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
@@ -295,19 +275,19 @@ fun AddChildButton(onClick: () -> Unit) {
                 .wrapContentWidth()
                 .height(52.dp),
             shape = RoundedCornerShape(24.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = colorButton),
+            colors = ButtonDefaults.buttonColors(containerColor = DarkNavy),
             contentPadding = PaddingValues(horizontal = 32.dp)
         ) {
             Text(
                 text = stringResource(R.string.action_add_child),
-                color = colorButtonText,
+                color = ChildCardBackground,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold
             )
-
+            Spacer(Modifier.width(8.dp))
             Text(
                 text = stringResource(R.string.btn_add_child_icon),
-                color = colorButtonText,
+                color = ChildCardBackground,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -326,7 +306,7 @@ fun ChildrenGrid(children: List<ChildUiModel>) {
         columns = GridCells.Fixed(2),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(bottom = 80.dp)
+        contentPadding = PaddingValues(bottom = 120.dp)
     ) {
         items(children) { child ->
             ChildCard(child = child)
@@ -380,7 +360,6 @@ fun ChildAvatarAndName(child: ChildUiModel) {
                 color = colorChildName,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = rakkas,
                 textAlign = TextAlign.Right,
                 style = TextStyle(textDirection = TextDirection.Rtl)
             )
@@ -396,29 +375,29 @@ fun ChildAvatarAndName(child: ChildUiModel) {
         Spacer(Modifier.width(8.dp))
 
         // Avatar
-            Box(
-                modifier = Modifier.size(60.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    drawArc(
-                        color = colorAvatarBorder,
-                        startAngle = -140f,
-                        sweepAngle = 240f,
-                        useCenter = false,
-                        style = Stroke(width = 3.dp.toPx())
-                    )
-                }
-                Image(
-                    painter = painterResource(id = child.avatarRes),
-                    contentDescription = child.name,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(4.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
+        Box(
+            modifier = Modifier.size(60.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawArc(
+                    brush = colorAvatarBorder,
+                    startAngle = -140f,
+                    sweepAngle = 240f,
+                    useCenter = false,
+                    style = Stroke(width = 3.dp.toPx())
                 )
             }
+            Image(
+                painter = painterResource(id = child.avatarRes),
+                contentDescription = child.name,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(4.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+        }
     }
 }
 

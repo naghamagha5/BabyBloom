@@ -1,11 +1,15 @@
 <resources>
     <string name="app_name">BabyBloom</string>
 
-    <!-- Splash -->
-    <string name="splash_tagline">حيث يزدهر كل عقل صغير</string>
+    <!-- Landing -->
+    <string name="btn_start">هيا لنبدأ !"</string>
 
     <!-- Register -->
     <string name="register_title">أنشئ حسابًا جديدًا</string>
+    <string name="label_name">الاسم الكامل</string>
+    <string name="label_email">البريد الإلكتروني</string>
+    <string name="label_password">كلمة المرور</string>
+    <string name="label_confirm_password">تأكيد كلمة المرور</string>
     <string name="hint_full_name">الاسم الكامل</string>
     <string name="hint_email">user@email.com</string>
     <string name="hint_password">كلمة المرور</string>
@@ -13,6 +17,7 @@
     <string name="btn_create_account">إنشاء الحساب</string>
     <string name="already_have_account">لديك حساب بالفعل؟</string>
     <string name="btn_login">سجل الدخول</string>
+    <string name="or">أو</string>
 
     <!-- Login -->
     <string name="login_title">قم بتسجيل الدخول إلى حسابك</string>
@@ -23,11 +28,21 @@
 
     <!-- Add Child -->
     <string name="add_child_title">اضافة طفل جديد</string>
+    <string name="label_child_name">الأسم الكامل</string>
     <string name="hint_child_name">الاسم الكامل</string>
+    <string name="label_child_age">العمر</string>
     <string name="hint_child_age">العمر</string>
     <string name="label_has_difficulties">هل يعاني طفلك من أي صعوبات في التعلم؟</string>
+    <string name="yes">نعم</string>
+    <string name="no">لا</string>
+    <string name="label_difficulties_description">ما هي الصعوبات؟</string>
+    <string name="hint_difficulties_description">اختياري: إن رغبت، اكتب هنا ما يواجهه طفلك من صعوبات في التعلّم ، لنفهم احتياجاته بلطف ونُقدّم له تجربة أكثر ملاءمة...</string>
     <string name="label_choose_avatar">اختر افاتار طفلك</string>
-    <string name="label_girl_avatars">افاتار البنات</string>
+    <string name="label_select_gender">صبي ام فتاه</string>
+    <string name="hint_select_gender_first">اختر جنس الطفل أولاً لعرض الصور</string>
+    <string name="boy">صبي</string>
+    <string name="girl">فتاة</string>
+    <string name="label_girl_avatars">افاتار الفتيات</string>
     <string name="label_boy_avatars">افاتار الصبيان</string>
     <string name="btn_save">حفظ</string>
 
@@ -44,43 +59,73 @@
     <!-- Bottom Nav -->
     <string name="nav_home">الرئيسية</string>
     <string name="nav_children">أطفالي</string>
-    <string name="nav_settings">الإعدادات</string>
-    <!-- TODO: Remove or change this placeholder text -->
-    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="nav_settings">الملف الشخصي</string>
 
-    <!-- Landing -->
-    <string name="btn_start">هيا لنبدأ !"</string>
+    <!-- ── Greetings (time-based) ─────────────────────────────────────────── -->
+    <string name="greeting_good_morning">صباح الخير</string>
+    <string name="greeting_good_afternoon">مساء الخير</string>
+    <string name="greeting_good_evening">مساء النور</string>
 
-    <!-- Register extras -->
-    <string name="label_name">الاسم الكامل</string>
-    <string name="label_email">البريد الإلكتروني</string>
-    <string name="label_password">كلمة المرور</string>
-    <string name="label_confirm_password">تأكيد كلمة المرور</string>
-    <string name="or">أو</string>
+    <!-- ── Parent / Profile Screen ────────────────────────────────────────── -->
+    <string name="label_your_children_count">عدد أطفالك %d</string>
+    <string name="label_email_info">البريد الإلكتروني</string>
+    <string name="label_join_date">تاريخ الانضمام</string>
+    <string name="label_app_settings">إعدادات التطبيق</string>
+    <string name="label_notifications">الإشعارات</string>
+    <string name="label_notifications_sub">إشعارات التطبيق</string>
+    <string name="label_sound">الأصوات</string>
+    <string name="label_sound_sub">مؤثرات صوتية للتطبيق</string>
+    <string name="label_music">موسيقى الخلفية</string>
+    <string name="label_music_sub">موسيقى هادئة</string>
+    <string name="label_about">حول</string>
+    <string name="label_privacy_policy">سياسة الخصوصية</string>
+    <string name="label_terms">شروط الخدمة</string>
+    <string name="label_help">المساعدة والدعم</string>
+    <string name="label_about_app">حول BabyBloom</string>
+    <string name="label_app_version">BabyBloom v1.0.0</string>
 
-    <!-- Add Child extras -->
-    <string name="label_child_name">الأسم الكامل</string>
-    <string name="label_child_age">العمر</string>
-    <string name="hint_difficulties_description">اختياري: إن رغبت، اكتب هنا ما يواجهه طفلك من صعوبات في التعلّم ، لنفهم احتياجاته بلطف ونُقدّم له تجربة أكثر ملاءمة...</string>
-    <string name="label_difficulties_description">ما هي الصعوبات؟</string>
-    <string name="label_select_gender">صبي ام فتاه</string>
-    <string name="hint_select_gender_first">اختر جنس الطفل أولاً لعرض الصور</string>
-    <string name="boy">صبي</string>
-    <string name="girl">فتاة</string>
-    <string name="yes">نعم</string>
-    <string name="no">لا</string>
+    <!-- ── Edit Profile Dialog ─────────────────────────────────────────────── -->
+    <string name="dialog_edit_profile_title">تعديل بيانات الحساب</string>
+    <string name="btn_save_changes">حفظ التغييرات</string>
+    <string name="btn_cancel">إلغاء</string>
+    <string name="edit_profile_success">تم تحديث بياناتك بنجاح</string>
+    <string name="error_email_taken_by_other">هذا البريد الإلكتروني مستخدم من قبل حساب آخر</string>
+    <string name="error_no_changes">لم تقم بأي تغيير</string>
 
-    <!-- Validation Errors -->
+    <!-- ── Logout ──────────────────────────────────────────────────────────── -->
+    <string name="btn_logout">تسجيل الخروج</string>
+    <string name="dialog_logout_title">تسجيل الخروج</string>
+    <string name="dialog_logout_message">هل أنت متأكد أنك تريد تسجيل الخروج؟</string>
+    <string name="btn_confirm_logout">تأكيد الخروج</string>
+
+    <!-- ── Delete Account ─────────────────────────────────────────────────── -->
+    <string name="btn_delete_account">حذف الحساب</string>
+    <string name="dialog_delete_title">حذف الحساب نهائياً</string>
+    <string name="dialog_delete_message">سيتم حذف حسابك وجميع بيانات أطفالك بشكل نهائي ولا يمكن التراجع عن هذا الإجراء. هل أنت متأكد؟</string>
+    <string name="btn_confirm_delete">نعم، احذف الحساب</string>
+    <string name="error_delete_account">حدث خطأ أثناء حذف الحساب، يرجى المحاولة مرة أخرى</string>
+
+    <!-- ── Change Password (already exists, kept for reference) ─────────────── -->
+    <string name="label_change_password">تغيير كلمة المرور</string>
+
+    <!-- ── Temp Dev Button ────────────────────────────────────────────────── -->
+    <string name="btn_go_to_parent_view">الملف الشخصي (تجريبي)</string>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+     REGISTER SCREEN - VALIDATION ERRORS
+     ════════════════════════════════════════════════════════════════════ -->
     <string name="error_name_required">الاسم مطلوب ولا يمكن تركه فارغاً</string>
     <string name="error_name_min_length">الاسم يجب أن يكون 3 أحرف على الأقل</string>
     <string name="error_name_max_length">الاسم طويل جداً، الحد الأقصى 50 حرفاً</string>
     <string name="error_name_invalid_characters">الاسم يجب أن يحتوي على أحرف فقط</string>
+
     <string name="error_email_required">البريد الإلكتروني مطلوب</string>
     <string name="error_email_no_spaces">البريد الإلكتروني لا يجب أن يحتوي على مسافات</string>
     <string name="error_email_invalid_format">صيغة البريد الإلكتروني غير صحيحة، مثال: user@email.com</string>
     <string name="error_email_too_long">البريد الإلكتروني طويل جداً</string>
     <string name="error_email_already_exists">هذا البريد الإلكتروني مسجل بالفعل، جرب بريداً آخر أو سجّل الدخول</string>
     <string name="error_invalid_credentials">البريد الإلكتروني أو كلمة المرور غير صحيحة</string>
+
     <string name="error_password_required">كلمة المرور مطلوبة</string>
     <string name="error_password_min_length">كلمة المرور يجب أن تكون 8 أحرف على الأقل</string>
     <string name="error_password_max_length">كلمة المرور يجب أن تكون أقل من 32 حرفاً</string>
@@ -89,9 +134,13 @@
     <string name="error_password_no_digit">يجب أن تحتوي على رقم (مثال: 1)</string>
     <string name="error_password_no_special_char">يجب أن تحتوي على رمز خاص (مثال: ! @ # $)</string>
     <string name="error_password_no_spaces">كلمة المرور لا يجب أن تحتوي على مسافات</string>
+
     <string name="error_confirm_password_required">تأكيد كلمة المرور مطلوب</string>
     <string name="error_passwords_mismatch">كلمتا المرور غير متطابقتين</string>
+
     <string name="error_generic_unexpected">حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى</string>
+
+    <!-- Add Child errors -->
     <string name="error_age_required">عمر الطفل مطلوب</string>
     <string name="error_age_not_number">العمر يجب أن يكون رقماً</string>
     <string name="error_age_too_low">العمر يجب أن يكون سنة واحدة على الأقل</string>
@@ -100,15 +149,40 @@
     <string name="error_avatar_required">يرجى اختيار صورة للطفل</string>
     <string name="error_saving_child">حدث خطأ أثناء الحفظ، يرجى المحاولة مرة أخرى</string>
 
-    <!-- Change Password -->
+    <!-- Change Password Screen -->
     <string name="change_password_title">تغيير كلمة المرور</string>
     <string name="label_new_password">كلمة مرور جديدة</string>
     <string name="hint_new_password">أنشئ كلمة مرور قوية</string>
     <string name="btn_confirm_change_password">تأكيد تغيير كلمة المرور</string>
     <string name="error_name_mismatch">الأسم غير متطابق</string>
     <string name="error_email_not_found">البريد الإلكتروني غير موجود</string>
-    <string name="error_password_same_as_old">كلمة المرور يجب ان تكون مختلفة عن القديمة </string>
+    <string name="error_password_same_as_old">كلمة المرور يجب ان تكون مختلفة عن القديمة</string>
+    <string name="cd_back_button">رجوع</string>
 
+    <!-- ── Notification Screen ─────────────────────────────────────────────── -->
+    <string name="label_notifications_screen_title">الإشعارات</string>
+    <string name="label_notifications_new_count">%d إشعارات جديدة</string>
+    <string name="label_notifications_new_count_two">إشعاران جديدان</string>
+    <string name="btn_mark_all_read">تحديد الكل كمقروء</string>
+    <string name="label_notification_minutes_ago">منذ %d دقائق</string>
+    <string name="label_notification_hour_ago">منذ ساعة واحدة</string>
+    <string name="label_notification_hours_ago">منذ %d ساعات</string>
+
+    <!-- ── Notification Types / Sample Titles (use as templates) ───────────── -->
+    <string name="notif_title_activity_completed">أكملت %s نشاط %s</string>
+    <string name="notif_title_ai_insight">رؤية جديدة من الذكاء الاصطناعي متاحة</string>
+    <string name="notif_title_needs_support">%s بحاجة إلى دعم</string>
+    <string name="notif_body_activity_completed">أنهت %s نشاط «%s» بدقة %d%%</string>
+    <string name="notif_body_ai_insight">تم تحديث الإرشادات الخاصة ببودي بناءً على التقدّم الأخير</string>
+    <string name="notif_body_needs_support">أظهر %s صعوبة في أنشطة اللغة</string>
+
+    <!-- ── Content Descriptions ─────────────────────────────────────────────── -->
+    <string name="cd_close_notifications">إغلاق الإشعارات</string>
+    <string name="cd_notification_unread_dot">إشعار غير مقروء</string>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+ My Child Screen
+ ════════════════════════════════════════════════════════════════════ -->
     <string name="my_children_title">أطفالي</string>
     <string name="search_children_hint">ابحث عن الأطفال...</string>
     <string name="status_active">نشيط</string>
