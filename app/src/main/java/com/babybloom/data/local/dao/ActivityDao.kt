@@ -30,4 +30,7 @@ interface ActivityDao {
 
     @Query("SELECT COUNT(*) FROM activities")
     suspend fun count(): Int
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)  // IGNORE so re-runs don't crash
+    suspend fun insert(activity: ActivityEntity)
 }

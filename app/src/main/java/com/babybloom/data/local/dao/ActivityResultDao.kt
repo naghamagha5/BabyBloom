@@ -2,13 +2,28 @@ package com.babybloom.data.local.dao
 
 import androidx.room.*
 import com.babybloom.data.local.entity.ActivityResultEntity
+import com.babybloom.data.local.entity.ActivityResultWithTitle
+import com.babybloom.data.local.entity.SkillScoreRow
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ActivityResultDao {
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(result: ActivityResultEntity): Long
+
+    @Query("""
+    SELECT COALESCE(a.title, ar.activityId) AS activityTitle,
+           ar.score,
+           ar.timestamp,
+           ar.duration
+    FROM activity_results ar
+    LEFT JOIN activities a ON ar.activityId = a.id
+    WHERE ar.childId = :childId
+    ORDER BY ar.timestamp DESC
+    LIMIT :limit
+""")
+    suspend fun getRecentWithTitle(childId: Long, limit: Int = 3): List<ActivityResultWithTitle>
 
     @Query("SELECT * FROM activity_results WHERE sessionId = :sessionId")
     suspend fun getBySession(sessionId: Long): List<ActivityResultEntity>
@@ -49,11 +64,20 @@ interface ActivityResultDao {
         limit: Int = 10
     ): List<ActivityResultEntity>
 
-    // Flow version for the dashboard
     @Query("""
         SELECT * FROM activity_results 
         WHERE childId = :childId 
         ORDER BY timestamp DESC
     """)
     fun observeByChild(childId: Long): Flow<List<ActivityResultEntity>>
+
+    @Query("""
+    SELECT ar.timestamp, ar.score, a.skillArea
+    FROM activity_results ar
+    LEFT JOIN activities a ON ar.activityId = a.id
+    WHERE ar.childId = :childId
+      AND a.skillArea IS NOT NULL
+    ORDER BY ar.timestamp ASC
+""")
+    suspend fun getSkillScoresForChart(childId: Long): List<SkillScoreRow>
 }

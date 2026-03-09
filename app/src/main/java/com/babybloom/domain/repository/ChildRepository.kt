@@ -9,4 +9,6 @@ interface ChildRepository {
     suspend fun deleteChild(child: Child)
     fun getChildrenByUser(userId: Long): Flow<List<Child>>
     suspend fun getById(id: Long): Child?
+    fun observeById(id: Long): Flow<Child?>
+
 }

@@ -43,9 +43,30 @@ val GradientPinkLight = Color(0xFFE9F2F8)
 
 val BorderGray = Color(0xFFD1D1D1)
 
-val GradientOrangeLight = Color(0xFFFDCC6D)  // Light orange
-val GradientOrangeMedium = Color(0xFFF9A45E) // Medium orange
-val GradientOrangeDark = Color(0xFFF5734C)   // Dark orange
+// ── Child Profile ──────────────────────────────────────────────────────────
+val BackgroundLight  = Color(0xFFF8F5FC)   // page background (very light purple-white)
+val CardPurple       = Color(0xFFEDE7F6)   // card chip/badge/progress track background
+val ProgressPurple   = Color(0xFF7C4DBC)   // primary progress bar fill
+
+// ── Status ────────────────────────────────────────────────────────────────
+val BadgeGreen       = Color(0xFF4CAF50)   // "نشيط" active status (not used in header but
+// handy if you add a colored badge later)
+
+// ── Danger Zone ───────────────────────────────────────────────────────────
+val DangerRed        = Color(0xFFE53935)   // remove button + remove card border/text
+val DangerRedLight   = Color(0xFFFFF8F8)   // remove card background
+
+// ── Chart / Skill Lines ───────────────────────────────────────────────────
+val ChartColorLanguage    = Color(0xFF7C4DBC)   // purple  — اللغة
+val ChartColorNumeracy    = Color(0xFF42A5F5)   // blue    — العددية
+val ChartColorInteractive = Color(0xFF26C6A4)   // teal    — الأنشطة
+val ChartColorMotor       = Color(0xFFFF7043)   // orange  — الحركية
+
+val GradientOrangeLight = Color(0xFFFDCC6D)  // Top - Light lavender
+
+val GradientOrangeMedium= Color(0xFFF9A45E)  // Top - Light lavender
+
+val GradientOrangeDark = Color(0xFFF5734C)
 
 val DarkNavy = Color(0xFF1A1A2E)
 
@@ -78,9 +99,7 @@ val QuickActionIconOrange = Color(0xFFFF9800) // Orange for support action
 val  ParentBackground = Color(0xFFF5F6F9)
 val  ComponentBackground = Color(0xFFEAEFFF)
 val DotNotification = Color(0xFFFF7A76)
-val BackgroundLight  = Color(0xFFF8F5FC)   // page background (very light purple-white)
 val Purple       = Color(0xFF7B68B8)   // card chip/badge/progress track background
-val ProgressPurple   = Color(0xFF7C4DBC)   // primary progress bar fill
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HARDCODED COLORS EXTRACTED FROM ParentView.kt

@@ -26,7 +26,10 @@ class ChildRepositoryImpl @Inject constructor(
 
     override suspend fun getById(id: Long): Child? =
         childDao.getById(id)?.toDomain()
+
+    override fun observeById(id: Long): Flow<Child?> =
+        childDao.observeById(id).map { it?.toDomain() }
 }
 
-fun ChildEntity.toDomain() = Child(id, userId, name, age, notes, avatar, musicEnabled, reducedAnimation, uiTheme, createdAt)
-fun Child.toEntity() = ChildEntity(id, userId, name, age, notes, avatar, musicEnabled, reducedAnimation, uiTheme, createdAt)
+fun ChildEntity.toDomain() = Child(id, userId, name, age, notes, avatar, musicEnabled, reducedAnimation, uiTheme, createdAt, isActive, sessionDurationMinutes, backgroundMusicEnabled)
+fun Child.toEntity() = ChildEntity(id, userId, name, age, notes, avatar, musicEnabled, reducedAnimation, uiTheme, createdAt, isActive, sessionDurationMinutes, backgroundMusicEnabled)

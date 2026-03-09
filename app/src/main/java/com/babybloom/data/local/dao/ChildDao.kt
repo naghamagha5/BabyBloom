@@ -21,4 +21,10 @@ interface ChildDao {
 
     @Query("SELECT * FROM children WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): ChildEntity?
+
+    @Query("SELECT COUNT(*) FROM children")
+    suspend fun countAll(): Int
+
+    @Query("SELECT * FROM children WHERE id = :id LIMIT 1")
+    fun observeById(id: Long): Flow<ChildEntity?>
 }

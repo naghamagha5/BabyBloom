@@ -7,6 +7,7 @@ import com.babybloom.domain.repository.SessionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
+import com.babybloom.data.local.entity.AttentionScoreRow
 
 class SessionRepositoryImpl @Inject constructor(
     private val sessionDao: SessionDao
@@ -25,7 +26,13 @@ class SessionRepositoryImpl @Inject constructor(
 
     override suspend fun getRecentSessions(childId: Long, limit: Int): List<Session> =
         sessionDao.getRecentSessions(childId, limit).map { it.toDomain() }
+
+    override fun countByChild(childId: Long): Flow<Int> =
+        sessionDao.countByChild(childId)
+
+    override suspend fun getAttentionScoresForChart(childId: Long): List<AttentionScoreRow> =
+        sessionDao.getAttentionScoresForChart(childId)
 }
 
-fun SessionEntity.toDomain() = Session(id, userId, childId, startTime, endTime, isAssessment)
-fun Session.toEntity() = SessionEntity(id, userId, childId, startTime, endTime, isAssessment)
+fun SessionEntity.toDomain() = Session(id, userId, childId, startTime, endTime, isAssessment, attentionScore)
+fun Session.toEntity() = SessionEntity(id, userId, childId, startTime, endTime, isAssessment, attentionScore)

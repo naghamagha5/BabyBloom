@@ -1,6 +1,7 @@
 package com.babybloom.data.local.dao
 
 import androidx.room.*
+import com.babybloom.data.local.entity.AttentionScoreRow
 import com.babybloom.data.local.entity.SessionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -21,4 +22,15 @@ interface SessionDao {
 
     @Query("SELECT * FROM sessions WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): SessionEntity?
+
+    @Query("SELECT COUNT(*) FROM sessions WHERE childId = :childId")
+    fun countByChild(childId: Long): Flow<Int>
+
+    @Query("""
+    SELECT startTime, attentionScore 
+    FROM sessions 
+    WHERE childId = :childId 
+    ORDER BY startTime ASC
+""")
+    suspend fun getAttentionScoresForChart(childId: Long): List<AttentionScoreRow>
 }
