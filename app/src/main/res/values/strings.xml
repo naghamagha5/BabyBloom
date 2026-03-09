@@ -237,4 +237,111 @@
     <string name="search_icon_desc">بحث</string>
     <string name="btn_add_child_icon">+</string>
 
+
+    <!-- Child Profile — General -->
+    <string name="child_profile_title">عرض ملف الطفل</string>
+    <string name="cd_back">رجوع</string>
+    <string name="years_old">سنوات</string>
+    <string name="stat_sessions">جلسات</string>
+    <string name="stat_progress">التقدم</string>
+    <string name="stat_status_label">الحالة</string>
+    <string name="stat_status_active">نشيط</string>
+    <string name="stat_status_inactive">غير نشيط</string>
+
+    <!-- Placeholders (remove when real data is wired) -->
+    <string name="placeholder_child_name">اسم الطفل</string>
+
+    <!-- Bottom Navigation -->
+    <string name="tab_analytics">التحليلات</string>
+    <string name="tab_ai_insights">إرشادات التعلم</string>
+    <string name="tab_settings">الإعدادات</string>
+
+    <!-- Analytics Tab -->
+    <string name="analytics_progress_over_time">التقدم عبر الوقت</string>
+    <string name="analytics_skill_breakdown">تفصيل المهارات</string>
+    <string name="analytics_skill_language">اللغة</string>
+    <string name="analytics_skill_numeracy">الأرقام</string>
+    <string name="analytics_skill_interactive">الأنشطة</string>
+    <string name="analytics_skill_motor">المهارات الحركية</string>
+    <string name="analytics_recent_activities">الأنشطة الأخيرة</string>ٍ
+    <string name="analytics_learning_performance">أداء التعلم</string>
+    <string name="analytics_visual">بصري</string>
+    <string name="analytics_interactive">تفاعلي</string>
+    <string name="analytics_audio">سمعي</string>
+
+    <!-- AI Insights Tab -->
+    <string name="ai_no_insight">اضغط على الزر لإنشاء تحليل مخصص لطفلك</string>
+
+    <!-- Settings Tab -->
+    <string name="settings_sound_title">إعدادات الصوت</string>
+    <string name="settings_sound_effects">المؤثرات الصوتية</string>
+    <string name="settings_sound_effects_desc">التغذية الصوتية للأنشطة</string>
+    <string name="settings_background_music">موسيقى الخلفية</string>
+    <string name="settings_background_music_desc">الموسيقى الخلفيه للأنشطة</string>
+    <string name="settings_display_title">إعدادات العرض</string>
+    <string name="settings_display_default">الوضع الافتراضي هو الوضع النشط</string>
+    <string name="settings_mode_calm">الوضع الهادئ</string>
+    <string name="settings_mode_active">الوضع النشط</string>
+    <string name="settings_session_title">إعدادات الجلسة</string>
+    <!-- %1$d will be replaced with the current duration number -->
+    <string name="settings_session_default_duration">المدة الافتراضية: %1$d دقائق</string>
+    <string name="settings_session_duration">تحديد مدة الجلسة</string>
+    <string name="settings_remove_child_title">إزالة الطفل</string>
+    <!-- %1$s will be replaced with the child's name -->
+    <string name="settings_remove_child_warning">إزالة %1$s بشكل نهائي. لا يمكن التراجع عن هذا الإجراء</string>
+    <string name="settings_remove_child_button">إزالة الطفل</string>
+    <string name="settings_remove_confirm_title">تأكيد الإزالة</string>
+    <string name="settings_remove_confirm_message">هل أنت متأكد من إزالة %1$s؟ لا يمكن التراجع عن هذا الإجراء.</string>
+
+    <!-- Duration Picker Dialog -->
+    <string name="duration_picker_title">تحديد مدة الجلسة</string>
+    <string name="duration_picker_minutes">دقيقة</string>
+    <!-- %1$d replaced with the min/max value -->
+    <string name="duration_picker_min">%1$d دقائق</string>
+    <string name="duration_picker_max">%1$d دقيقة</string>
+
+    <!-- Shared Buttons -->
+    <string name="btn_confirm">تأكيد</string>
+
+    <!-- ── AI Insights Tab ──────────────────────────────────────── -->
+    <string name="ai_insights_title">إرشادات الذكاء الاصطناعي</string>
+    <string name="ai_insights_subtitle">توصيات مخصّصة لدعم رحلة تعلّم طفلك</string>
+    <string name="ai_refresh_button">إنشاء رؤى جديدة</string>
+    <string name="ai_loading">جارٍ تحليل بيانات طفلك…</string>
+
+    <!-- Section titles -->
+    <string name="ai_learning_summary">ملخّص الرؤى الرئيسية</string>
+    <string name="ai_quick_tips">نصائح سريعة</string>
+    <string name="ai_detailed_guidance">إرشادات تفصيليه</string>
+
+    <!-- Summary card labels -->
+    <string name="ai_learning_style">أسلوب التعلّم</string>
+    <string name="ai_strengths">نقاط القوة الرئيسية</string>
+    <string name="ai_development">فرص التطوّر</string>
+
+    <!-- Detailed guidance -->
+    <string name="placeholder_guidance_intro">تستجيب أبرار بشكل أفضل للقصص المصوّرة والأنشطة المعتمدة على الصور يزداد التفاعل بنسبة 40٪ مع المحتوى البصري</string>
+    <string name="ai_recommended">موصى به:</string>
+    <string name="ai_avoid">يُفضَّل تجنّب:</string>
+
+    <string name="display_info_title">ما الفرق بين الوضعين؟</string>
+    <string name="display_info_active_title">الوضع النشيط</string>
+    <string name="display_info_active_body">يستخدم ألوانًا حيوية وواجهة نشيطة مناسبة للأطفال الذين لا يعانون من حساسية حسية. يمنح تجربة تعلّم ملوّنة ومحفّزة.</string>
+    <string name="display_info_calm_title">الوضع الهادئ</string>
+    <string name="display_info_calm_body">يستخدم ألوانًا هادئة ومخففة مصممة للأطفال الذين يعانون من حساسية حسية. يقلّل من الإثارة البصرية ويوفر بيئة تعلّم مريحة.</string>
+    <string name="btn_close">إغلاق</string>
+
+    <string name="minutes1">منذ لحظات</string>
+    <string name="minutes2">منذ $minutes دقيقة</string>
+    <string name="hours">منذ $hours ساعة</string>
+    <string name="days">منذ يوم</string>
+    <string name="else1">منذ days$ أيام</string>
+
+    <string name="analytics_period_label">%d</string>
+    <string name="analytics_no_activities">لا توجد أنشطة حديثة</string>
+
+    <string name="ai_empty_title">لا توجد رؤى بعد</string>
+    <string name="ai_empty_subtitle">اضغط على زر التحديث لتوليد رؤى مخصصة لطفلك</string>
+    <string name="action_add_child">إضافة طفل</string>
+
 </resources>

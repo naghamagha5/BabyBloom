@@ -36,20 +36,3 @@ val Typography = Typography(
         color = ButtonText
     )
 )
-
-
-
-val judson = FontFamily(
-    Font(R.font.judson_regular)
-)
-
-val rakkas = FontFamily(
-    Font(R.font.rakkas)
-)
-val Jomhuriaregular = FontFamily(
-    Font(R.font.jomhuria_regular)
-)
-
-val arimo_regular = FontFamily(
-    Font(R.font.jomhuria_regular)
-)

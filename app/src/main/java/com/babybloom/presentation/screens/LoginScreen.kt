@@ -233,7 +233,7 @@ fun LoginScreen(
                             // ── Forgot Password ────────────────────────────
                             Box(modifier = Modifier.fillMaxWidth()) {
                                 TextButton(
-                                    onClick  = onNavigateToChangePassword,  // ← was /* TODO */
+                                    onClick  = onNavigateToChangePassword,  //
                                     modifier = Modifier.align(Alignment.CenterEnd)
                                 ) {
                                     Text(
