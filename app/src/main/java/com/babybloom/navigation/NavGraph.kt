@@ -15,9 +15,7 @@ import com.babybloom.presentation.screens.AddChildScreen
 import com.babybloom.presentation.screens.ChangePasswordScreen
 import com.babybloom.presentation.screens.LandingScreen
 import com.babybloom.presentation.screens.LoginScreen
-import com.babybloom.presentation.screens.MyChildrenContent
-import com.babybloom.presentation.screens.ParentHomeScreen
-import com.babybloom.presentation.screens.ParentView
+import com.babybloom.presentation.screens.ParentShell
 import com.babybloom.presentation.screens.RegisterScreen
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -133,21 +131,7 @@ fun BabyBloomNavGraph(
 
         // ── HOME ───────────────────────────────────────────────────────────
         composable(Routes.HOME) {
-            ParentHomeScreen(
-                onNavigate = { route ->
-                    when (route) {
-                        "children" -> navController.navigate(Routes.MY_CHILDREN)
-                        "settings" -> navController.navigate(Routes.PARENT_VIEW)
-                        "add_child" -> navController.navigate(Routes.ADD_CHILD)
-                        else -> {}
-                    }
-                }
-            )
-        }
-
-        // ── PARENT VIEW ────────────────────────────────────────────────────
-        composable(Routes.PARENT_VIEW) {
-            ParentView(
+            ParentShell(
                 onNavigateToLogin = {
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(0) { inclusive = true }
@@ -157,15 +141,6 @@ fun BabyBloomNavGraph(
                     navController.navigate(Routes.CHANGE_PASSWORD)
                 },
                 onNavigateToAddChild = {
-                    navController.navigate(Routes.ADD_CHILD)
-                }
-            )
-        }
-
-        // ── MY CHILDREN ────────────────────────────────────────────────────
-        composable(Routes.MY_CHILDREN) {
-            MyChildrenContent(
-                onAddChildClick = {
                     navController.navigate(Routes.ADD_CHILD)
                 }
             )

@@ -34,9 +34,138 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.babybloom.R
-import com.babybloom.presentation.components.BottomNavigationBar
 import com.babybloom.presentation.viewmodels.ParentHomeViewModel
 import com.babybloom.ui.theme.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.zIndex
+import com.babybloom.presentation.screens.MyChildrenContent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHELL — owns the bottom nav and all tabs
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun ParentShell(
+    onNavigateToLogin     : () -> Unit = {},
+    onNavigateToChangePwd : () -> Unit = {},
+    onNavigateToAddChild  : () -> Unit = {}
+) {
+    var selectedTab by remember { mutableStateOf(0) }  // ← lands on Home
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (selectedTab) {
+            0 -> ParentHomeScreen(
+                onNavigate = { route ->
+                    when (route) {
+                        "children"  -> selectedTab = 1
+                        "settings"  -> selectedTab = 2
+                        "add_child" -> onNavigateToAddChild()
+                    }
+                }
+            )
+            1 -> MyChildrenContent(onAddChildClick = onNavigateToAddChild)
+            2 -> ParentSettingsContent(
+                onNavigateToLogin     = onNavigateToLogin,
+                onNavigateToChangePwd = onNavigateToChangePwd,
+                onNavigateToAddChild  = onNavigateToAddChild
+            )
+        }
+
+        ParentBottomNav(
+            selectedTab   = selectedTab,
+            onTabSelected = { selectedTab = it },
+            modifier      = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .zIndex(2f)
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOTTOM NAVIGATION
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun ParentBottomNav(
+    selectedTab   : Int,
+    onTabSelected : (Int) -> Unit,
+    modifier      : Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .height(100.dp)
+            .shadow(
+                elevation    = 12.dp,
+                shape        = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+                ambientColor = ProgressPurple.copy(alpha = 0.06f)
+            )
+            .background(
+                color = Color.White,
+                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+            )
+    ) {
+        Row(
+            modifier              = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment     = Alignment.CenterVertically
+        ) {
+            ParentNavTab(iconRes = R.drawable.ic_home,     label = stringResource(R.string.nav_home),     selected = selectedTab == 0, onClick = { onTabSelected(0) })
+            ParentNavTab(iconRes = R.drawable.ic_children, label = stringResource(R.string.nav_children), selected = selectedTab == 1, onClick = { onTabSelected(1) })
+            ParentNavTab(iconRes = R.drawable.ic_profile,  label = stringResource(R.string.nav_settings), selected = selectedTab == 2, onClick = { onTabSelected(2) })
+        }
+    }
+}
+
+@Composable
+private fun ParentNavTab(
+    iconRes  : Int,
+    label    : String,
+    selected : Boolean,
+    onClick  : () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication        = null
+            ) { onClick() }
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .then(
+                    if (selected) Modifier.background(ProgressPurple.copy(alpha = 0.15f))
+                    else Modifier
+                )
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter            = painterResource(id = iconRes),
+                contentDescription = label,
+                tint               = if (selected) ProgressPurple else TextSecondary,
+                modifier           = Modifier.size(22.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text       = label,
+            fontSize   = 12.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color      = if (selected) ProgressPurple else TextSecondary
+        )
+    }
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // MAIN SCREEN
@@ -105,10 +234,7 @@ fun ParentHomeScreen(
             // ════════════════════════════════════════════════════════════════════
             // FIXED BOTTOM NAVIGATION BAR
             // ════════════════════════════════════════════════════════════════════
-            BottomNavigationBar(
-                currentRoute = "home",
-                onNavigate = onNavigate
-            )
+
         }
     }
 }
