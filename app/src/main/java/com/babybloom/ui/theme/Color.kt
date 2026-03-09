@@ -32,6 +32,7 @@ val SunBackground       = Color(0xFFF0E8FF)   // subtle sun area background
 val TextFieldBorderFocused = Color(0xFF7B68C8) // focused border color
 
 // New Gradient Colors (from your image)
+// New Gradient Colors
 val GradientPurpleLight = Color(0xFFE1E3F7)  // Top - Light lavender
 val GradientPurpleMedium = Color(0xFFB9BBEB) // Middle
 val GradientPurpleDark = Color(0xFF7F80DA)   // Bottom - Deeper purple
@@ -74,3 +75,73 @@ val AIInsightsIconBg = Color(0xFFFFB74D)      // Golden/amber icon background
 val QuickActionIconPurple = Color(0xFF9C27B0) // Purple for search/explore action
 val QuickActionIconBlue = Color(0xFF2196F3)   // Blue for add child action
 val QuickActionIconOrange = Color(0xFFFF9800) // Orange for support action
+val  ParentBackground = Color(0xFFF5F6F9)
+val  ComponentBackground = Color(0xFFEAEFFF)
+val DotNotification = Color(0xFFFF7A76)
+val BackgroundLight  = Color(0xFFF8F5FC)   // page background (very light purple-white)
+val Purple       = Color(0xFF7B68B8)   // card chip/badge/progress track background
+val ProgressPurple   = Color(0xFF7C4DBC)   // primary progress bar fill
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HARDCODED COLORS EXTRACTED FROM ParentView.kt
+// Add these to your existing Color.kt / Theme colors file
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Already referenced (should already exist in your Color.kt):
+// BackgroundLight, DarkNavy, NavyDark, DotNotification, White, Purple,
+// GradientPurpleMedium, GradientPurpleDark, ProgressPurple, TextPrimary,
+// TextSecondary, BorderGray, PurpleLavender, ErrorRed
+
+// ── NEW COLORS TO ADD ─────────────────────────────────────────────────────────
+
+val SectionCardBackground   = Color(0xFFEAEFFF)   // SectionCard background
+val DeleteRowBackground     = Color(0xFFFFEBEB)    // Delete account row background
+val SuccessGreen            = Color(0xFF2E7D32)    // Success message in EditProfileDialog
+val LoadingOverlay          = Color(0x4D000000)    // Black 30% alpha loading overlay
+val ShadowColor             = Color(0xFF2E2645)    // SectionCard shadow color (7% alpha applied in code)
+
+// ── NOTIFICATION SCREEN COLORS (new screen) ──────────────────────────────────
+val NotificationHeaderBg    = Color(0xFF1E1F3B)    // Dark navy header background (from design image)
+val NotifCardBg             = Color.White
+val NotifUnreadDotGreen     = Color(0xFFB2F0C8)    // Soft green dot (Fatima card)
+val NotifUnreadDotPink      = Color(0xFFF4B8B8)    // Soft pink/salmon dot (AI insight card)
+val NotifAccentGreen        = Color(0xFF4CAF82)    // Green left-border accent (Fatima card)
+val NotifUnreadDotOrange    = Color(0xFFFF9800)
+val NotifAccentPurple       = Color(0xFF9B8EC4)    // Purple left-border accent (AI insight card)
+val NotifAccentOrange       = Color(0xFFF5A623)    // Orange left-border accent (needs support card)
+val NotifMarkAllReadBg      = Color(0xFF1E1F3B)    // "Mark all as read" button background
+val NotifTimestampColor     = Color(0xFF9E9E9E)    // Timestamp text color
+
+//Gehad colors
+
+val DeepNavy = Color(0xFF1A1F3C)          // Home dark background, bottom nav
+val SoftLavender = Color(0xFFEDE7F6)      // Register/Login background
+val WarmPeach = Color(0xFFFFF3E0)         // Add child background
+val PrimaryPurple = Color(0xFF7B5EA7)     // Buttons, accents
+val AccentTeal = Color(0xFF4DB6AC)        // Overview cards
+val AccentOrange = Color(0xFFFF8A65)      // Achievement cards
+val AccentPink = Color(0xFFF48FB1)        // Hearts, soft accents
+val CardDark = Color(0xFF252A4A)          // Dark cards on home screen
+val TextOnDark = Color(0xFFFFFFFF)
+val TextOnLight = Color(0xFF2D2D2D)
+val InputBackground = Color(0xFFF5F5F5)
+val ProgressBarFill = Color(0xFF030213)
+val ProgressBarTrack = Color(0x1A030213)
+val ChildCardBackground = Color(0xFFEAEFFF)
+val ScreenBackground = Color(0xFFF5F6F9)
+val AddChildButton = Color(0xFFB9B7E6)
+val SearchBarIcon = Color(0xFF7B68B8)
+val MyChildrenTextDark= Color(0xFF241726)
+val StatusActiveBackground = Color(0xFFC1D8F2)
+val StatusActiveDot = Color(0xFF5B9BB8)
+val StatusCalmBackground = Color(0xFFC1E8D8)
+val StatusCalmDot = Color(0xFF5BB89B)
+val StatusNeedsSupportBackground = Color(0xFFFFE0C1)
+val StatusNeedsSupportDot = Color(0xFFE89B5B)
+
+val ChildName = Color(0xFF2E2645)
+val AvatarBorder = Color(0xFF8E2357)
+
+val Gradient1 = Color(0xFF161C36)
+val Gradient2 = Color(0xFF8C59C0)
+val Gradient3 = Color(0xFF7F80DA)

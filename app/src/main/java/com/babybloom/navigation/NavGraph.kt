@@ -1,10 +1,11 @@
 package com.babybloom.navigation
 
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -14,15 +15,22 @@ import com.babybloom.presentation.screens.AddChildScreen
 import com.babybloom.presentation.screens.ChangePasswordScreen
 import com.babybloom.presentation.screens.LandingScreen
 import com.babybloom.presentation.screens.LoginScreen
-import com.babybloom.presentation.screens.RegisterScreen
+import com.babybloom.presentation.screens.MyChildrenContent
 import com.babybloom.presentation.screens.ParentHomeScreen
+import com.babybloom.presentation.screens.ParentView
+import com.babybloom.presentation.screens.RegisterScreen
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+
 object Routes {
     const val LANDING         = "landing"
     const val LOGIN           = "login"
     const val REGISTER        = "register"
-    const val CHANGE_PASSWORD = "change_password"   // ← NEW
+    const val CHANGE_PASSWORD = "change_password"
     const val ADD_CHILD       = "add_child"
     const val HOME            = "home"
+    const val PARENT_VIEW     = "parent_view"
+    const val MY_CHILDREN     = "my_children"
 }
 
 @Composable
@@ -30,33 +38,30 @@ fun BabyBloomNavGraph(
     sessionManager: SessionManager,
     navController : NavHostController = rememberNavController()
 ) {
-    val isLoggedIn     by sessionManager.isLoggedIn.collectAsStateWithLifecycle(initialValue = false)
-    val hasSeenLanding by sessionManager.hasSeenLanding.collectAsStateWithLifecycle(initialValue = false)
+    var isReady    by remember { mutableStateOf(false) }
+    var startRoute by remember { mutableStateOf(Routes.LANDING) }
 
-    // Already have an active session → go straight to Home
-    LaunchedEffect(isLoggedIn) {
-        if (isLoggedIn) {
-            navController.navigate(Routes.HOME) {
-                popUpTo(0) { inclusive = true }
-            }
+    LaunchedEffect(Unit) {
+        val (hasSeenLanding, isLoggedIn) = sessionManager.hasSeenLanding
+            .combine(sessionManager.isLoggedIn) { seen, loggedIn -> seen to loggedIn }
+            .first()
+
+        startRoute = when {
+            isLoggedIn     -> Routes.HOME
+            hasSeenLanding -> Routes.LOGIN
+            else           -> Routes.LANDING
         }
+        isReady = true
     }
 
-    // Already saw Landing → skip it, go to Login
-    LaunchedEffect(hasSeenLanding) {
-        if (hasSeenLanding) {
-            navController.navigate(Routes.LOGIN) {
-                popUpTo(Routes.LANDING) { inclusive = true }
-            }
-        }
-    }
+    if (!isReady) return   // pink windowBackground shows while DataStore loads
 
     NavHost(
         navController    = navController,
-        startDestination = Routes.LANDING
+        startDestination = startRoute
     ) {
 
-        // ── LANDING — shown only once ever ─────────────────────────────────
+        // ── LANDING ────────────────────────────────────────────────────────
         composable(Routes.LANDING) {
             LandingScreen(
                 sessionManager = sessionManager,
@@ -80,8 +85,6 @@ fun BabyBloomNavGraph(
                     navController.navigate(Routes.REGISTER)
                 },
                 onNavigateToChangePassword = {
-                    // Push ChangePassword on top of Login
-                    // Back button on that screen will pop back here
                     navController.navigate(Routes.CHANGE_PASSWORD)
                 }
             )
@@ -91,7 +94,6 @@ fun BabyBloomNavGraph(
         composable(Routes.REGISTER) {
             RegisterScreen(
                 onCreateAccount = {
-                    // After register → AddChild (mandatory first-time setup)
                     navController.navigate(Routes.ADD_CHILD) {
                         popUpTo(Routes.REGISTER) { inclusive = true }
                     }
@@ -104,25 +106,21 @@ fun BabyBloomNavGraph(
             )
         }
 
-        // ── CHANGE PASSWORD — reached from Login forgot password link ───────
+        // ── CHANGE PASSWORD ────────────────────────────────────────────────
         composable(Routes.CHANGE_PASSWORD) {
             ChangePasswordScreen(
                 onSaveClick = {
-                    // Password changed successfully → back to Login
-                    // popUpTo removes ChangePassword from back stack
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(Routes.CHANGE_PASSWORD) { inclusive = true }
                     }
                 },
                 onBackClick = {
-                    // Back button → simply pop ChangePassword off the stack
-                    // Returns to Login which is underneath
                     navController.popBackStack()
                 }
             )
         }
 
-        // ── ADD CHILD — reached only from Register ─────────────────────────
+        // ── ADD CHILD ──────────────────────────────────────────────────────
         composable(Routes.ADD_CHILD) {
             AddChildScreen(
                 onSaveChild = {
@@ -138,19 +136,37 @@ fun BabyBloomNavGraph(
             ParentHomeScreen(
                 onNavigate = { route ->
                     when (route) {
-                        "children" -> {
-                            // TODO: Navigate to Children screen when created
-                            // navController.navigate(Routes.CHILDREN)
-                        }
-                        "settings" -> {
-                            // TODO: Navigate to Settings screen when created
-                            // navController.navigate(Routes.SETTINGS)
-                        }
-                        "add_child" -> {
-                            navController.navigate(Routes.ADD_CHILD)
-                        }
+                        "children" -> navController.navigate(Routes.MY_CHILDREN)
+                        "settings" -> navController.navigate(Routes.PARENT_VIEW)
+                        "add_child" -> navController.navigate(Routes.ADD_CHILD)
                         else -> {}
                     }
+                }
+            )
+        }
+
+        // ── PARENT VIEW ────────────────────────────────────────────────────
+        composable(Routes.PARENT_VIEW) {
+            ParentView(
+                onNavigateToLogin = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onNavigateToChangePwd = {
+                    navController.navigate(Routes.CHANGE_PASSWORD)
+                },
+                onNavigateToAddChild = {
+                    navController.navigate(Routes.ADD_CHILD)
+                }
+            )
+        }
+
+        // ── MY CHILDREN ────────────────────────────────────────────────────
+        composable(Routes.MY_CHILDREN) {
+            MyChildrenContent(
+                onAddChildClick = {
+                    navController.navigate(Routes.ADD_CHILD)
                 }
             )
         }
