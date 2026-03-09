@@ -1,14 +1,11 @@
 package com.babybloom.presentation.screens
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,22 +16,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,7 +39,7 @@ import com.babybloom.ui.theme.*
 // ROOT COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-fun ParentView(
+fun ParentSettingsContent(
     onNavigateToLogin     : () -> Unit = {},
     onNavigateToChangePwd : () -> Unit = {},
     onNavigateToAddChild  : () -> Unit = {},
@@ -61,12 +53,7 @@ fun ParentView(
     val createdAt     by viewModel.createdAt.collectAsStateWithLifecycle()
     val childCount    by viewModel.childCount.collectAsStateWithLifecycle()
 
-    var selectedTab       by remember { mutableStateOf(2) }
     val snackbarHostState = remember { SnackbarHostState() }
-
-    val configuration = LocalConfiguration.current
-    val screenWidth   = configuration.screenWidthDp.dp
-    val screenHeight  = configuration.screenHeightDp.dp
 
     LaunchedEffect(uiState.navigateToLogin) {
         if (uiState.navigateToLogin) { viewModel.onNavigationHandled(); onNavigateToLogin() }
@@ -85,64 +72,36 @@ fun ParentView(
         contentWindowInsets = WindowInsets(0),
         containerColor      = BackgroundLight
     ) { paddingValues ->
-
         Box(
             modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(BackgroundLight)
         ) {
-            when (selectedTab) {
-                0 -> {
-                    // Placeholder for Home Tab
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(text = "الرئيسية", color = NavyDark, fontSize = 24.sp)
-                    }
-                }
-                1 -> {
-                    MyChildrenContent(
-                        onAddChildClick = onNavigateToAddChild
-                    )
-                }
-                2 -> {
-                    Box(modifier = Modifier.fillMaxSize()) {
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(top = 40.dp, bottom = 80.dp)
-                                .verticalScroll(rememberScrollState())
-                        ) {
-                            ProfileCard(
-                                userName   = userName,
-                                userEmail  = userEmail,
-                                createdAt  = createdAt,
-                                childCount = childCount,
-                                viewModel  = viewModel
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            SettingsCard(viewModel = viewModel)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            AboutCard()
-                            Spacer(modifier = Modifier.height(16.dp))
-                            DangerCard(
-                                onLogoutClick = { viewModel.showLogoutDialog() },
-                                onDeleteClick = { viewModel.showDeleteDialog() }
-                            )
-                            Spacer(modifier = Modifier.height(30.dp))
-                        }
-                    }
-                }
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 40.dp, bottom = 80.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                ProfileCard(
+                    userName   = userName,
+                    userEmail  = userEmail,
+                    createdAt  = createdAt,
+                    childCount = childCount,
+                    viewModel  = viewModel
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                SettingsCard(viewModel = viewModel)
+                Spacer(modifier = Modifier.height(16.dp))
+                AboutCard()
+                Spacer(modifier = Modifier.height(16.dp))
+                DangerCard(
+                    onLogoutClick = { viewModel.showLogoutDialog() },
+                    onDeleteClick = { viewModel.showDeleteDialog() }
+                )
+                Spacer(modifier = Modifier.height(30.dp))
             }
-
-            ParentBottomNav(
-                selectedTab   = selectedTab,
-                onTabSelected = { selectedTab = it },
-                modifier      = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .zIndex(2f)
-            )
 
             if (uiState.isLoading) {
                 Box(
@@ -194,87 +153,6 @@ fun ParentView(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BOTTOM NAVIGATION
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-fun ParentBottomNav(
-    selectedTab   : Int,
-    onTabSelected : (Int) -> Unit,
-    modifier      : Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .height(100.dp)
-            .shadow(
-                elevation    = 12.dp,
-                shape        = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-                ambientColor = ProgressPurple.copy(alpha = 0.06f)
-            )
-            .background(
-                color = Color.White,
-                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
-            )
-    ) {
-        Row(
-            modifier              = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment     = Alignment.CenterVertically
-        ) {
-            NavTab(iconRes = R.drawable.ic_home,     label = stringResource(R.string.nav_home),     selected = selectedTab == 0, onClick = { onTabSelected(0) })
-            NavTab(iconRes = R.drawable.ic_children, label = stringResource(R.string.nav_children), selected = selectedTab == 1, onClick = { onTabSelected(1) })
-            NavTab(iconRes = R.drawable.ic_profile,  label = stringResource(R.string.nav_settings), selected = selectedTab == 2, onClick = { onTabSelected(2) })
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// NAV TAB
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-private fun NavTab(
-    iconRes  : Int,
-    label    : String,
-    selected : Boolean,
-    onClick  : () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication        = null
-            ) { onClick() }
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .then(
-                    if (selected) Modifier.background(ProgressPurple.copy(alpha = 0.15f))
-                    else Modifier
-                )
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter            = painterResource(id = iconRes),
-                contentDescription = label,
-                tint               = if (selected) ProgressPurple else TextSecondary,
-                modifier           = Modifier.size(22.dp)
-            )
-        }
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text       = label,
-            fontSize   = 12.sp,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color      = if (selected) ProgressPurple else TextSecondary
-        )
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // PROFILE CARD
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
@@ -295,9 +173,13 @@ fun ProfileCard(
                 modifier            = Modifier.weight(1f),
                 horizontalAlignment = Alignment.End
             ) {
-                Text(text = userName,  fontSize = 20.sp, fontWeight = FontWeight.Bold,     color = NavyDark)
-                Text(text = stringResource(R.string.label_your_children_count, childCount),
-                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Purple)
+                Text(text = userName, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = NavyDark)
+                Text(
+                    text       = stringResource(R.string.label_your_children_count, childCount),
+                    fontSize   = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = Purple
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 Box(
                     modifier = Modifier
@@ -306,8 +188,12 @@ fun ProfileCard(
                         .clickable { viewModel.openEditDialog() }
                         .padding(horizontal = 12.dp, vertical = 5.dp)
                 ) {
-                    Text(text = stringResource(R.string.dialog_edit_profile_title),
-                        fontSize = 12.sp, fontWeight = FontWeight.Normal, color = NavyDark)
+                    Text(
+                        text       = stringResource(R.string.dialog_edit_profile_title),
+                        fontSize   = 12.sp,
+                        fontWeight = FontWeight.Normal,
+                        color      = NavyDark
+                    )
                 }
             }
             Spacer(modifier = Modifier.width(14.dp))
@@ -319,9 +205,17 @@ fun ProfileCard(
             )
         }
         Spacer(modifier = Modifier.height(14.dp))
-        InfoCard(label = stringResource(R.string.label_email_info), value = userEmail,                      iconRes = R.drawable.ic_mail)
+        InfoCard(
+            label   = stringResource(R.string.label_email_info),
+            value   = userEmail,
+            iconRes = R.drawable.ic_mail
+        )
         Spacer(modifier = Modifier.height(10.dp))
-        InfoCard(label = stringResource(R.string.label_join_date),  value = viewModel.formatJoinDate(createdAt), iconRes = R.drawable.ic_date)
+        InfoCard(
+            label   = stringResource(R.string.label_join_date),
+            value   = viewModel.formatJoinDate(createdAt),
+            iconRes = R.drawable.ic_date
+        )
     }
 }
 
@@ -409,13 +303,25 @@ fun DangerCard(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment     = Alignment.CenterVertically
             ) {
-                Text(text = stringResource(R.string.btn_logout), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = NavyDark)
+                Text(
+                    text       = stringResource(R.string.btn_logout),
+                    fontSize   = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = NavyDark
+                )
                 Spacer(modifier = Modifier.width(10.dp))
                 Box(
-                    modifier = Modifier.size(34.dp).background(PurpleLavender.copy(alpha = 0.45f), CircleShape),
+                    modifier         = Modifier
+                        .size(34.dp)
+                        .background(PurpleLavender.copy(alpha = 0.45f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(painter = painterResource(id = R.drawable.ic_logout), contentDescription = null, tint = NavyDark, modifier = Modifier.size(17.dp))
+                    Icon(
+                        painter            = painterResource(id = R.drawable.ic_logout),
+                        contentDescription = null,
+                        tint               = NavyDark,
+                        modifier           = Modifier.size(17.dp)
+                    )
                 }
             }
         }
@@ -435,13 +341,25 @@ fun DangerCard(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment     = Alignment.CenterVertically
             ) {
-                Text(text = stringResource(R.string.btn_delete_account), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = ErrorRed)
+                Text(
+                    text       = stringResource(R.string.btn_delete_account),
+                    fontSize   = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = ErrorRed
+                )
                 Spacer(modifier = Modifier.width(10.dp))
                 Box(
-                    modifier = Modifier.size(34.dp).background(ErrorRed.copy(alpha = 0.12f), CircleShape),
+                    modifier         = Modifier
+                        .size(34.dp)
+                        .background(ErrorRed.copy(alpha = 0.12f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(painter = painterResource(id = R.drawable.ic_delete), contentDescription = null, tint = ErrorRed, modifier = Modifier.size(17.dp))
+                    Icon(
+                        painter            = painterResource(id = R.drawable.ic_delete),
+                        contentDescription = null,
+                        tint               = ErrorRed,
+                        modifier           = Modifier.size(17.dp)
+                    )
                 }
             }
         }
@@ -471,12 +389,12 @@ fun EditProfileDialog(
                 horizontalAlignment = Alignment.End
             ) {
                 Text(
-                    text      = stringResource(R.string.dialog_edit_profile_title),
-                    fontSize  = 18.sp,
+                    text       = stringResource(R.string.dialog_edit_profile_title),
+                    fontSize   = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color     = NavyDark,
-                    modifier  = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.End
+                    color      = NavyDark,
+                    modifier   = Modifier.fillMaxWidth(),
+                    textAlign  = TextAlign.End
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
@@ -487,8 +405,11 @@ fun EditProfileDialog(
                     supportingText = { editState.nameError?.let { Text(it, color = MaterialTheme.colorScheme.error) } },
                     modifier       = Modifier.fillMaxWidth(),
                     shape          = RoundedCornerShape(12.dp),
-                    colors         = OutlinedTextFieldDefaults.colors(focusedBorderColor = NavyDark, unfocusedBorderColor = BorderGray),
-                    singleLine     = true
+                    colors         = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor   = NavyDark,
+                        unfocusedBorderColor = BorderGray
+                    ),
+                    singleLine = true
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 OutlinedTextField(
@@ -499,17 +420,32 @@ fun EditProfileDialog(
                     supportingText  = { editState.emailError?.let { Text(it, color = MaterialTheme.colorScheme.error) } },
                     modifier        = Modifier.fillMaxWidth(),
                     shape           = RoundedCornerShape(12.dp),
-                    colors          = OutlinedTextFieldDefaults.colors(focusedBorderColor = NavyDark, unfocusedBorderColor = BorderGray),
+                    colors          = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor   = NavyDark,
+                        unfocusedBorderColor = BorderGray
+                    ),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     singleLine      = true
                 )
                 editState.errorMessage?.let {
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = it, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
+                    Text(
+                        text      = it,
+                        color     = ErrorRed,
+                        fontSize  = 12.sp,
+                        modifier  = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.End
+                    )
                 }
                 editState.successMessage?.let {
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = it, color = SuccessGreen, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
+                    Text(
+                        text      = it,
+                        color     = SuccessGreen,
+                        fontSize  = 12.sp,
+                        modifier  = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.End
+                    )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider(color = BorderGray, thickness = 1.dp)
@@ -523,9 +459,19 @@ fun EditProfileDialog(
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment     = Alignment.CenterVertically
                 ) {
-                    Text(text = stringResource(R.string.label_change_password), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = GradientPurpleDark)
+                    Text(
+                        text       = stringResource(R.string.label_change_password),
+                        fontSize   = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color      = GradientPurpleDark
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Icon(painter = painterResource(id = R.drawable.arrow_left_circle), contentDescription = null, tint = NavyDark, modifier = Modifier.size(16.dp))
+                    Icon(
+                        painter            = painterResource(id = R.drawable.arrow_left_circle),
+                        contentDescription = null,
+                        tint               = NavyDark,
+                        modifier           = Modifier.size(16.dp)
+                    )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
@@ -542,7 +488,11 @@ fun EditProfileDialog(
                         colors  = ButtonDefaults.buttonColors(containerColor = ProgressPurple)
                     ) {
                         if (editState.isLoading) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                            CircularProgressIndicator(
+                                modifier    = Modifier.size(18.dp),
+                                color       = Color.White,
+                                strokeWidth = 2.dp
+                            )
                         } else {
                             Text(stringResource(R.string.btn_save_changes), color = Color.White)
                         }
@@ -570,16 +520,30 @@ fun ConfirmDialog(
         containerColor   = Color.White,
         shape            = RoundedCornerShape(20.dp),
         title = {
-            Text(text = title, fontWeight = FontWeight.Bold, color = NavyDark, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+            Text(
+                text       = title,
+                fontWeight = FontWeight.Bold,
+                color      = NavyDark,
+                textAlign  = TextAlign.End,
+                modifier   = Modifier.fillMaxWidth()
+            )
         },
         text = {
-            Text(text = message, color = TextSecondary, textAlign = TextAlign.End, fontSize = 14.sp, modifier = Modifier.fillMaxWidth())
+            Text(
+                text      = message,
+                color     = TextSecondary,
+                textAlign = TextAlign.End,
+                fontSize  = 14.sp,
+                modifier  = Modifier.fillMaxWidth()
+            )
         },
         confirmButton = {
             Button(
                 onClick = onConfirm,
-                colors  = ButtonDefaults.buttonColors(containerColor = if (isDestructive) ErrorRed else ProgressPurple),
-                shape   = RoundedCornerShape(10.dp)
+                colors  = ButtonDefaults.buttonColors(
+                    containerColor = if (isDestructive) ErrorRed else ProgressPurple
+                ),
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Text(confirmText, color = Color.White)
             }
@@ -602,7 +566,12 @@ private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
         modifier = Modifier
             .padding(horizontal = 17.dp)
             .fillMaxWidth()
-            .shadow(elevation = 8.dp, shape = RoundedCornerShape(24.dp), ambientColor = ShadowColor.copy(alpha = 0.07f), spotColor = ShadowColor.copy(alpha = 0.07f))
+            .shadow(
+                elevation    = 8.dp,
+                shape        = RoundedCornerShape(24.dp),
+                ambientColor = ShadowColor.copy(alpha = 0.07f),
+                spotColor    = ShadowColor.copy(alpha = 0.07f)
+            )
             .background(color = SectionCardBackground, shape = RoundedCornerShape(24.dp))
             .padding(20.dp)
     ) {
@@ -613,12 +582,14 @@ private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
 @Composable
 private fun SectionTitle(text: String) {
     Text(
-        text      = text,
-        fontSize  = 18.sp,
+        text       = text,
+        fontSize   = 18.sp,
         fontWeight = FontWeight.Bold,
-        textAlign = TextAlign.End,
-        color     = NavyDark,
-        modifier  = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+        textAlign  = TextAlign.End,
+        color      = NavyDark,
+        modifier   = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
     )
 }
 
@@ -653,16 +624,26 @@ fun SettingsToggleItem(
                 )
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                Column(
+                    modifier            = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.End
+                ) {
                     Text(label,    fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NavyDark)
                     Text(subLabel, fontSize = 12.sp, color = TextSecondary)
                 }
                 Spacer(modifier = Modifier.width(10.dp))
                 Box(
-                    modifier = Modifier.size(40.dp).background(PurpleLavender.copy(alpha = 0.5f), RoundedCornerShape(30.dp)),
+                    modifier         = Modifier
+                        .size(40.dp)
+                        .background(PurpleLavender.copy(alpha = 0.5f), RoundedCornerShape(30.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(painter = painterResource(id = iconRes), contentDescription = label, tint = ProgressPurple, modifier = Modifier.size(22.dp))
+                    Icon(
+                        painter            = painterResource(id = iconRes),
+                        contentDescription = label,
+                        tint               = ProgressPurple,
+                        modifier           = Modifier.size(22.dp)
+                    )
                 }
             }
         }
@@ -687,7 +668,12 @@ fun AboutItem(
             horizontalArrangement = Arrangement.End,
             verticalAlignment     = Alignment.CenterVertically
         ) {
-            Text(text = label, fontSize = 15.sp, color = TextPrimary, textAlign = TextAlign.End)
+            Text(
+                text      = label,
+                fontSize  = 15.sp,
+                color     = TextPrimary,
+                textAlign = TextAlign.End
+            )
             Spacer(modifier = Modifier.width(8.dp))
         }
     }
@@ -707,12 +693,20 @@ fun InfoCard(label: String, value: String, iconRes: Int) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment     = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+            Column(
+                modifier            = Modifier.weight(1f),
+                horizontalAlignment = Alignment.End
+            ) {
                 Text(label, fontSize = 11.sp, color = TextSecondary)
                 Text(value, fontSize = 14.sp, color = NavyDark)
             }
             Spacer(modifier = Modifier.width(12.dp))
-            Icon(painter = painterResource(id = iconRes), contentDescription = label, tint = NavyDark, modifier = Modifier.size(28.dp))
+            Icon(
+                painter            = painterResource(id = iconRes),
+                contentDescription = label,
+                tint               = NavyDark,
+                modifier           = Modifier.size(28.dp)
+            )
         }
     }
 }
