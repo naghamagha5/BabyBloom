@@ -71,7 +71,7 @@
     <string name="parent_home_stats_title">أبرز إنجازات الأسبوع</string>
 
     <string name="parent_home_stat_1_number">18</string>
-    <string name="parent_home_stat_1_label">إجمالي الإنجازات المحققة</string>
+    <string name="parent_home_stat_1_label">متوسط التقدم هذا الأسبوع</string>
 
     <string name="parent_home_stat_2_number">47</string>
     <string name="parent_home_stat_2_label">إجمالي الإنجازات المحققة</string>
@@ -343,5 +343,9 @@
     <string name="ai_empty_title">لا توجد رؤى بعد</string>
     <string name="ai_empty_subtitle">اضغط على زر التحديث لتوليد رؤى مخصصة لطفلك</string>
     <string name="action_add_child">إضافة طفل</string>
+
+    <!-- AI Insights dropdown -->
+    <string name="parent_home_ai_select_child">اختر طفلاً</string>
+    <string name="parent_home_ai_insight_for_child">رؤى الذكاء الاصطناعي لـ %s</string>
 
 </resources>
