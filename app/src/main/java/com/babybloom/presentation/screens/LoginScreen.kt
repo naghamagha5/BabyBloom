@@ -234,7 +234,7 @@ fun LoginScreen(
                             Box(modifier = Modifier.fillMaxWidth()) {
                                 TextButton(
                                     onClick  = onNavigateToChangePassword,  //
-                                    modifier = Modifier.align(Alignment.CenterEnd)
+                                    modifier = Modifier.align(Alignment.CenterStart)
                                 ) {
                                     Text(
                                         text  = stringResource(R.string.forgot_password),

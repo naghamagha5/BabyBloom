@@ -164,3 +164,12 @@ val AvatarBorder = Color(0xFF8E2357)
 val Gradient1 = Color(0xFF161C36)
 val Gradient2 = Color(0xFF8C59C0)
 val Gradient3 = Color(0xFF7F80DA)
+
+val Card1 = Color(0xFFDFCCED)
+
+val Card2 = Color(0xFFB3DFED)
+
+val Card3 = Color(0xFFFFDCC2)
+
+val DarkPurple = Color(0xFF2E2645)
+

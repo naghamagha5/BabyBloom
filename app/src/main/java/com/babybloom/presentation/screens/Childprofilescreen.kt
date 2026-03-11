@@ -9,16 +9,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.PaintingStyle.Companion.Stroke
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -28,15 +27,30 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.babybloom.R
 import com.babybloom.domain.model.Child
+import com.babybloom.domain.model.ChildStatus
 import com.babybloom.presentation.viewmodels.ChildProfileViewModel
 import com.babybloom.ui.theme.*
 
 // ─── Tab enum ────────────────────────────────────────────────────────────────
 enum class ChildProfileTab { ANALYTICS, AI_INSIGHTS, SETTINGS }
+
+private fun resolveAvatarResId(avatar: String): Int = when (avatar) {
+    "avatars/girl_1.webp", "avatar_girl_1" -> R.drawable.avatar_girl_1
+    "avatars/girl_2.webp", "avatar_girl_2" -> R.drawable.avatar_girl_2
+    "avatars/girl_3.webp", "avatar_girl_3" -> R.drawable.avatar_girl_3
+    "avatars/girl_4.webp", "avatar_girl_4" -> R.drawable.avatar_girl_4
+    "avatars/girl_5.webp", "avatar_girl_5" -> R.drawable.avatar_girl_5
+    "avatars/girl_6.webp", "avatar_girl_6" -> R.drawable.avatar_girl_6
+    "avatars/boy_1.webp",  "avatar_boy_1"  -> R.drawable.avatar_boy_1
+    "avatars/boy_2.webp",  "avatar_boy_2"  -> R.drawable.avatar_boy_2
+    "avatars/boy_3.webp",  "avatar_boy_3"  -> R.drawable.avatar_boy_3
+    "avatars/boy_4.webp",  "avatar_boy_4"  -> R.drawable.avatar_boy_4
+    "avatars/boy_5.webp",  "avatar_boy_5"  -> R.drawable.avatar_boy_5
+    "avatars/boy_6.webp",  "avatar_boy_6"  -> R.drawable.avatar_boy_6
+    else                                    -> R.drawable.ic_child_avatar_default
+}
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
@@ -44,10 +58,9 @@ enum class ChildProfileTab { ANALYTICS, AI_INSIGHTS, SETTINGS }
 fun ChildProfileScreen(
     onNavigateToHome: () -> Unit = {},
     viewModel: ChildProfileViewModel = hiltViewModel()
-
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var selectedTab by remember { mutableStateOf(ChildProfileTab.ANALYTICS) }
+    var selectedTab by rememberSaveable  { mutableStateOf(ChildProfileTab.ANALYTICS) }
 
     LaunchedEffect(uiState.navigateToHome) {
         if (uiState.navigateToHome) {
@@ -89,7 +102,7 @@ fun ChildProfileScreen(
                         isLoading     = uiState.isLoadingInsight,
                         onRefresh     = viewModel::onRefreshInsight
                     )
-                    ChildProfileTab.SETTINGS    -> ChildSettingsTab(
+                    ChildProfileTab.SETTINGS -> ChildSettingsTab(
                         child                         = uiState.child,
                         currentSessionDurationMinutes = uiState.currentSessionDurationMinutes,
                         showDurationPicker            = uiState.showSessionDurationPicker,
@@ -113,10 +126,10 @@ fun ChildProfileScreen(
 // ─── Shared Header ────────────────────────────────────────────────────────────
 @Composable
 internal fun ChildProfileHeader(
-    child: Child?,
-    sessionCount: Int,
+    child          : Child?,
+    sessionCount   : Int,
     progressPercent: Int,
-    onBackClick: () -> Unit
+    onBackClick    : () -> Unit
 ) {
     val buttonGradient = Brush.horizontalGradient(
         colors = listOf(GradientPurpleMedium, GradientPurpleDark)
@@ -146,7 +159,6 @@ internal fun ChildProfileHeader(
             )
 
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                val context = LocalContext.current
                 Column(
                     modifier            = Modifier
                         .fillMaxWidth()
@@ -211,6 +223,7 @@ internal fun ChildProfileHeader(
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
+
                     Row(
                         modifier              = Modifier
                             .fillMaxWidth()
@@ -231,40 +244,16 @@ internal fun ChildProfileHeader(
                                     style      = Stroke(width = 3.dp.toPx())
                                 )
                             }
-                            Box(
-                                modifier         = Modifier
+                            Image(
+                                painter            = painterResource(
+                                    resolveAvatarResId(child?.avatar.orEmpty())
+                                ),
+                                contentDescription = child?.name,
+                                contentScale       = ContentScale.Crop,
+                                modifier           = Modifier
                                     .size(82.dp)
-                                    .background(White, CircleShape)
-                                    .clip(CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (child?.avatar.isNullOrBlank()) {
-                                    Icon(
-                                        painter            = painterResource(R.drawable.ic_child_avatar_default),
-                                        contentDescription = null,
-                                        modifier           = Modifier.size(54.dp),
-                                        tint               = NavyDark.copy(alpha = 0.5f)
-                                    )
-                                } else {
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(LocalContext.current)
-                                            .data(
-                                                android.net.Uri.parse(
-                                                    "android.resource://${context.packageName}/drawable/${child!!.avatar}"
-                                                )
-                                            )
-                                            .crossfade(true)
-                                            .build(),
-                                        contentDescription = child.name,
-                                        contentScale       = ContentScale.Crop,
-                                        modifier           = Modifier
-                                            .size(82.dp)
-                                            .clip(CircleShape),
-                                        error       = painterResource(R.drawable.ic_child_avatar_default),
-                                        placeholder = painterResource(R.drawable.ic_child_avatar_default)
-                                    )
-                                }
-                            }
+                                    .clip(CircleShape)
+                            )
                         }
 
                         Column(
@@ -280,6 +269,15 @@ internal fun ChildProfileHeader(
                                 ),
                                 textAlign = TextAlign.End
                             )
+                            child?.age?.let { age ->
+                                Text(
+                                    text      = "$age ${stringResource(R.string.label_years)}",
+                                    style     = MaterialTheme.typography.bodySmall.copy(
+                                        color = TextSecondary
+                                    ),
+                                    textAlign = TextAlign.End
+                                )
+                            }
                         }
                     }
 
@@ -294,10 +292,12 @@ internal fun ChildProfileHeader(
                     ) {
                         StatCard(
                             label    = stringResource(R.string.stat_status_label),
-                            value    = if (child?.isActive != false)
-                                stringResource(R.string.stat_status_active)
-                            else
-                                stringResource(R.string.stat_status_inactive),
+                            value = when (child?.status) {
+                                ChildStatus.ACTIVE        -> stringResource(R.string.stat_status_active)
+                                ChildStatus.CALM          -> stringResource(R.string.stat_status_calm)
+                                ChildStatus.NEEDS_SUPPORT -> stringResource(R.string.stat_status_needs_support)
+                                null                      -> stringResource(R.string.stat_status_active)
+                            },
                             modifier = Modifier.weight(1f)
                         )
                         StatCard(
@@ -319,8 +319,8 @@ internal fun ChildProfileHeader(
 
 @Composable
 private fun StatCard(
-    label: String,
-    value: String,
+    label   : String,
+    value   : String,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -354,7 +354,7 @@ private fun StatCard(
 
 @Composable
 private fun ChildProfileBottomNav(
-    selectedTab: ChildProfileTab,
+    selectedTab  : ChildProfileTab,
     onTabSelected: (ChildProfileTab) -> Unit
 ) {
     NavigationBar(
@@ -419,7 +419,6 @@ private fun ChildProfileBottomNav(
                             R.drawable.ic_analytics_outline
                     ),
                     contentDescription = null,
-                    // Mirrors the bar-chart icon for RTL direction
                     modifier = Modifier.graphicsLayer { scaleX = -1f }
                 )
             },

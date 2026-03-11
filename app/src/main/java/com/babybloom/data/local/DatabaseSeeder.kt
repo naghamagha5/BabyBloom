@@ -42,7 +42,7 @@ class DatabaseSeeder @Inject constructor(
                 backgroundMusicEnabled = true,
                 reducedAnimation       = false,
                 uiTheme                = false,
-                isActive               = true,
+                status                 = "NEEDS_SUPPORT",
                 sessionDurationMinutes = 20
             )
         )
