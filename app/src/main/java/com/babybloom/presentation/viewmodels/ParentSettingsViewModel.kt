@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.babybloom.R
 import com.babybloom.data.local.dao.ChildDao
 import com.babybloom.data.local.dao.UserDao
+import com.babybloom.di.AppSoundSettings
 import com.babybloom.di.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -59,8 +60,9 @@ class ParentViewModel @Inject constructor(
     private val sessionManager : SessionManager,
     private val userDao        : UserDao,
     private val childDao       : ChildDao,
-    @ApplicationContext private val context: Context
-) : ViewModel() {
+    @ApplicationContext private val context: Context,
+    private val appSoundSettings: AppSoundSettings,
+    ) : ViewModel() {
 
     // ── Session data ─────────────────────────────────────────────────────────
     val userName: StateFlow<String> = sessionManager.userName
@@ -91,7 +93,7 @@ class ParentViewModel @Inject constructor(
 
     // ── Settings toggles ──────────────────────────────────────────────────────
     val notificationsEnabled = MutableStateFlow(true)
-    val soundEnabled         = MutableStateFlow(true)
+    val soundEnabled get() = appSoundSettings.soundEnabled
     val musicEnabled         = MutableStateFlow(true)
 
     fun toggleNotifications(enabled: Boolean) {
@@ -101,7 +103,7 @@ class ParentViewModel @Inject constructor(
 
     fun toggleSound(enabled: Boolean) {
         playButtonSound()
-        soundEnabled.value = enabled
+        appSoundSettings.soundEnabled.value = enabled
     }
 
     fun toggleMusic(enabled: Boolean) {

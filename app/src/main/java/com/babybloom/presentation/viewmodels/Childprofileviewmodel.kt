@@ -23,6 +23,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import android.content.Context
+import android.media.SoundPool
+import com.babybloom.R
+import com.babybloom.di.AppSoundSettings
+import dagger.hilt.android.qualifiers.ApplicationContext
 
 data class ChildProfileUiState(
     val child: Child? = null,
@@ -49,13 +54,21 @@ class ChildProfileViewModel @Inject constructor(
     private val aiInsightRepository: AiInsightRepository,
     private val sessionRepository: SessionRepository,
     private val activityResultRepository: ActivityResultRepository,
-    savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle,
+    private val appSoundSettings: AppSoundSettings,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     private val childId: Long = checkNotNull(savedStateHandle["childId"])
 
     private val _uiState = MutableStateFlow(ChildProfileUiState())
     val uiState: StateFlow<ChildProfileUiState> = _uiState.asStateFlow()
+
+    // ── Sound ─────────────────────────────────────────────────────────────────
+    private val soundPool     = SoundPool.Builder().setMaxStreams(3).build()
+    private var toggleSoundId : Int     = 0
+    private var soundLoaded   : Boolean = false
+
 
     init {
         observeChild()
@@ -64,6 +77,19 @@ class ChildProfileViewModel @Inject constructor(
         observeLatestInsight()
         loadRecentActivities()
         loadChartData()
+        soundPool.setOnLoadCompleteListener { _, _, status -> soundLoaded = status == 0 }
+        toggleSoundId = soundPool.load(context, R.raw.button_one, 1)
+    }
+
+    private fun playToggleSound() {
+        if (appSoundSettings.soundEnabled.value && soundLoaded) {
+            soundPool.play(toggleSoundId, 1f, 1f, 0, 0, 1f)
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        soundPool.release()
     }
 
     // ── Observers ─────────────────────────────────────────────────────────────
@@ -196,6 +222,7 @@ class ChildProfileViewModel @Inject constructor(
     // ── Settings ──────────────────────────────────────────────────────────────
 
     fun onToggleSoundEffects(enabled: Boolean) {
+        playToggleSound()
         viewModelScope.launch {
             val child = _uiState.value.child ?: return@launch
             childRepository.updateChild(child.copy(musicEnabled = enabled))
@@ -203,6 +230,7 @@ class ChildProfileViewModel @Inject constructor(
     }
 
     fun onToggleBackgroundMusic(enabled: Boolean) {
+        playToggleSound()
         viewModelScope.launch {
             val child = _uiState.value.child ?: return@launch
             childRepository.updateChild(child.copy(backgroundMusicEnabled = enabled))
@@ -210,6 +238,7 @@ class ChildProfileViewModel @Inject constructor(
     }
 
     fun onToggleUiTheme(isCalmMode: Boolean) {
+        playToggleSound()
         viewModelScope.launch {
             val child = _uiState.value.child ?: return@launch
             childRepository.updateChild(child.copy(uiTheme = isCalmMode))

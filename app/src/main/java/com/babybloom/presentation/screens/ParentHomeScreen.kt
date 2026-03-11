@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,31 +54,43 @@ import com.babybloom.ui.theme.*
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun ParentShell(
-    onNavigateToLogin     : () -> Unit = {},
-    onNavigateToChangePwd : () -> Unit = {},
-    onNavigateToAddChild  : () -> Unit = {}
+    startTab                 : Int = 0,
+    onNavigateToLogin        : () -> Unit = {},
+    onNavigateToChangePwd    : () -> Unit = {},
+    onNavigateToAddChild     : () -> Unit = {},
+    onNavigateToChildProfile : (Long) -> Unit = {}
 ) {
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by rememberSaveable { mutableStateOf(startTab) }
+
     Box(modifier = Modifier.fillMaxSize()) {
         when (selectedTab) {
-            0 -> ParentHomeScreen(onNavigate = { route ->
-                when (route) {
-                    "children"  -> selectedTab = 1
-                    "settings"  -> selectedTab = 2
-                    "add_child" -> onNavigateToAddChild()
+            0 -> ParentHomeScreen(
+                onNavigate = { route ->
+                    when (route) {
+                        "children"  -> selectedTab = 1
+                        "settings"  -> selectedTab = 2
+                        "add_child" -> onNavigateToAddChild()
+                    }
                 }
-            })
-            1 -> MyChildrenContent(onAddChildClick = onNavigateToAddChild)
+            )
+            1 -> MyChildrenContent(
+                onAddChildClick = onNavigateToAddChild,
+                onChildClick    = onNavigateToChildProfile
+            )
             2 -> ParentSettingsContent(
                 onNavigateToLogin     = onNavigateToLogin,
                 onNavigateToChangePwd = onNavigateToChangePwd,
                 onNavigateToAddChild  = onNavigateToAddChild
             )
         }
+
         ParentBottomNav(
             selectedTab   = selectedTab,
             onTabSelected = { selectedTab = it },
-            modifier      = Modifier.fillMaxWidth().align(Alignment.BottomCenter).zIndex(2f)
+            modifier      = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .zIndex(2f)
         )
     }
 }
@@ -529,7 +542,6 @@ fun ParentHeader(
                     )
                 }
             }
-
             Column(
                 modifier = Modifier
                     .align(Alignment.Center)

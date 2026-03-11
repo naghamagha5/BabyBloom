@@ -2,17 +2,21 @@ package com.babybloom.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.babybloom.di.SessionManager
 import com.babybloom.presentation.screens.AddChildScreen
 import com.babybloom.presentation.screens.ChangePasswordScreen
+import com.babybloom.presentation.screens.ChildProfileScreen
 import com.babybloom.presentation.screens.LandingScreen
 import com.babybloom.presentation.screens.LoginScreen
 import com.babybloom.presentation.screens.ParentShell
@@ -27,8 +31,8 @@ object Routes {
     const val CHANGE_PASSWORD = "change_password"
     const val ADD_CHILD       = "add_child"
     const val HOME            = "home"
-    const val PARENT_VIEW     = "parent_view"
-    const val MY_CHILDREN     = "my_children"
+    const val CHILD_PROFILE = "child_profile"
+
 }
 
 @Composable
@@ -130,8 +134,13 @@ fun BabyBloomNavGraph(
         }
 
         // ── HOME ───────────────────────────────────────────────────────────
-        composable(Routes.HOME) {
+        composable(Routes.HOME) { backStackEntry ->
+            val startTab by backStackEntry.savedStateHandle
+                .getStateFlow("startTab", 0)
+                .collectAsState()
+
             ParentShell(
+                startTab = startTab,
                 onNavigateToLogin = {
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(0) { inclusive = true }
@@ -142,6 +151,23 @@ fun BabyBloomNavGraph(
                 },
                 onNavigateToAddChild = {
                     navController.navigate(Routes.ADD_CHILD)
+                },
+                onNavigateToChildProfile = { childId ->
+                    navController.navigate("${Routes.CHILD_PROFILE}/$childId")
+                }
+            )
+        }
+
+        composable(
+            route = "${Routes.CHILD_PROFILE}/{childId}",
+            arguments = listOf(navArgument("childId") { type = NavType.LongType })
+        ) {
+            ChildProfileScreen(
+                onNavigateToHome = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("startTab", 1)
+                    navController.popBackStack()
                 }
             )
         }

@@ -120,7 +120,8 @@ class AddChildViewModel @Inject constructor(
                     name   = state.childName.trim(),
                     age    = state.childAge.toInt(),
                     notes  = notesValue,
-                    avatar = state.selectedAvatar
+                    avatar = state.selectedAvatar,
+                    status = "ACTIVE"
                 )
 
                 childDao.insert(child)

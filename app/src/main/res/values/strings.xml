@@ -61,10 +61,10 @@
     <string name="parent_home_card_1_title">إجمالي عدد الأطفال</string>
     <string name="parent_home_card_1_subtitle">نظرة عامة</string>
 
-    <string name="parent_home_card_2_title">النشطون اليوم</string>
+    <string name="parent_home_card_2_title">الأطفال النشطون اليوم</string> ---------------------------------
     <string name="parent_home_card_2_subtitle">الانشراقة</string>
 
-    <string name="parent_home_card_3_title">بحاجة إلى دعم</string>
+    <string name="parent_home_card_3_title">الأطفال الذين بحاجة إلى دعم</string> ---------------------------------
     <string name="parent_home_card_3_subtitle">الدعم المطلوب</string>
 
     <!-- Section 2: Weekly Achievements (أبرز إنجازات الأسبوع) -->
@@ -80,7 +80,7 @@
     <string name="parent_home_stat_3_label">متوسط التقدم هذا الأسبوع</string>
 
     <!-- Section 3: AI Insights (رؤى الذكاء الاصطناعي) -->
-    <string name="parent_home_featured_title">رؤى الذكاء الاصطناعي لليوم</string>
+    <string name="parent_home_featured_title">رؤى الذكاء الاصطناعي</string>-----------------------------------------------
     <string name="parent_home_featured_desc">أظهر 3 أطفال تحسّنًا في مستوى التركيز مع أنشطة الصباح.</string>
     <string name="parent_home_featured_more">اضغط لعرض المزيد...</string>
 
@@ -343,6 +343,8 @@
     <string name="ai_empty_title">لا توجد رؤى بعد</string>
     <string name="ai_empty_subtitle">اضغط على زر التحديث لتوليد رؤى مخصصة لطفلك</string>
     <string name="action_add_child">إضافة طفل</string>
+    <string name="stat_status_calm">هادئ</string>
+    <string name="stat_status_needs_support">يحتاج دعم</string>
 
     <!-- AI Insights dropdown -->
     <string name="parent_home_ai_select_child">اختر طفلاً</string>

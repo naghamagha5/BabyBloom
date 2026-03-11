@@ -169,9 +169,9 @@ private fun ChartLegendItem(color: Color, label: String) {
     Spacer(modifier = Modifier.width(3.dp))
     Row(
         verticalAlignment     = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        Spacer(modifier = Modifier.width(4.dp))
+        Spacer(modifier = Modifier.width(0.dp))
         Box(modifier = Modifier.size(8.dp).background(color, RoundedCornerShape(2.dp)))
         Text(text = label, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
     }
