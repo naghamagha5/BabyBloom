@@ -2,4 +2,8 @@
 <resources>
 
     <style name="Theme.BabyBloom" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="postSplashScreenTheme">@style/Theme.BabyBloom</item>
+    </style>
 </resources>

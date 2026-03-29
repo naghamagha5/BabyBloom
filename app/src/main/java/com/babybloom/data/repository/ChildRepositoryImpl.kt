@@ -3,6 +3,7 @@ package com.babybloom.data.repository
 import com.babybloom.data.local.dao.ChildDao
 import com.babybloom.data.local.entity.ChildEntity
 import com.babybloom.domain.model.Child
+import com.babybloom.domain.model.ChildStatus
 import com.babybloom.domain.repository.ChildRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -26,7 +27,10 @@ class ChildRepositoryImpl @Inject constructor(
 
     override suspend fun getById(id: Long): Child? =
         childDao.getById(id)?.toDomain()
+
+    override fun observeById(id: Long): Flow<Child?> =
+        childDao.observeById(id).map { it?.toDomain() }
 }
 
-fun ChildEntity.toDomain() = Child(id, userId, name, age, notes, avatar, musicEnabled, reducedAnimation, uiTheme, createdAt)
-fun Child.toEntity() = ChildEntity(id, userId, name, age, notes, avatar, musicEnabled, reducedAnimation, uiTheme, createdAt)
+fun ChildEntity.toDomain() = Child(id, userId, name, age, notes, avatar, musicEnabled, reducedAnimation, uiTheme, createdAt, ChildStatus.valueOf(status), sessionDurationMinutes, backgroundMusicEnabled)
+fun Child.toEntity() = ChildEntity(id, userId, name, age, notes, avatar, musicEnabled, reducedAnimation, uiTheme, createdAt, status.name, sessionDurationMinutes, backgroundMusicEnabled)

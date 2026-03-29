@@ -36,4 +36,6 @@ object DatabaseModule {
     @Provides fun provideActivityContentDao(db: AppDatabase) = db.activityContentDao()
     @Provides fun provideActivityResultDao(db: AppDatabase) = db.activityResultDao()
     @Provides fun provideInteractionEventDao(db: AppDatabase) = db.interactionEventDao()
+    @Provides fun provideAiInsightDao(db: AppDatabase) = db.aiInsightDao()
+
 }
