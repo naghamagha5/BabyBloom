@@ -1,7 +1,20 @@
-package com.babybloom.data.local
+package com.babybloom.data.local.seeder
 
-import com.babybloom.data.local.dao.*
-import com.babybloom.data.local.entity.*
+import com.babybloom.data.local.dao.ActivityDao
+import com.babybloom.data.local.dao.ActivityResultDao
+import com.babybloom.data.local.dao.AiInsightDao
+import com.babybloom.data.local.dao.ChildDao
+import com.babybloom.data.local.dao.ChildProfileDao
+import com.babybloom.data.local.dao.SessionDao
+import com.babybloom.data.local.dao.UserDao
+import com.babybloom.data.local.entity.ActivityEntity
+import com.babybloom.data.local.entity.ActivityResultEntity
+import com.babybloom.data.local.entity.AiInsightEntity
+import com.babybloom.data.local.entity.ChildEntity
+import com.babybloom.data.local.entity.ChildProfileEntity
+import com.babybloom.data.local.entity.SessionEntity
+import com.babybloom.data.local.entity.UserEntity
+import com.babybloom.util.HashUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -24,25 +37,25 @@ class DatabaseSeeder @Inject constructor(
         // ── 1. User ───────────────────────────────────────────────────────
         val userId = userDao.insert(
             UserEntity(
-                name         = "أحمد محمد",
-                email        = "test@babybloom.com",
-                passwordHash = com.babybloom.util.HashUtils.sha256("test1234!")
+                name = "أحمد محمد",
+                email = "test@babybloom.com",
+                passwordHash = HashUtils.sha256("test1234!")
             )
         )
 
         // ── 2. Child ──────────────────────────────────────────────────────
         val childId = childDao.insert(
             ChildEntity(
-                userId                 = userId,
-                name                   = "ليلى",
-                age                    = 4,
-                notes                  = "تحب الرسم والألوان",
-                avatar                 = "avatar_girl_1",
-                musicEnabled           = true,
+                userId = userId,
+                name = "ليلى",
+                age = 4,
+                notes = "تحب الرسم والألوان",
+                avatar = "avatar_girl_1",
+                musicEnabled = true,
                 backgroundMusicEnabled = true,
-                reducedAnimation       = false,
-                uiTheme                = false,
-                status                 = "NEEDS_SUPPORT",
+                reducedAnimation = false,
+                uiTheme = false,
+                status = "NEEDS_SUPPORT",
                 sessionDurationMinutes = 20
             )
         )
@@ -50,13 +63,13 @@ class DatabaseSeeder @Inject constructor(
         // ── 3. Child Profile ──────────────────────────────────────────────
         childProfileDao.insert(
             ChildProfileEntity(
-                childId           = childId,
-                visualScore       = 0.82f,
-                audioScore        = 0.65f,
-                gameScore         = 0.78f,
-                languageLevel     = 2,
-                numeracyLevel     = 2,
-                motorLevel        = 3,
+                childId = childId,
+                visualScore = 0.82f,
+                audioScore = 0.65f,
+                gameScore = 0.78f,
+                languageLevel = 2,
+                numeracyLevel = 2,
+                motorLevel = 3,
                 totalSessionCount = 42
             )
         )
@@ -64,31 +77,31 @@ class DatabaseSeeder @Inject constructor(
         // ── 4. Activities — must come before activity_results (FK) ────────
         val activities = listOf(
             ActivityEntity(
-                id              = "lang_letters_001",
-                title           = "الحروف العربية",
-                description     = "تعلم الحروف الهجائية",
-                modality        = "VISUAL",
-                skillArea       = "LANGUAGE",
+                id = "lang_letters_001",
+                title = "الحروف العربية",
+                description = "تعلم الحروف الهجائية",
+                modality = "VISUAL",
+                skillArea = "LANGUAGE",
                 difficultyLevel = 2,
-                activityType    = "MATCH"
+                activityType = "MATCH"
             ),
             ActivityEntity(
-                id              = "num_count_001",
-                title           = "الأرقام والحساب",
-                description     = "تعلم الأرقام والعد",
-                modality        = "INTERACTIVE",
-                skillArea       = "NUMERACY",
+                id = "num_count_001",
+                title = "الأرقام والحساب",
+                description = "تعلم الأرقام والعد",
+                modality = "INTERACTIVE",
+                skillArea = "NUMERACY",
                 difficultyLevel = 2,
-                activityType    = "COUNT"
+                activityType = "COUNT"
             ),
             ActivityEntity(
-                id              = "vis_colors_001",
-                title           = "الألوان والأشكال",
-                description     = "التعرف على الألوان والأشكال",
-                modality        = "VISUAL",
-                skillArea       = "MOTOR",
+                id = "vis_colors_001",
+                title = "الألوان والأشكال",
+                description = "التعرف على الألوان والأشكال",
+                modality = "VISUAL",
+                skillArea = "MOTOR",
                 difficultyLevel = 1,
-                activityType    = "STORY"
+                activityType = "STORY"
             )
         )
         activities.forEach { activityDao.insert(it) }
@@ -101,11 +114,11 @@ class DatabaseSeeder @Inject constructor(
         val sessionIds = (0..5).map { i ->
             sessionDao.insert(
                 SessionEntity(
-                    userId         = userId,
-                    childId        = childId,
-                    startTime      = now - (i * day),
-                    endTime        = now - (i * day) + dur,
-                    isAssessment   = (i == 0),
+                    userId = userId,
+                    childId = childId,
+                    startTime = now - (i * day),
+                    endTime = now - (i * day) + dur,
+                    isAssessment = (i == 0),
                     attentionScore = minOf(0.70f + i * 0.04f, 0.99f)
                 )
             )
@@ -119,14 +132,14 @@ class DatabaseSeeder @Inject constructor(
             activities.forEachIndexed { ai, activity ->
                 activityResultDao.insert(
                     ActivityResultEntity(
-                        sessionId      = sessionId,
-                        childId        = childId,
-                        activityId     = activity.id,   // ← valid FK, matches step 4
-                        score          = (baseScores[ai] - si * 0.02f).coerceAtLeast(0.50f),
-                        duration       = 5 * 60 * 1000L + ai * 60_000L,
-                        correctCount   = (baseScores[ai] * 10).toInt(),
+                        sessionId = sessionId,
+                        childId = childId,
+                        activityId = activity.id,   // ← valid FK, matches step 4
+                        score = (baseScores[ai] - si * 0.02f).coerceAtLeast(0.50f),
+                        duration = 5 * 60 * 1000L + ai * 60_000L,
+                        correctCount = (baseScores[ai] * 10).toInt(),
                         incorrectCount = 10 - (baseScores[ai] * 10).toInt(),
-                        timestamp      = now - (si * day) + (ai * 300_000L)
+                        timestamp = now - (si * day) + (ai * 300_000L)
                     )
                 )
             }
@@ -135,7 +148,7 @@ class DatabaseSeeder @Inject constructor(
         // ── 7. AI Insight ─────────────────────────────────────────────────
         aiInsightDao.insertInsight(
             AiInsightEntity(
-                childId     = childId,
+                childId = childId,
                 insightText = SEED_INSIGHT,
                 generatedAt = now
             )
