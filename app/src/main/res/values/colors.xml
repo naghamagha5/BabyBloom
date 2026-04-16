@@ -8,4 +8,12 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
+    <!-- Active mode — bright, vivid -->
+    <color name="active_tint">#FF6B35</color>
+    <!-- Calm mode — muted, soft -->
+    <color name="calm_tint">#8EAFC2</color>
+
+    <!-- ParentLockScreen -->
+    <color name="parent_lock_overlay">#D9000000</color>  <!-- Black @ 85% alpha = 0xD9 -->
+
 </resources>

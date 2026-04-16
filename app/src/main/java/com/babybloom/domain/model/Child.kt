@@ -7,7 +7,7 @@ data class Child(
     val age: Int,
     val notes: String = "",
     val avatar: String = "",
-    val musicEnabled: Boolean = true,
+    val soundEffectEnabled: Boolean = true,
     val reducedAnimation: Boolean = false,
     val uiTheme: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),

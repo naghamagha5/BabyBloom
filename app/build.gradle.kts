@@ -86,9 +86,12 @@ dependencies {
 
     // ── Coroutines ──────────────────────────────────────────────────────────
     implementation(libs.coroutines.android)
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.7.3")
 
     // ── Security ────────────────────────────────────────────────────────────
     implementation(libs.security.crypto)
+    implementation("org.mindrot:jbcrypt:0.4")
 
     // ── Media (ExoPlayer) ───────────────────────────────────────────────────
     implementation("androidx.media3:media3-exoplayer:1.4.1")
@@ -96,6 +99,13 @@ dependencies {
 
     // ── ML Kit ──────────────────────────────────────────────────────────────
     implementation("com.google.mlkit:face-detection:16.1.7")
+
+    // ── CameraX ─────────────────────────────────────────────────────────────
+    val cameraVersion = "1.3.4"
+    implementation("androidx.camera:camera-core:$cameraVersion")
+    implementation("androidx.camera:camera-camera2:$cameraVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraVersion")
+    implementation("androidx.camera:camera-view:$cameraVersion")
 
     // ── Charts ──────────────────────────────────────────────────────────────
     implementation("com.patrykandpatrick.vico:compose:2.0.0")

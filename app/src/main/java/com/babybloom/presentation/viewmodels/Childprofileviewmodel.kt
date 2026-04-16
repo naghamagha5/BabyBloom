@@ -225,7 +225,7 @@ class ChildProfileViewModel @Inject constructor(
         playToggleSound()
         viewModelScope.launch {
             val child = _uiState.value.child ?: return@launch
-            childRepository.updateChild(child.copy(musicEnabled = enabled))
+            childRepository.updateChild(child.copy(soundEffectEnabled = enabled))
         }
     }
 
