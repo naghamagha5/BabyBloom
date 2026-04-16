@@ -23,7 +23,7 @@ data class ChildEntity(
     val age: Int,
     val notes: String = "",
     val avatar: String = "",          // asset path e.g. "avatars/bear.webp"
-    val musicEnabled: Boolean = true,
+    val soundEffectEnabled: Boolean = true,
     val reducedAnimation: Boolean = false,
     val uiTheme: Boolean = false,  // "false" for "ACTIVE" and "true" for "CALM"
     val createdAt: Long = System.currentTimeMillis(),
