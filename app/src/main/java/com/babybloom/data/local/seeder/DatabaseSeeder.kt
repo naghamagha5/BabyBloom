@@ -51,7 +51,7 @@ class DatabaseSeeder @Inject constructor(
                 age = 4,
                 notes = "تحب الرسم والألوان",
                 avatar = "avatar_girl_1",
-                musicEnabled = true,
+                soundEffectEnabled = true,
                 backgroundMusicEnabled = true,
                 reducedAnimation = false,
                 uiTheme = false,
