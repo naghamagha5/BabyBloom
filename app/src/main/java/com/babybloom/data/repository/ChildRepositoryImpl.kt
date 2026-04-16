@@ -33,4 +33,4 @@ class ChildRepositoryImpl @Inject constructor(
 }
 
 fun ChildEntity.toDomain() = Child(id, userId, name, age, notes, avatar, soundEffectEnabled, reducedAnimation, uiTheme, createdAt, ChildStatus.valueOf(status), sessionDurationMinutes, backgroundMusicEnabled)
-fun Child.toEntity() = ChildEntity(id, userId, name, age, notes, avatar, musicEnabled, reducedAnimation, uiTheme, createdAt, status.name, sessionDurationMinutes, backgroundMusicEnabled)
+fun Child.toEntity() = ChildEntity(id, userId, name, age, notes, avatar, soundEffectEnabled, reducedAnimation, uiTheme, createdAt, status.name, sessionDurationMinutes, backgroundMusicEnabled)

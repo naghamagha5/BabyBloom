@@ -7,4 +7,7 @@ interface UserRepository {
     suspend fun getByEmail(email: String): User?
     suspend fun getById(id: Long): User?
     suspend fun emailExists(email: String): Boolean
+    suspend fun setParentLockPin(userId: Long, rawPin: String)
+    suspend fun verifyParentLockPin(userId: Long, enteredPin: String): Boolean
+    suspend fun verifyParentPassword(userId: Long, enteredPassword: String): Boolean
 }

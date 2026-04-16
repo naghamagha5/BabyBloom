@@ -350,4 +350,15 @@
     <string name="parent_home_ai_select_child">اختر طفلاً</string>
     <string name="parent_home_ai_insight_for_child">رؤى الذكاء الاصطناعي لـ %s</string>
 
+    <!-- ParentLockScreen -->
+    <string name="parent_lock_enter_pin">أدخل رمز الوالدين</string>
+    <string name="parent_lock_enter_password">أدخل كلمة المرور</string>
+    <string name="parent_lock_password_label">كلمة المرور</string>
+    <string name="parent_lock_forgot_pin">نسيت الرقم؟ استخدم كلمة المرور</string>
+    <string name="parent_lock_confirm">تأكيد</string>
+    <string name="parent_lock_cancel">إلغاء — العودة للعبة</string>
+
+    <!-- NumPad -->
+    <string name="numpad_delete">⌫</string>
+
 </resources>
