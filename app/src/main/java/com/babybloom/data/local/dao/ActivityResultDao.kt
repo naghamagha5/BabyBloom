@@ -13,24 +13,22 @@ interface ActivityResultDao {
     suspend fun insert(result: ActivityResultEntity): Long
 
     @Query("""
-        SELECT COALESCE(a.title, ar.activityId) AS activityTitle,
-               ar.score,
-               ar.timestamp,
-               ar.duration
-        FROM activity_results ar
-        LEFT JOIN activities a ON ar.activityId = a.id
-        WHERE ar.childId = :childId
-        ORDER BY ar.timestamp DESC
-        LIMIT :limit
-    """)
-    suspend fun getRecentWithTitle(
-        childId: Long,
-        limit: Int = 3
-    ): List<ActivityResultWithTitle>
+    SELECT COALESCE(a.title, ar.activityId) AS activityTitle,
+           ar.score,
+           ar.timestamp,
+           ar.duration
+    FROM activity_results ar
+    LEFT JOIN activities a ON ar.activityId = a.id
+    WHERE ar.childId = :childId
+    ORDER BY ar.timestamp DESC
+    LIMIT :limit
+""")
+    suspend fun getRecentWithTitle(childId: Long, limit: Int = 3): List<ActivityResultWithTitle>
 
     @Query("SELECT * FROM activity_results WHERE sessionId = :sessionId")
     suspend fun getBySession(sessionId: Long): List<ActivityResultEntity>
 
+    // All results for a child — used by personalization engine
     @Query("""
         SELECT * FROM activity_results 
         WHERE childId = :childId 
@@ -38,6 +36,7 @@ interface ActivityResultDao {
     """)
     suspend fun getByChild(childId: Long): List<ActivityResultEntity>
 
+    // Recent results per skill area — used for difficulty adaptation
     @Query("""
         SELECT ar.* FROM activity_results ar
         INNER JOIN activities a ON ar.activityId = a.id
@@ -51,6 +50,7 @@ interface ActivityResultDao {
         limit: Int = 10
     ): List<ActivityResultEntity>
 
+    // Recent results per modality — used for modality scoring
     @Query("""
         SELECT ar.* FROM activity_results ar
         INNER JOIN activities a ON ar.activityId = a.id
@@ -72,50 +72,12 @@ interface ActivityResultDao {
     fun observeByChild(childId: Long): Flow<List<ActivityResultEntity>>
 
     @Query("""
-        SELECT ar.timestamp, ar.score, a.skillArea
-        FROM activity_results ar
-        LEFT JOIN activities a ON ar.activityId = a.id
-        WHERE ar.childId = :childId
-          AND a.skillArea IS NOT NULL
-        ORDER BY ar.timestamp ASC
-    """)
+    SELECT ar.timestamp, ar.score, a.skillArea
+    FROM activity_results ar
+    LEFT JOIN activities a ON ar.activityId = a.id
+    WHERE ar.childId = :childId
+      AND a.skillArea IS NOT NULL
+    ORDER BY ar.timestamp ASC
+""")
     suspend fun getSkillScoresForChart(childId: Long): List<SkillScoreRow>
-
-    // Multimodal signal queries — used by personalization algorithm
-
-    @Query("""
-        SELECT * FROM activity_results 
-        WHERE childId = :childId 
-          AND attentionScore IS NOT NULL
-        ORDER BY timestamp DESC
-        LIMIT :limit
-    """)
-    suspend fun getResultsWithAttention(
-        childId: Long,
-        limit: Int = 20
-    ): List<ActivityResultEntity>
-
-    @Query("""
-        SELECT * FROM activity_results 
-        WHERE childId = :childId 
-          AND speechConfidence IS NOT NULL
-        ORDER BY timestamp DESC
-        LIMIT :limit
-    """)
-    suspend fun getResultsWithSpeech(
-        childId: Long,
-        limit: Int = 20
-    ): List<ActivityResultEntity>
-
-    @Query("""
-        SELECT * FROM activity_results 
-        WHERE childId = :childId 
-          AND touchComplexity IS NOT NULL
-        ORDER BY timestamp DESC
-        LIMIT :limit
-    """)
-    suspend fun getResultsWithTouch(
-        childId: Long,
-        limit: Int = 20
-    ): List<ActivityResultEntity>
 }

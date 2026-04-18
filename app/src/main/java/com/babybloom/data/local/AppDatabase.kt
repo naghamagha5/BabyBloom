@@ -18,7 +18,7 @@ import com.babybloom.data.local.entity.*
         InteractionEventEntity::class,
         AiInsightEntity::class,
     ],
-    version = 6,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

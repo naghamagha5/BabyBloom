@@ -21,19 +21,18 @@ import com.babybloom.presentation.screens.LandingScreen
 import com.babybloom.presentation.screens.LoginScreen
 import com.babybloom.presentation.screens.ParentShell
 import com.babybloom.presentation.screens.RegisterScreen
-import com.babybloom.presentation.screens.WelcomeLearningScreen
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 
 object Routes {
-    const val LANDING            = "landing"
-    const val LOGIN              = "login"
-    const val REGISTER           = "register"
-    const val CHANGE_PASSWORD    = "change_password"
-    const val ADD_CHILD          = "add_child"
-    const val HOME               = "home"
-    const val CHILD_PROFILE      = "child_profile"
-    const val WELCOME_LEARNING   = "welcome_learning"   // ← new
+    const val LANDING         = "landing"
+    const val LOGIN           = "login"
+    const val REGISTER        = "register"
+    const val CHANGE_PASSWORD = "change_password"
+    const val ADD_CHILD       = "add_child"
+    const val HOME            = "home"
+    const val CHILD_PROFILE = "child_profile"
+
 }
 
 @Composable
@@ -57,7 +56,7 @@ fun BabyBloomNavGraph(
         isReady = true
     }
 
-    if (!isReady) return
+    if (!isReady) return   // pink windowBackground shows while DataStore loads
 
     NavHost(
         navController    = navController,
@@ -117,7 +116,9 @@ fun BabyBloomNavGraph(
                         popUpTo(Routes.CHANGE_PASSWORD) { inclusive = true }
                     }
                 },
-                onBackClick = { navController.popBackStack() }
+                onBackClick = {
+                    navController.popBackStack()
+                }
             )
         }
 
@@ -157,9 +158,8 @@ fun BabyBloomNavGraph(
             )
         }
 
-        // ── CHILD PROFILE ──────────────────────────────────────────────────
         composable(
-            route     = "${Routes.CHILD_PROFILE}/{childId}",
+            route = "${Routes.CHILD_PROFILE}/{childId}",
             arguments = listOf(navArgument("childId") { type = NavType.LongType })
         ) {
             ChildProfileScreen(
@@ -168,19 +168,8 @@ fun BabyBloomNavGraph(
                         ?.savedStateHandle
                         ?.set("startTab", 1)
                     navController.popBackStack()
-                },
-                onNavigateToWelcomeLearning = { childId ->
-                    navController.navigate("${Routes.WELCOME_LEARNING}/$childId")
                 }
             )
-        }
-
-        // ── WELCOME LEARNING ───────────────────────────────────────────────
-        composable(
-            route = "${Routes.WELCOME_LEARNING}/{childId}",
-            arguments = listOf(navArgument("childId") { type = NavType.LongType })
-        ) {
-            WelcomeLearningScreen()
         }
     }
 }
