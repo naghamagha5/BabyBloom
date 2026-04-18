@@ -18,6 +18,4 @@ interface ActivityContentDao {
         ORDER BY ac.orderIndex ASC
     """)
     suspend fun getContentForActivity(activityId: String): List<LearningContentEntity>
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insert(item: ActivityContentEntity)
 }

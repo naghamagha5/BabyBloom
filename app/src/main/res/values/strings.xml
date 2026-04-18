@@ -350,29 +350,4 @@
     <string name="parent_home_ai_select_child">اختر طفلاً</string>
     <string name="parent_home_ai_insight_for_child">رؤى الذكاء الاصطناعي لـ %s</string>
 
-    <!-- ParentLockScreen -->
-    <string name="parent_lock_enter_pin">أدخل رمز الوالدين</string>
-    <string name="parent_lock_enter_password">أدخل كلمة المرور</string>
-    <string name="parent_lock_password_label">كلمة المرور</string>
-    <string name="parent_lock_forgot_pin">نسيت الرقم؟ استخدم كلمة المرور</string>
-    <string name="parent_lock_confirm">تأكيد</string>
-    <string name="parent_lock_cancel">إلغاء — العودة للعبة</string>
-
-    <!-- NumPad -->
-    <string name="numpad_delete">⌫</string>
-
-    <!-- ════════════════════════════════════════════════════════════════════
-     ADD THESE ENTRIES TO YOUR strings.xml
-     (paste them inside <resources> near the Child Profile section)
-     ════════════════════════════════════════════════════════════════════ -->
-
-    <!-- Child Profile Header — Start Learning CTA -->
-    <string name="btn_start_learning">ابدأ التعلّم</string>
-
-    <!-- Welcome Learning Screen -->
-    <!-- %1$s is replaced with the child's name -->
-    <string name="welcome_learning_greeting">مرحبًا يا %1$s!\nهل أنت مستعد للتعلّم واللعب مع BabyBloom؟</string>
-    <string name="welcome_learning_subtitle">اليوم لدينا مغامرة رائعة بانتظارك!</string>
-    <string name="welcome_learning_start_button">هيا نبدأ!</string>
-
 </resources>

@@ -1,6 +1,5 @@
 package com.babybloom.presentation.screens
 
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -15,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -58,13 +56,11 @@ private fun resolveAvatarResId(avatar: String): Int = when (avatar) {
 
 @Composable
 fun ChildProfileScreen(
-    onNavigateToHome          : () -> Unit = {},
-    onNavigateToWelcomeLearning: (childId: Long) -> Unit = {},
-    initialTab                  : ChildProfileTab = ChildProfileTab.ANALYTICS,  // ← add this
+    onNavigateToHome: () -> Unit = {},
     viewModel: ChildProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var selectedTab by rememberSaveable { mutableStateOf(initialTab)    }
+    var selectedTab by rememberSaveable  { mutableStateOf(ChildProfileTab.ANALYTICS) }
 
     LaunchedEffect(uiState.navigateToHome) {
         if (uiState.navigateToHome) {
@@ -74,7 +70,6 @@ fun ChildProfileScreen(
     }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        @OptIn(ExperimentalMaterial3Api::class)
         Scaffold(
             containerColor      = BackgroundLight,
             contentWindowInsets = WindowInsets(0),
@@ -91,13 +86,10 @@ fun ChildProfileScreen(
                     .padding(paddingValues)
             ) {
                 ChildProfileHeader(
-                    child                      = uiState.child,
-                    sessionCount               = uiState.sessionCount,
-                    progressPercent            = uiState.progressPercent,
-                    onBackClick                = onNavigateToHome,
-                    onStartLearningClick       = {
-                        uiState.child?.id?.let { onNavigateToWelcomeLearning(it) }
-                    }
+                    child           = uiState.child,
+                    sessionCount    = uiState.sessionCount,
+                    progressPercent = uiState.progressPercent,
+                    onBackClick     = onNavigateToHome
                 )
                 when (selectedTab) {
                     ChildProfileTab.ANALYTICS -> ChildAnalyticsTab(
@@ -134,34 +126,17 @@ fun ChildProfileScreen(
 // ─── Shared Header ────────────────────────────────────────────────────────────
 @Composable
 internal fun ChildProfileHeader(
-    child                  : Child?,
-    sessionCount           : Int,
-    progressPercent        : Int,
-    onBackClick            : () -> Unit,
-    onStartLearningClick   : () -> Unit
+    child          : Child?,
+    sessionCount   : Int,
+    progressPercent: Int,
+    onBackClick    : () -> Unit
 ) {
     val buttonGradient = Brush.horizontalGradient(
         colors = listOf(GradientPurpleMedium, GradientPurpleDark)
     )
 
-    val startLearningGradient = Brush.horizontalGradient(
-        colors = listOf(GradientOrangeMedium, GradientOrangeDark)
-    )
-
     val colorAvatarBorder = Brush.linearGradient(
         colors = listOf(Gradient3, Gradient2, Gradient1)
-    )
-
-    // Pulse animation for the CTA button
-    val infiniteTransition = rememberInfiniteTransition(label = "cta_pulse")
-    val buttonScale by infiniteTransition.animateFloat(
-        initialValue  = 1f,
-        targetValue   = 1.03f,
-        animationSpec = infiniteRepeatable(
-            animation  = tween(1200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "cta_scale"
     )
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -193,7 +168,6 @@ internal fun ChildProfileHeader(
 
                     Spacer(modifier = Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
 
-                    // ── Top bar (title + back button) ─────────────────────────
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -243,14 +217,13 @@ internal fun ChildProfileHeader(
                                 tint               = White,
                                 modifier           = Modifier
                                     .size(22.dp)
-                                    .offset(x = 4.dp)
+                                    .offset(x = (4).dp)
                             )
                         }
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // ── Avatar + name row ─────────────────────────────────────
                     Row(
                         modifier              = Modifier
                             .fillMaxWidth()
@@ -310,7 +283,6 @@ internal fun ChildProfileHeader(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // ── Stat cards ────────────────────────────────────────────
                     Row(
                         modifier              = Modifier
                             .fillMaxWidth()
@@ -338,40 +310,6 @@ internal fun ChildProfileHeader(
                             value    = sessionCount.toString(),
                             modifier = Modifier.weight(1f)
                         )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // ── Start Learning CTA button ─────────────────────────────
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 32.dp) // minimized width by increasing horizontal padding
-                            .fillMaxWidth()
-                            .scale(buttonScale)
-                            .clip(RoundedCornerShape(50.dp))
-                            .background(brush = startLearningGradient)
-                            .clickable(onClick = onStartLearningClick)
-                            .padding(vertical = 10.dp), // minimized height by decreasing vertical padding
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment     = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Image(
-                                painter            = painterResource(R.drawable.ic_rocket),
-                                contentDescription = null,
-                                modifier           = Modifier.size(35.dp)
-                            )
-                            Text(
-                                text  = stringResource(R.string.btn_start_learning),
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color      = White,
-                                    fontSize   = 20.sp
-                                )
-                            )
-                        }
                     }
                 }
             }

@@ -17,13 +17,4 @@ interface LearningContentDao {
 
     @Query("SELECT COUNT(*) FROM learning_content")
     suspend fun count(): Int
-    @Query("""
-    SELECT * FROM learning_content 
-    WHERE learningOrder = :order AND category = :category 
-    LIMIT 1
-""")
-    suspend fun getByLearningOrderAndCategory(
-        order: Int,
-        category: String
-    ): LearningContentEntity?
 }

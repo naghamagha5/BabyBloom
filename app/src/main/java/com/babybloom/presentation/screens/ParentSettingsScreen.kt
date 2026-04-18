@@ -4,10 +4,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -152,17 +150,6 @@ fun ParentSettingsContent(
             isDestructive = true
         )
     }
-
-    val showSetPinDialog by viewModel.showSetPinDialog.collectAsStateWithLifecycle()
-    val pinError         by viewModel.pinError.collectAsStateWithLifecycle()
-
-    if (showSetPinDialog) {
-        SetPinDialog(
-            pinError  = pinError,
-            onConfirm = { pin, confirm -> viewModel.saveParentPin(pin, confirm) },
-            onDismiss = { viewModel.dismissSetPinDialog() }
-        )
-    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -213,9 +200,7 @@ fun ProfileCard(
             Image(
                 painter            = painterResource(id = R.drawable.family_image),
                 contentDescription = null,
-                modifier           = Modifier
-                    .size(78.dp)
-                    .clip(CircleShape),
+                modifier           = Modifier.size(78.dp).clip(CircleShape),
                 contentScale       = ContentScale.Crop
             )
         }
@@ -242,7 +227,6 @@ fun SettingsCard(viewModel: ParentViewModel) {
     val notificationsEnabled by viewModel.notificationsEnabled.collectAsStateWithLifecycle()
     val soundEnabled         by viewModel.soundEnabled.collectAsStateWithLifecycle()
     val musicEnabled         by viewModel.musicEnabled.collectAsStateWithLifecycle()
-    val hasPin               by viewModel.hasPin.collectAsStateWithLifecycle()
 
     SectionCard {
         SectionTitle(text = stringResource(R.string.label_app_settings))
@@ -268,12 +252,6 @@ fun SettingsCard(viewModel: ParentViewModel) {
             iconRes         = R.drawable.ic_music,
             checked         = musicEnabled,
             onCheckedChange = { viewModel.toggleMusic(it) }
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        PinSettingItem(
-            hasPin      = hasPin,
-            onSetPin    = { viewModel.showSetPinDialog() },
-            onRemovePin = { viewModel.removeParentPin() }
         )
     }
 }
@@ -729,180 +707,6 @@ fun InfoCard(label: String, value: String, iconRes: Int) {
                 tint               = NavyDark,
                 modifier           = Modifier.size(28.dp)
             )
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PIN SETTING ITEM
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-private fun PinSettingItem(
-    hasPin      : Boolean,
-    onSetPin    : () -> Unit,
-    onRemovePin : () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(elevation = 4.dp, shape = RoundedCornerShape(14.dp))
-            .background(Color.White, RoundedCornerShape(14.dp))
-            .padding(horizontal = 14.dp, vertical = 10.dp)
-    ) {
-        Row(
-            modifier              = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment     = Alignment.CenterVertically
-        ) {
-            if (hasPin) {
-                TextButton(
-                    onClick = onRemovePin,
-                    colors  = ButtonDefaults.textButtonColors(contentColor = ErrorRed)
-                ) {
-                    Text("إزالة الرقم", fontSize = 13.sp)
-                }
-            }
-            Row(
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.End,
-                modifier              = Modifier.weight(1f)
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    modifier            = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text       = if (hasPin) "تغيير رقم قفل الوالدين"
-                        else "تعيين رقم قفل الوالدين",
-                        fontSize   = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color      = NavyDark
-                    )
-                    Text(
-                        text  = if (hasPin) "رقم القفل مفعل ✓"
-                        else "يمنع الطفل من الخروج من اللعبة",
-                        fontSize = 12.sp,
-                        color    = if (hasPin) SuccessGreen else TextSecondary
-                    )
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Box(
-                    modifier         = Modifier
-                        .size(40.dp)
-                        .background(PurpleLavender.copy(alpha = 0.5f), RoundedCornerShape(30.dp))
-                        .clickable { onSetPin() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter            = painterResource(id = R.drawable.ic_lock),
-                        contentDescription = null,
-                        tint               = ProgressPurple,
-                        modifier           = Modifier.size(22.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SET PIN DIALOG
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-fun SetPinDialog(
-    pinError  : String?,
-    onConfirm : (pin: String, confirmPin: String) -> Unit,
-    onDismiss : () -> Unit
-) {
-    var pin        by remember { mutableStateOf("") }
-    var confirmPin by remember { mutableStateOf("") }
-    val dotCount = 4
-    var step by remember { mutableStateOf(0) } // 0 = enter pin, 1 = confirm pin
-
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape     = RoundedCornerShape(20.dp),
-            colors    = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(8.dp)
-        ) {
-            Column(
-                modifier                = Modifier.padding(24.dp),
-                horizontalAlignment     = Alignment.CenterHorizontally,
-                verticalArrangement     = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text       = if (step == 0) "أدخل الرقم الجديد" else "أكد الرقم",
-                    fontSize   = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color      = NavyDark
-                )
-
-                // PIN dots
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    val current = if (step == 0) pin else confirmPin
-                    repeat(dotCount) { i ->
-                        Box(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .background(
-                                    if (i < current.length) ProgressPurple else BorderGray,
-                                    CircleShape
-                                )
-                        )
-                    }
-                }
-
-                // Numpad
-                val keys = listOf("1","2","3","4","5","6","7","8","9","","0","⌫")
-                LazyVerticalGrid(
-                    columns               = GridCells.Fixed(3),
-                    modifier              = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement   = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(keys) { key ->
-                        when (key) {
-                            "" -> Box(Modifier.size(56.dp))
-                            "⌫" -> OutlinedButton(
-                                onClick  = {
-                                    if (step == 0 && pin.isNotEmpty())
-                                        pin = pin.dropLast(1)
-                                    else if (step == 1 && confirmPin.isNotEmpty())
-                                        confirmPin = confirmPin.dropLast(1)
-                                },
-                                modifier = Modifier.size(56.dp)
-                            ) { Text(key) }
-                            else -> Button(
-                                onClick = {
-                                    if (step == 0 && pin.length < dotCount) {
-                                        pin += key
-                                        if (pin.length == dotCount) step = 1
-                                    } else if (step == 1 && confirmPin.length < dotCount) {
-                                        confirmPin += key
-                                        if (confirmPin.length == dotCount) {
-                                            onConfirm(pin, confirmPin)
-                                        }
-                                    }
-                                },
-                                modifier = Modifier.size(56.dp),
-                                colors   = ButtonDefaults.buttonColors(
-                                    containerColor = ProgressPurple
-                                )
-                            ) {
-                                Text(key, style = MaterialTheme.typography.titleMedium)
-                            }
-                        }
-                    }
-                }
-
-                pinError?.let {
-                    Text(it, color = ErrorRed, fontSize = 13.sp)
-                }
-
-                TextButton(onClick = onDismiss) {
-                    Text("إلغاء", color = TextSecondary)
-                }
-            }
         }
     }
 }
