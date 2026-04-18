@@ -9,6 +9,7 @@ import com.babybloom.data.local.dao.ChildDao
 import com.babybloom.data.local.dao.UserDao
 import com.babybloom.di.AppSoundSettings
 import com.babybloom.di.SessionManager
+import com.babybloom.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +22,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
@@ -57,14 +57,15 @@ data class ParentUiState(
 
 @HiltViewModel
 class ParentViewModel @Inject constructor(
-    private val sessionManager : SessionManager,
-    private val userDao        : UserDao,
-    private val childDao       : ChildDao,
+    private val sessionManager  : SessionManager,
+    private val userDao         : UserDao,
+    private val userRepository  : UserRepository,
+    private val childDao        : ChildDao,
     @ApplicationContext private val context: Context,
     private val appSoundSettings: AppSoundSettings,
-    ) : ViewModel() {
+) : ViewModel() {
 
-    // ── Session data ─────────────────────────────────────────────────────────
+    // ── Session data ──────────────────────────────────────────────────────────
     val userName: StateFlow<String> = sessionManager.userName
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
@@ -83,7 +84,6 @@ class ParentViewModel @Inject constructor(
         .map { it.size }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
-
     // ── UI state ──────────────────────────────────────────────────────────────
     private val _uiState = MutableStateFlow(ParentUiState())
     val uiState: StateFlow<ParentUiState> = _uiState.asStateFlow()
@@ -94,7 +94,7 @@ class ParentViewModel @Inject constructor(
     // ── Settings toggles ──────────────────────────────────────────────────────
     val notificationsEnabled = MutableStateFlow(true)
     val soundEnabled get() = appSoundSettings.soundEnabled
-    val musicEnabled         = MutableStateFlow(true)
+    val musicEnabled = MutableStateFlow(true)
 
     fun toggleNotifications(enabled: Boolean) {
         notificationsEnabled.value = enabled
@@ -111,6 +111,65 @@ class ParentViewModel @Inject constructor(
         playButtonSound()
     }
 
+    // ── Parent Lock PIN ───────────────────────────────────────────────────────
+
+    private val _showSetPinDialog = MutableStateFlow(false)
+    val showSetPinDialog: StateFlow<Boolean> = _showSetPinDialog.asStateFlow()
+
+    private val _pinError = MutableStateFlow<String?>(null)
+    val pinError: StateFlow<String?> = _pinError.asStateFlow()
+
+    private val _hasPin = MutableStateFlow(false)
+    val hasPin: StateFlow<Boolean> = _hasPin.asStateFlow()
+
+    init {
+        checkIfPinExists()
+    }
+
+    private fun checkIfPinExists() {
+        viewModelScope.launch {
+            val userId = sessionManager.userId.first()
+            val user = userDao.getById(userId)
+            _hasPin.value = user?.parentLockPin != null
+        }
+    }
+
+    fun showSetPinDialog() {
+        _pinError.value = null
+        _showSetPinDialog.value = true
+    }
+
+    fun dismissSetPinDialog() {
+        _showSetPinDialog.value = false
+        _pinError.value = null
+    }
+
+    fun saveParentPin(pin: String, confirmPin: String) {
+        if (pin.length != 4) {
+            _pinError.value = "الرقم يجب أن يكون 4 أرقام"
+            return
+        }
+        if (pin != confirmPin) {
+            _pinError.value = "الرقمان غير متطابقان"
+            return
+        }
+        viewModelScope.launch {
+            val userId = sessionManager.userId.first()
+            userRepository.setParentLockPin(userId, pin)  // BCrypt happens inside here
+            _hasPin.value = true
+            _showSetPinDialog.value = false
+        }
+    }
+
+    fun removeParentPin() {
+        viewModelScope.launch {
+            val userId = sessionManager.userId.first()
+            val user = userDao.getById(userId) ?: return@launch
+            userDao.update(user.copy(parentLockPin = null))
+            _hasPin.value = false
+        }
+    }
+
     // ── Edit Profile Dialog ───────────────────────────────────────────────────
     fun openEditDialog() {
         _editState.value = EditProfileState(
@@ -121,7 +180,7 @@ class ParentViewModel @Inject constructor(
     }
 
     fun closeEditDialog() {
-        _uiState.value  = _uiState.value.copy(showEditDialog = false)
+        _uiState.value   = _uiState.value.copy(showEditDialog = false)
         _editState.value = EditProfileState()
     }
 

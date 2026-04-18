@@ -2,31 +2,15 @@ package com.babybloom.presentation.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.colorResource
@@ -37,7 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.babybloom.R
 import com.babybloom.presentation.viewmodels.ActivityViewModel
-import com.babybloom.presentation.viewmodels.ParentHomeViewModel
 
 enum class LockInputMode { PIN, PASSWORD }
 
@@ -47,12 +30,22 @@ fun ParentLockScreen(
     onDismiss: () -> Unit,
     viewModel: ActivityViewModel = hiltViewModel()
 ) {
-    var inputMode by remember { mutableStateOf(LockInputMode.PIN) }
-    var input by remember { mutableStateOf("") }
+    var inputMode    by remember { mutableStateOf(LockInputMode.PIN) }
+    var input        by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val dotCount = 4
 
     BackHandler { /* swallow — can't back out of the lock screen */ }
+
+    // Auto-confirm when 4 digits are entered
+    LaunchedEffect(input) {
+        if (inputMode == LockInputMode.PIN && input.length == dotCount) {
+            viewModel.verifyPin(input, onUnlocked) { error ->
+                errorMessage = error
+                input = ""  // clear input so child can try again
+            }
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -77,6 +70,7 @@ fun ParentLockScreen(
             )
 
             if (inputMode == LockInputMode.PIN) {
+                // 4 dots
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     repeat(dotCount) { i ->
                         Box(
@@ -92,26 +86,34 @@ fun ParentLockScreen(
                         )
                     }
                 }
+
+                // Numpad — just adds digits, confirm is handled by LaunchedEffect above
                 NumPad(
-                    onDigit = {
-                        if (input.length < dotCount) input += it
-                    },
-                    onDelete = { if (input.isNotEmpty()) input = input.dropLast(1) },
-                    onConfirm = { viewModel.verifyPin(input, onUnlocked) { errorMessage = it } }
+                    onDigit  = { if (input.length < dotCount) input += it },
+                    onDelete = { if (input.isNotEmpty()) input = input.dropLast(1) }
                 )
-                TextButton(onClick = { inputMode = LockInputMode.PASSWORD; input = "" }) {
+
+                TextButton(onClick = {
+                    inputMode = LockInputMode.PASSWORD
+                    input = ""
+                    errorMessage = null
+                }) {
                     Text(stringResource(R.string.parent_lock_forgot_pin))
                 }
+
             } else {
                 OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it },
+                    value                = input,
+                    onValueChange        = { input = it },
                     visualTransformation = PasswordVisualTransformation(),
-                    label = { Text(stringResource(R.string.parent_lock_password_label)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                    label                = { Text(stringResource(R.string.parent_lock_password_label)) },
+                    keyboardOptions      = KeyboardOptions(keyboardType = KeyboardType.Password)
                 )
                 Button(onClick = {
-                    viewModel.verifyPassword(input, onUnlocked) { errorMessage = it }
+                    viewModel.verifyPassword(input, onUnlocked) { error ->
+                        errorMessage = error
+                        input = ""
+                    }
                 }) {
                     Text(stringResource(R.string.parent_lock_confirm))
                 }
@@ -130,32 +132,29 @@ fun ParentLockScreen(
 
 @Composable
 private fun NumPad(
-    onDigit: (String) -> Unit,
-    onDelete: () -> Unit,
-    onConfirm: () -> Unit
+    onDigit  : (String) -> Unit,
+    onDelete : () -> Unit
 ) {
-    val deleteKey = stringResource(R.string.numpad_delete)
-    val keys = listOf("1","2","3","4","5","6","7","8","9","","0", deleteKey)
+    val keys = listOf("1","2","3","4","5","6","7","8","9","","0","⌫")
     LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
-        modifier = Modifier.fillMaxWidth(),
+        columns               = GridCells.Fixed(3),
+        modifier              = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement   = Arrangement.spacedBy(12.dp)
     ) {
         items(keys) { key ->
             when (key) {
-                ""        -> Box(Modifier.size(64.dp))
-                deleteKey -> OutlinedButton(
-                    onClick = onDelete,
+                ""  -> Box(Modifier.size(64.dp))
+                "⌫" -> OutlinedButton(
+                    onClick  = onDelete,
                     modifier = Modifier.size(64.dp)
                 ) { Text(key) }
                 else -> Button(
-                    onClick = {
-                        onDigit(key)
-                        if (key == "0") onConfirm()
-                    },
+                    onClick  = { onDigit(key) },  // ← no onConfirm here, LaunchedEffect handles it
                     modifier = Modifier.size(64.dp)
-                ) { Text(key, style = MaterialTheme.typography.titleLarge) }
+                ) {
+                    Text(key, style = MaterialTheme.typography.titleLarge)
+                }
             }
         }
     }

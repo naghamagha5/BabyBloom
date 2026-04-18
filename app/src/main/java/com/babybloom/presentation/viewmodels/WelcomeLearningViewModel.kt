@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class WelcomeLearningUiState(
+    val childId    : Long    = 0L,      // ← add this
     val childName  : String  = "",
     val isCalmMode : Boolean = false,   // mirrors Child.uiTheme  (false = ACTIVE, true = CALM)
     val isLoading  : Boolean = true
@@ -38,6 +39,7 @@ class WelcomeLearningViewModel @Inject constructor(
             childRepository.observeById(childId).collect { child ->
                 _uiState.update { state ->
                     state.copy(
+                        childId    = child?.id ?: state.childId,
                         childName  = child?.name  ?: state.childName,
                         isCalmMode = child?.uiTheme ?: state.isCalmMode,
                         isLoading  = false

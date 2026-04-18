@@ -1,17 +1,24 @@
 package com.babybloom.presentation.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.babybloom.R
 import com.babybloom.presentation.viewmodels.ActivityUiState
 import com.babybloom.presentation.viewmodels.ActivityViewModel
 
@@ -60,47 +67,122 @@ fun ActivityShellScreen(
             val progress = if (state.activityWithContent.contentItems.isEmpty()) 0f
             else state.currentIndex.toFloat() / state.activityWithContent.contentItems.size
 
+            val backgroundRes = if (settings.isCalmMode)
+                R.drawable.ic_game_background_calm
+            else
+                R.drawable.ic_game_background_active
+
+            // ── Root box: background image fills entire screen ────────────
             Box(modifier = Modifier.fillMaxSize()) {
 
-                ActivityScaffold(
-                    title = activity.title,
-                    progress = progress,
-                    remainingMs = state.sessionRemainingMs,
-                    onBackRequest = { viewModel.requestExit() }
-                ) {
-                    if (state.showOfflineSpeechBanner) {
-                        OfflineSpeechBanner()
-                    }
+                Image(
+                    painter = painterResource(id = backgroundRes),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
 
-                    // ── Game router ───────────────────────────────────────
-                    // imageAsset resolution happens inside each game screen.
-                    // Replace each GamePlaceholder with the real screen once built.
-                    when (activity.activityType) {
-                        "MATCH" -> GamePlaceholder(
-                            label = "MATCH Game — coming soon"
-                        )
-                        "TRACE" -> GamePlaceholder(
-                            label = "TRACE Game — coming soon"
-                        )
-                        "SPEECH" -> GamePlaceholder(
-                            label = "SPEECH Game — coming soon"
-                        )
-                        "STORY" -> GamePlaceholder(
-                            label = "STORY — coming soon"
-                        )
-                        "COUNT" -> GamePlaceholder(
-                            label = "COUNT Game — coming soon"
-                        )
-                        "DRAG" -> GamePlaceholder(
-                            label = "DRAG Game — coming soon"
-                        )
-                        else -> GamePlaceholder(
-                            label = "Unknown activity type: ${activity.activityType}"
+                // ── Top bar: back button + progress bar ───────────────────
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        // Circular back button
+                        IconButton(
+                            onClick = { viewModel.requestExit() },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = "خروج",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        Spacer(Modifier.width(12.dp))
+
+                        // Rounded pill progress bar
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(10.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth(progress.coerceIn(0f, 1f))
+                                    .clip(RoundedCornerShape(50))
+                                    .background(MaterialTheme.colorScheme.primary)
+                            )
+                        }
+
+                        // Session timer
+                        Spacer(Modifier.width(12.dp))
+                        val minutes = (state.sessionRemainingMs / 60_000).toInt()
+                        val seconds = ((state.sessionRemainingMs % 60_000) / 1_000).toInt()
+                        Text(
+                            text = "%02d:%02d".format(minutes, seconds),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (state.sessionRemainingMs < 60_000)
+                                MaterialTheme.colorScheme.error
+                            else
+                                MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
 
-                // ── Parent lock overlay ───────────────────────────────────
+                // ── Big content card ──────────────────────────────────────
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.88f)
+                        .align(Alignment.BottomCenter)
+                        .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(16.dp)
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+
+                        if (state.showOfflineSpeechBanner) {
+                            OfflineSpeechBanner()
+                            Spacer(Modifier.height(8.dp))
+                        }
+
+                        // ── Game router ───────────────────────────────────
+                        when (activity.activityType) {
+                            "STORY" -> StoryScreen(
+                                currentItem = currentItem,
+                                isCalmMode = settings.isCalmMode,
+                                onComplete = { elapsedMs ->
+                                    viewModel.onAnswerSubmitted(
+                                        isCorrect = true,
+                                        contentId = currentItem.contentId,
+                                        responseTimeMs = elapsedMs
+                                    )
+                                }
+                            )
+                            "MATCH"  -> GamePlaceholder("MATCH Game — coming soon")
+                            "TRACE"  -> GamePlaceholder("TRACE Game — coming soon")
+                            "SPEECH" -> GamePlaceholder("SPEECH Game — coming soon")
+                            "COUNT"  -> GamePlaceholder("COUNT Game — coming soon")
+                            "DRAG"   -> GamePlaceholder("DRAG Game — coming soon")
+                            else     -> GamePlaceholder("Unknown: ${activity.activityType}")
+                        }
+                    }
+                }
+
+                // ── Parent lock overlay — on top of everything ────────────
                 if (state.showParentLock) {
                     ParentLockScreen(
                         onUnlocked = {
@@ -159,9 +241,7 @@ fun ActivityErrorScreen(message: String, onExit: () -> Unit) {
             style = MaterialTheme.typography.bodyLarge
         )
         Spacer(Modifier.height(16.dp))
-        Button(onClick = onExit) {
-            Text("خروج")
-        }
+        Button(onClick = onExit) { Text("خروج") }
     }
 }
 
@@ -175,65 +255,11 @@ fun ActivityCompletedScreen(score: Int, total: Int, onFinish: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = "أحسنت!",
-            style = MaterialTheme.typography.headlineLarge
-        )
+        Text("أحسنت!", style = MaterialTheme.typography.headlineLarge)
         Spacer(Modifier.height(8.dp))
-        Text(
-            text = "درجتك: $score من $total",
-            style = MaterialTheme.typography.titleMedium
-        )
+        Text("درجتك: $score من $total", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(24.dp))
-        Button(onClick = onFinish) {
-            Text("تم")
-        }
-    }
-}
-
-// ── Scaffold ──────────────────────────────────────────────────────────────────
-@Composable
-private fun ActivityScaffold(
-    title: String,
-    progress: Float,
-    remainingMs: Long,
-    onBackRequest: () -> Unit,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBackRequest) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "خروج")
-            }
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f)
-            )
-            val minutes = (remainingMs / 60_000).toInt()
-            val seconds = ((remainingMs % 60_000) / 1_000).toInt()
-            Text(
-                text = "%02d:%02d".format(minutes, seconds),
-                style = MaterialTheme.typography.labelLarge,
-                color = if (remainingMs < 60_000)
-                    MaterialTheme.colorScheme.error
-                else
-                    MaterialTheme.colorScheme.onSurface
-            )
-        }
-        LinearProgressIndicator(
-            progress = { progress },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-        )
-        Spacer(Modifier.height(16.dp))
-        content()
+        Button(onClick = onFinish) { Text("تم") }
     }
 }
 

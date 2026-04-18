@@ -60,10 +60,11 @@ private fun resolveAvatarResId(avatar: String): Int = when (avatar) {
 fun ChildProfileScreen(
     onNavigateToHome          : () -> Unit = {},
     onNavigateToWelcomeLearning: (childId: Long) -> Unit = {},
+    initialTab                  : ChildProfileTab = ChildProfileTab.ANALYTICS,  // ← add this
     viewModel: ChildProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var selectedTab by rememberSaveable { mutableStateOf(ChildProfileTab.ANALYTICS) }
+    var selectedTab by rememberSaveable { mutableStateOf(initialTab)    }
 
     LaunchedEffect(uiState.navigateToHome) {
         if (uiState.navigateToHome) {

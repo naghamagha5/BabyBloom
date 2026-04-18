@@ -32,11 +32,12 @@ object AssetPathResolver {
         return if (resolvedCategory == "ANIMAL") {
             val mood = if (isCalmMode) "calm" else "active"
             val name = contentId.replaceFirstChar { it.uppercase() }
-            ImageAsset.PngAsset("learning_content/visuals/$mood/$name.png")
+            ImageAsset.PngAsset("learning_content/visual/$mood/$name.png")
         } else {
             val tintColor = if (isCalmMode) R.color.calm_tint else R.color.active_tint
             ImageAsset.SvgDrawable(
-                drawableName = contentId,
+                drawableName = if (resolvedCategory == "LETTER_SOUND" && contentId.endsWith("_s"))
+                    contentId.dropLast(2) else contentId,
                 tintColor    = tintColor
             )
         }
@@ -44,7 +45,7 @@ object AssetPathResolver {
 
     fun audioPathFor(contentId: String, category: String): String {
         val folder = categoryToFolder(category)
-        val name = contentId.replaceFirstChar { it.uppercase() }
+        val name = contentId
         return "learning_content/audio/$folder/$name.ogg"
     }
 

@@ -2,15 +2,16 @@ package com.babybloom.presentation.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.babybloom.data.local.entity.ActivityResultEntity
-import com.babybloom.data.local.entity.InteractionEventEntity
 import com.babybloom.di.AppSoundSettings
-import com.babybloom.domain.model.Activity
-import com.babybloom.domain.model.LearningContent
+import com.babybloom.domain.model.ActivityResult
+import com.babybloom.domain.model.ActivityWithContent
+import com.babybloom.domain.model.InteractionEvent
+import com.babybloom.domain.model.Session
 import com.babybloom.domain.repository.ActivityRepository
 import com.babybloom.domain.repository.ActivityResultRepository
 import com.babybloom.domain.repository.ChildRepository
 import com.babybloom.domain.repository.InteractionEventRepository
+import com.babybloom.domain.repository.SessionRepository
 import com.babybloom.domain.repository.UserRepository
 import com.babybloom.util.SoundEffect
 import com.babybloom.util.attention.AttentionDetector
@@ -23,15 +24,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-// Wrapper for Activity and its content
-data class ActivityWithContent(
-    val activity: Activity,
-    val contentItems: List<LearningContent>
-)
 
 data class ActivitySessionSettings(
     val isCalmMode: Boolean,
@@ -65,6 +59,7 @@ class ActivityViewModel @Inject constructor(
     private val activityResultRepository: ActivityResultRepository,
     private val childRepository: ChildRepository,
     private val userRepository: UserRepository,
+    private val sessionRepository: SessionRepository,
     private val interactionEventRepository: InteractionEventRepository,
     private val speechRecognitionManager: SpeechRecognitionManager,
     private val appSoundSettings: AppSoundSettings,
@@ -79,30 +74,43 @@ class ActivityViewModel @Inject constructor(
     private val attentionTracker = AttentionTracker()
     private var timerJob: Job? = null
 
+    // ── Load ──────────────────────────────────────────────────────────────────
+
     fun loadActivity(activityId: String, sessionId: Long, childId: Long) {
-        this.sessionId = sessionId
         viewModelScope.launch {
             _uiState.value = ActivityUiState.Loading
-            
+
             val child = childRepository.getById(childId) ?: run {
                 _uiState.value = ActivityUiState.Error("Child not found")
                 return@launch
             }
-            
+
             val user = userRepository.getById(child.userId) ?: run {
                 _uiState.value = ActivityUiState.Error("User not found")
                 return@launch
             }
 
-            // For now, composing ActivityWithContent here. 
-            // In a real app, this logic should move to a UseCase or Repository.
-            val activity = activityRepository.getById(activityId) ?: run {
+            // Create a real session row so ActivityResult FK doesn't fail
+            val realSessionId = if (sessionId == 0L) {
+                sessionRepository.startSession(
+                    Session(
+                        userId = child.userId,
+                        childId = childId,
+                        startTime = System.currentTimeMillis(),
+                        endTime = null,
+                        isAssessment = false,
+                        attentionScore = 0f
+                    )
+                )
+            } else {
+                sessionId
+            }
+            this@ActivityViewModel.sessionId = realSessionId
+
+            val data = activityRepository.getActivityWithContent(activityId) ?: run {
                 _uiState.value = ActivityUiState.Error("Activity not found")
                 return@launch
             }
-
-            // Note: If you have a specific method for this in ActivityRepository, use it here.
-            val data = ActivityWithContent(activity, emptyList()) 
 
             val settings = ActivitySessionSettings(
                 isCalmMode = child.uiTheme,
@@ -113,12 +121,12 @@ class ActivityViewModel @Inject constructor(
                 userId = child.userId,
                 hasParentPin = user.parentLockPin != null
             )
-            
+
             appSoundSettings.startSession(
                 backgroundMusicEnabled = settings.backgroundMusicEnabled,
                 soundEffectsEnabled = settings.soundEffectsEnabled
             )
-            
+
             activityStartMs = System.currentTimeMillis()
             attentionTracker.reset()
 
@@ -130,6 +138,8 @@ class ActivityViewModel @Inject constructor(
             startSessionTimer(settings.sessionDurationMs)
         }
     }
+
+    // ── Session Timer ─────────────────────────────────────────────────────────
 
     private fun startSessionTimer(durationMs: Long) {
         timerJob?.cancel()
@@ -151,6 +161,8 @@ class ActivityViewModel @Inject constructor(
         }
     }
 
+    // ── Answer Submission ─────────────────────────────────────────────────────
+
     fun onAnswerSubmitted(
         isCorrect: Boolean,
         contentId: String,
@@ -166,26 +178,25 @@ class ActivityViewModel @Inject constructor(
         else appSoundSettings.playSoundEffect(SoundEffect.WRONG)
 
         viewModelScope.launch {
-            // Mapping to Entity for local DB insertion
             activityResultRepository.saveResult(
-                com.babybloom.domain.model.ActivityResult(
-                    sessionId = sessionId,
-                    childId = current.sessionSettings.childId,
-                    activityId = current.activityWithContent.activity.id,
-                    contentId = contentId,
-                    score = if (isCorrect) 1f else 0f,
-                    duration = responseTimeMs,
-                    correctCount = if (isCorrect) 1 else 0,
-                    incorrectCount = if (!isCorrect) 1 else 0,
-                    attempts = attempts,
+                ActivityResult(
+                    sessionId        = sessionId,
+                    childId          = current.sessionSettings.childId,
+                    activityId       = current.activityWithContent.activity.id,
+                    contentId        = contentId,
+                    score            = if (isCorrect) 1f else 0f,
+                    duration         = responseTimeMs,
+                    correctCount     = if (isCorrect) 1 else 0,
+                    incorrectCount   = if (!isCorrect) 1 else 0,
+                    attempts         = attempts,
                     speechConfidence = speechConfidence,
-                    touchComplexity = touchComplexity,
-                    attentionScore = attentionScore
+                    touchComplexity  = touchComplexity,
+                    attentionScore   = attentionScore
                 )
             )
         }
 
-        val newScore = if (isCorrect) current.score + 1 else current.score
+        val newScore  = if (isCorrect) current.score + 1 else current.score
         val nextIndex = current.currentIndex + 1
 
         if (nextIndex >= current.activityWithContent.contentItems.size) {
@@ -197,12 +208,14 @@ class ActivityViewModel @Inject constructor(
         } else {
             attentionTracker.reset()
             _uiState.value = current.copy(
-                currentIndex = nextIndex,
-                score = newScore,
+                currentIndex  = nextIndex,
+                score         = newScore,
                 totalAttempts = current.totalAttempts + 1
             )
         }
     }
+
+    // ── Attention Tracking ────────────────────────────────────────────────────
 
     fun onAttentionSample(sample: AttentionSample?) {
         attentionTracker.record(sample)
@@ -210,17 +223,19 @@ class ActivityViewModel @Inject constructor(
             val current = _uiState.value as? ActivityUiState.Playing ?: return
             viewModelScope.launch {
                 interactionEventRepository.saveEvent(
-                    com.babybloom.domain.model.InteractionEvent(
-                        sessionId = sessionId,
-                        childId = current.sessionSettings.childId,
+                    InteractionEvent(
+                        sessionId  = sessionId,
+                        childId    = current.sessionSettings.childId,
                         activityId = current.activityWithContent.activity.id,
-                        eventType = "GAZE",
-                        eventData = """{"eulerY":${it.eulerY},"eulerX":${it.eulerX},"eyeOpenProb":${it.eyeOpenProbability},"attentive":${it.isAttentive}}"""
+                        eventType  = "GAZE",
+                        eventData  = """{"eulerY":${it.eulerY},"eulerX":${it.eulerX},"eyeOpenProb":${it.eyeOpenProbability},"attentive":${it.isAttentive}}"""
                     )
                 )
             }
         }
     }
+
+    // ── Parent Lock ───────────────────────────────────────────────────────────
 
     fun requestExit() {
         val current = _uiState.value as? ActivityUiState.Playing ?: return
@@ -236,10 +251,17 @@ class ActivityViewModel @Inject constructor(
         _uiState.value = current.copy(showParentLock = false)
     }
 
-    fun verifyPin(enteredPin: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    fun verifyPin(
+        enteredPin: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
         val current = _uiState.value as? ActivityUiState.Playing ?: return
         viewModelScope.launch {
-            if (userRepository.verifyParentLockPin(current.sessionSettings.userId, enteredPin)) {
+            if (userRepository.verifyParentLockPin(
+                    current.sessionSettings.userId, enteredPin
+                )
+            ) {
                 onSuccess()
             } else {
                 onError("الرقم غلط، حاول مرة أخرى")
@@ -247,16 +269,25 @@ class ActivityViewModel @Inject constructor(
         }
     }
 
-    fun verifyPassword(enteredPassword: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    fun verifyPassword(
+        enteredPassword: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
         val current = _uiState.value as? ActivityUiState.Playing ?: return
         viewModelScope.launch {
-            if (userRepository.verifyParentPassword(current.sessionSettings.userId, enteredPassword)) {
+            if (userRepository.verifyParentPassword(
+                    current.sessionSettings.userId, enteredPassword
+                )
+            ) {
                 onSuccess()
             } else {
                 onError("كلمة المرور غلط")
             }
         }
     }
+
+    // ── Cleanup ───────────────────────────────────────────────────────────────
 
     private fun onForceExit() {
         timerJob?.cancel()

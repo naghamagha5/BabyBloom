@@ -20,41 +20,32 @@ import com.babybloom.R
 import com.babybloom.presentation.viewmodels.WelcomeLearningViewModel
 import com.babybloom.ui.theme.DarkPurple
 import com.babybloom.ui.theme.TextSecondary
+import kotlinx.coroutines.delay
 
 @Composable
 fun WelcomeLearningScreen(
+    onNavigateToActivity: (activityId: String, sessionId: Long, childId: Long) -> Unit,
     viewModel: WelcomeLearningViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isCalmMode = uiState.isCalmMode
 
-    // ── Assets based on mode ────────────────────────────────────────────────
-    val backgroundRes = if (isCalmMode) {
-        R.drawable.ic_welcome_calm
-    } else {
-        R.drawable.ic_welcome_active
+    LaunchedEffect(uiState.childId) {
+        if (uiState.childId == 0L) return@LaunchedEffect
+        delay(3_000)
+        onNavigateToActivity("story_letters_d1", 0L, uiState.childId)
     }
 
-    val animalsRes = if (isCalmMode) {
-        R.drawable.ic_calm_animals
-    } else {
-        R.drawable.ic_active_animals
-    }
+    val backgroundRes = if (isCalmMode) R.drawable.ic_welcome_calm
+    else R.drawable.ic_welcome_active
+    val animalsRes    = if (isCalmMode) R.drawable.ic_calm_animals
+    else R.drawable.ic_active_animals
+    val decorationRes = if (isCalmMode) R.drawable.ic_calm_decoration
+    else R.drawable.ic_active_decoration
 
-    val decorationRes = if (isCalmMode) {
-        R.drawable.ic_calm_decoration
-    } else {
-        R.drawable.ic_active_decoration
-    }
-
-    // ── Layout ─────────────────────────────────────────────────────────────
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        Box(modifier = Modifier.fillMaxSize()) {
 
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
-
-            // ── Background (FULL IMAGE) ─────────────────────────────────────
             Image(
                 painter = painterResource(backgroundRes),
                 contentDescription = null,
@@ -62,7 +53,6 @@ fun WelcomeLearningScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // ── Decoration (top shapes / leaves) ────────────────────────────
             Image(
                 painter = painterResource(decorationRes),
                 contentDescription = null,
@@ -72,7 +62,6 @@ fun WelcomeLearningScreen(
                     .align(Alignment.TopCenter)
             )
 
-            // ── Animals Illustration (BOTTOM) ──────────────────────────
             Image(
                 painter = painterResource(animalsRes),
                 contentDescription = null,
@@ -82,7 +71,6 @@ fun WelcomeLearningScreen(
                     .align(Alignment.BottomCenter)
             )
 
-            // ── Content ────────────────────────────────────────────────────
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -91,16 +79,12 @@ fun WelcomeLearningScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Top
             ) {
+                Spacer(modifier = Modifier.height(60.dp))
 
-                Spacer(modifier = Modifier.height(60.dp)) // Added more space from top
-
-                // ── Text ──────────────────────────────────────────────────
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-
-                    // Big Greeting Text
                     Text(
                         text = stringResource(
                             R.string.welcome_learning_greeting,
@@ -109,7 +93,7 @@ fun WelcomeLearningScreen(
                         style = MaterialTheme.typography.displaySmall.copy(
                             fontWeight = FontWeight.Black,
                             color = DarkPurple,
-                            fontSize = 42.sp, // Match the "much bigger" request
+                            fontSize = 42.sp,
                             lineHeight = 52.sp
                         ),
                         textAlign = TextAlign.Center
@@ -117,19 +101,18 @@ fun WelcomeLearningScreen(
 
                     Spacer(modifier = Modifier.height(18.dp))
 
-                    // Much Bigger Subtitle Text
                     Text(
                         text = stringResource(R.string.welcome_learning_subtitle),
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.Bold,
                             color = DarkPurple.copy(alpha = 0.85f),
-                            fontSize = 32.sp, // Significant increase
+                            fontSize = 32.sp,
                             lineHeight = 44.sp
                         ),
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }

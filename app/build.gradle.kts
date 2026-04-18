@@ -121,6 +121,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
 
     implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation("io.coil-kt:coil-compose:2.6.0")
 }
 
 room {
