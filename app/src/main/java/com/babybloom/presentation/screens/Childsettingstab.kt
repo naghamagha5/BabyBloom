@@ -57,7 +57,7 @@ fun ChildSettingsTab(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             SoundSettingsCard(
-                initialSoundEnabled     = child?.musicEnabled ?: true,
+                initialSoundEnabled     = child?.soundEffectEnabled ?: true,
                 initialMusicEnabled     = child?.backgroundMusicEnabled ?: true,
                 onToggleSoundEffects    = onToggleSoundEffects,
                 onToggleBackgroundMusic = onToggleBackgroundMusic

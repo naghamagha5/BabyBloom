@@ -10,7 +10,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
-import com.babybloom.data.local.DatabaseSeeder
+import com.babybloom.data.local.seeder.ActivitySeeder
+import com.babybloom.data.local.seeder.DatabaseSeeder
+import com.babybloom.data.local.seeder.LearningContentSeeder
 import com.babybloom.navigation.BabyBloomNavGraph
 import com.babybloom.ui.theme.BabyBloomTheme
 import com.babybloom.presentation.screens.MyChildrenContent
@@ -29,6 +31,8 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
     @Inject lateinit var sessionManager: SessionManager
     @Inject lateinit var seeder: DatabaseSeeder
+    @Inject lateinit var learningContentSeeder: LearningContentSeeder
+    @Inject lateinit var activitySeeder: ActivitySeeder
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         installSplashScreen().apply {
@@ -39,6 +43,8 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 seeder.seedIfEmpty()
+                learningContentSeeder.seedIfEmpty()
+                activitySeeder.seedIfEmpty()
                 android.util.Log.d("SEEDER", "Seeding completed successfully")
             } catch (e: Exception) {
                 android.util.Log.e("SEEDER", "Seeding failed: ${e.message}", e)

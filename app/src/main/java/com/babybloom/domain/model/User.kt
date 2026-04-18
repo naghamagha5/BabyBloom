@@ -5,5 +5,6 @@ data class User(
     val name: String,
     val email: String,
     val passwordHash: String,
+    val parentLockPin: String? = null,
     val createdAt: Long = System.currentTimeMillis()
 )

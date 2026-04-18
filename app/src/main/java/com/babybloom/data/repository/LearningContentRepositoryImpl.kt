@@ -30,8 +30,8 @@ class LearningContentRepositoryImpl @Inject constructor(
 }
 
 fun LearningContentEntity.toDomain() = LearningContent(
-    id, labelAr, code ,category, imagePath, audioPath, difficultyLevel
+    id, labelAr ,category,difficultyLevel,learningOrder
 )
 fun LearningContent.toEntity() = LearningContentEntity(
-    id, labelAr, code ,category, imagePath, audioPath, difficultyLevel
+    id, labelAr,category,difficultyLevel,learningOrder
 )
