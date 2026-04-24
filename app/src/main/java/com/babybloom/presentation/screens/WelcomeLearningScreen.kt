@@ -33,7 +33,7 @@ fun WelcomeLearningScreen(
     LaunchedEffect(uiState.childId) {
         if (uiState.childId == 0L) return@LaunchedEffect
         delay(3_000)
-        onNavigateToActivity("story_letters_d1", 0L, uiState.childId)
+        onNavigateToActivity("match_count_d1", 0L, uiState.childId)
     }
 
     val backgroundRes = if (isCalmMode) R.drawable.ic_welcome_calm

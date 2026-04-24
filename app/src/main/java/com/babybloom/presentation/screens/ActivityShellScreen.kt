@@ -172,7 +172,18 @@ fun ActivityShellScreen(
                                     )
                                 }
                             )
-                            "MATCH"  -> GamePlaceholder("MATCH Game — coming soon")
+                            "MATCH" -> MatchScreen(
+                                contentItems = state.activityWithContent.contentItems,
+                                isCalmMode   = settings.isCalmMode,
+                                configJson   = activity.configJson,  // ← ADD THIS
+                                onComplete   = { elapsedMs ->
+                                    viewModel.onAnswerSubmitted(
+                                        isCorrect      = true,
+                                        contentId      = currentItem.contentId,
+                                        responseTimeMs = elapsedMs
+                                    )
+                                }
+                            )
                             "TRACE"  -> GamePlaceholder("TRACE Game — coming soon")
                             "SPEECH" -> GamePlaceholder("SPEECH Game — coming soon")
                             "COUNT"  -> GamePlaceholder("COUNT Game — coming soon")
