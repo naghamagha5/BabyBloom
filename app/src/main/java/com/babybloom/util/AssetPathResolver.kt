@@ -57,10 +57,6 @@ object AssetPathResolver {
 
     // ─── Private Helpers ─────────────────────────────────────────────────────
 
-    /**
-     * Uses [category] as the primary signal.
-     * Falls back to inferring from the [contentId] prefix if category is blank or unknown.
-     */
     private fun resolveCategory(category: String, contentId: String): String {
         val normalized = category.uppercase().trim()
         if (normalized.isNotBlank() && normalized != "UNKNOWN") return normalized
@@ -94,5 +90,7 @@ enum class SoundEffect(val fileName: String) {
     CORRECT("correct.ogg"),
     WRONG("wrong.ogg"),
     COMPLETE("complete.ogg"),
-    TAP("tap.ogg")
+    TAP("tap.ogg"),
+    TRY_AGAIN("try_again.ogg"),
+    TRACE_INSTRUCTION("trace_instruction.ogg")
 }
