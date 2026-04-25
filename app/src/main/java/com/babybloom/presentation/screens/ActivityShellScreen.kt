@@ -21,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.babybloom.R
 import com.babybloom.presentation.viewmodels.ActivityUiState
 import com.babybloom.presentation.viewmodels.ActivityViewModel
+import com.babybloom.presentation.screens.CountingGameScreen
 
 @Composable
 fun ActivityShellScreen(
@@ -175,7 +176,24 @@ fun ActivityShellScreen(
                             "MATCH"  -> GamePlaceholder("MATCH Game — coming soon")
                             "TRACE"  -> GamePlaceholder("TRACE Game — coming soon")
                             "SPEECH" -> GamePlaceholder("SPEECH Game — coming soon")
-                            "COUNT"  -> GamePlaceholder("COUNT Game — coming soon")
+//                            "COUNT"  -> GamePlaceholder("COUNT Game — coming soon")
+                            "COUNT" -> CountingGameScreen(
+                                currentItem     = currentItem,
+                                isCalmMode      = settings.isCalmMode,
+                                difficultyLevel = activity.difficultyLevel,
+                                activityId      = activity.id,
+                                roundIndex      = state.currentIndex,   // ← tells game which round (0=first)
+                                onComplete      = { isCorrect, elapsedMs, attempts, touchComplexity ->
+                                    viewModel.onAnswerSubmitted(
+                                        isCorrect       = isCorrect,
+                                        contentId       = currentItem.contentId,
+                                        responseTimeMs  = elapsedMs,
+                                        attempts        = attempts,
+                                        touchComplexity = touchComplexity
+                                    )
+                                }
+                            )
+
                             "DRAG"   -> GamePlaceholder("DRAG Game — coming soon")
                             else     -> GamePlaceholder("Unknown: ${activity.activityType}")
                         }
