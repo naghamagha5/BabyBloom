@@ -172,8 +172,32 @@ fun ActivityShellScreen(
                                     )
                                 }
                             )
+                            // TRACE — fully wired with result + DB save
+                            // ─────────────────────────────────────────────
+                            "TRACE" -> TraceScreen(
+                                currentItem = currentItem,
+                                isCalmMode  = settings.isCalmMode,
+                                onComplete  = { result ->
+                                    // 1. Save activity result (score, duration, attempts, touchComplexity)
+                                    viewModel.onAnswerSubmitted(
+                                        isCorrect       = result.isSuccess,
+                                        contentId       = currentItem.contentId,
+                                        responseTimeMs  = result.elapsedMs,
+                                        attempts        = result.attempts,
+                                        touchComplexity = result.touchComplexity,
+                                        scoreOverride   = result.coverage  // actual 0.0–1.0 score
+                                    )
+                                    // 2. Save touch interaction event
+                                    viewModel.saveTraceInteractionEvent(
+                                        contentId       = currentItem.contentId,
+                                        touchComplexity = result.touchComplexity,
+                                        avgStrokeLength = result.avgStrokeLength,
+                                        correctionCount = result.correctionCount
+                                    )
+                                }
+                            )
+
                             "MATCH"  -> GamePlaceholder("MATCH Game — coming soon")
-                            "TRACE"  -> GamePlaceholder("TRACE Game — coming soon")
                             "SPEECH" -> GamePlaceholder("SPEECH Game — coming soon")
                             "COUNT"  -> GamePlaceholder("COUNT Game — coming soon")
                             "DRAG"   -> GamePlaceholder("DRAG Game — coming soon")
