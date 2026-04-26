@@ -4,10 +4,12 @@
     android:viewportWidth="144.88"
     android:viewportHeight="83.78">
   <path
+      android:name="background_shape"
       android:pathData="M6.09,5.85L140.07,5.85v72.26L6.09,78.11Z"
       android:strokeWidth="7.61523"
       android:fillColor="#808080"/>
   <path
+      android:name="logic_shape"
       android:pathData="m6.89,6.5 l66.83,0.17 65.09,-0.35 0.17,49.03 0.17,21.46 -66.31,0.35 -65.96,0.17 0.17,-34.03z"
       android:strokeWidth="3.201"
       android:fillColor="#00000000"
