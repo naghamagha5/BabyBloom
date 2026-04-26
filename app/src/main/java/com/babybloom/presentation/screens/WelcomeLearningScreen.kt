@@ -22,6 +22,8 @@ import com.babybloom.ui.theme.DarkPurple
 import com.babybloom.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 
+
+
 @Composable
 fun WelcomeLearningScreen(
     onNavigateToActivity: (activityId: String, sessionId: Long, childId: Long) -> Unit,
