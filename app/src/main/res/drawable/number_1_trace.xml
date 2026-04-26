@@ -11,7 +11,7 @@
       android:fillType="evenOdd"
       android:strokeColor="#00000000"/>
   <path
-      android:name="logic_number"
+      android:name="logic_number1"
       android:pathData="m6.48,9.96 l13.61,32.46 6.28,25.13 -1.75,26.87"
       android:strokeWidth="3.75708"
       android:fillColor="#00000000"
