@@ -374,6 +374,25 @@
     <string name="welcome_learning_greeting">مرحبًا يا %1$s!\nهل أنت مستعد للتعلّم واللعب مع BabyBloom؟</string>
     <string name="welcome_learning_subtitle">اليوم لدينا مغامرة رائعة بانتظارك!</string>
     <string name="welcome_learning_start_button">هيا نبدأ!</string>
+    <!-- ════════════════════════════════════════════════════════════════════
+         MATCH SCREEN
+         ════════════════════════════════════════════════════════════════════ -->
+
+    <!-- Game 1: Animal → Habitat prompt -->
+    <string name="match_prompt_where_lives">أَيْنَ يَعِيش؟</string>
+
+    <!-- Game 2: Letter → Animal prompt -->
+    <string name="match_prompt_choose_animal">اخْتَر الحَيَوَان الَّذِي يَبْدَأ بِالحَرْف</string>
+    <!-- ════════════════════════════════════════════════════════════════════
+     MATCH SCREEN — Habitat labels
+     ════════════════════════════════════════════════════════════════════ -->
+    <string name="habitat_savanna">السَّافَانا</string>
+    <string name="habitat_forest">الغَابَة</string>
+    <string name="habitat_desert">الصَّحْرَاء</string>
+    <string name="habitat_farm">المَزْرَعَة</string>
+    <string name="habitat_wetlands">الأَهْوَار</string>
+    <string name="habitat_sea">البَحْر</string>
+    <string name="habitat_birds">السَّمَاء</string>
 
     <!-- ── Trace Game Instructions ──────────────────────────────────────────── -->
     <string name="trace_instruction_letter">اِلْمَس الدَّوَائِر لِتَتَبُّع الحَرْف</string>
