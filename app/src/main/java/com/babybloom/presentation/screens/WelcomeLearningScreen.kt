@@ -36,7 +36,6 @@ fun WelcomeLearningScreen(
         onNavigateToActivity("story_letters_d1", 0L, uiState.childId)
     }
 
-
     val backgroundRes = if (isCalmMode) R.drawable.ic_welcome_calm
     else R.drawable.ic_welcome_active
     val animalsRes    = if (isCalmMode) R.drawable.ic_calm_animals
