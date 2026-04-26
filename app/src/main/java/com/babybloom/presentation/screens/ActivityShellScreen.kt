@@ -25,43 +25,39 @@ import com.babybloom.presentation.screens.CountingGameScreen
 
 @Composable
 fun ActivityShellScreen(
-    activityId: String,
-    sessionId: Long,
-    childId: Long,
+    activityId:         String,
+    sessionId:          Long,
+    childId:            Long,
     onActivityComplete: (score: Int, total: Int) -> Unit,
-    onExit: () -> Unit,
-    viewModel: ActivityViewModel = hiltViewModel()
+    onExit:             () -> Unit,
+    viewModel:          ActivityViewModel = hiltViewModel()
 ) {
-    LaunchedEffect(activityId) {
-        viewModel.loadActivity(activityId, sessionId, childId)
-    }
-
-    BackHandler {
-        viewModel.requestExit()
-    }
+    LaunchedEffect(activityId) { viewModel.loadActivity(activityId, sessionId, childId) }
+    BackHandler { viewModel.requestExit() }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     when (val state = uiState) {
+
         is ActivityUiState.Loading -> ActivityLoadingScreen()
 
         is ActivityUiState.Error -> ActivityErrorScreen(
             message = state.message,
-            onExit = onExit
+            onExit  = onExit
         )
 
         is ActivityUiState.Completed -> {
             LaunchedEffect(Unit) { onActivityComplete(state.score, state.total) }
             ActivityCompletedScreen(
-                score = state.score,
-                total = state.total,
+                score    = state.score,
+                total    = state.total,
                 onFinish = { onActivityComplete(state.score, state.total) }
             )
         }
 
         is ActivityUiState.Playing -> {
-            val settings = state.sessionSettings
-            val activity = state.activityWithContent.activity
+            val settings    = state.sessionSettings
+            val activity    = state.activityWithContent.activity
             val currentItem = state.activityWithContent.contentItems
                 .getOrNull(state.currentIndex) ?: return
 
@@ -73,17 +69,17 @@ fun ActivityShellScreen(
             else
                 R.drawable.ic_game_background_active
 
-            // ── Root box: background image fills entire screen ────────────
             Box(modifier = Modifier.fillMaxSize()) {
 
+                // ── Full-screen background ────────────────────────────────
                 Image(
-                    painter = painterResource(id = backgroundRes),
+                    painter            = painterResource(id = backgroundRes),
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    contentScale       = ContentScale.Crop,
+                    modifier           = Modifier.fillMaxSize()
                 )
 
-                // ── Top bar: back button + progress bar ───────────────────
+                // ── Top bar: back button + session progress + timer ────────
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -92,26 +88,24 @@ fun ActivityShellScreen(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier          = Modifier.fillMaxWidth()
                     ) {
-                        // Circular back button
                         IconButton(
-                            onClick = { viewModel.requestExit() },
+                            onClick  = { viewModel.requestExit() },
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
                         ) {
                             Icon(
-                                imageVector = Icons.Default.ArrowBack,
+                                imageVector        = Icons.Default.ArrowBack,
                                 contentDescription = "خروج",
-                                tint = MaterialTheme.colorScheme.onSurface
+                                tint               = MaterialTheme.colorScheme.onSurface
                             )
                         }
 
                         Spacer(Modifier.width(12.dp))
 
-                        // Rounded pill progress bar
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -128,12 +122,11 @@ fun ActivityShellScreen(
                             )
                         }
 
-                        // Session timer
                         Spacer(Modifier.width(12.dp))
                         val minutes = (state.sessionRemainingMs / 60_000).toInt()
                         val seconds = ((state.sessionRemainingMs % 60_000) / 1_000).toInt()
                         Text(
-                            text = "%02d:%02d".format(minutes, seconds),
+                            text  = "%02d:%02d".format(minutes, seconds),
                             style = MaterialTheme.typography.labelMedium,
                             color = if (state.sessionRemainingMs < 60_000)
                                 MaterialTheme.colorScheme.error
@@ -143,7 +136,7 @@ fun ActivityShellScreen(
                     }
                 }
 
-                // ── Big content card ──────────────────────────────────────
+                // ── Content card (bottom 88%) ─────────────────────────────
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -162,33 +155,49 @@ fun ActivityShellScreen(
 
                         // ── Game router ───────────────────────────────────
                         when (activity.activityType) {
+
+                            // ── Story ─────────────────────────────────────
                             "STORY" -> StoryScreen(
                                 currentItem = currentItem,
-                                isCalmMode = settings.isCalmMode,
-                                onComplete = { elapsedMs ->
+                                isCalmMode  = settings.isCalmMode,
+                                onComplete  = { elapsedMs ->
                                     viewModel.onAnswerSubmitted(
-                                        isCorrect = true,
-                                        contentId = currentItem.contentId,
+                                        isCorrect      = true,
+                                        contentId      = currentItem.contentId,
                                         responseTimeMs = elapsedMs
                                     )
                                 }
                             )
-                            // TRACE — fully wired with result + DB save
-                            // ─────────────────────────────────────────────
+
+                            // ── Match ─────────────────────────────────────
+                            "MATCH" -> MatchScreen(
+                                contentItems = state.activityWithContent.contentItems,
+                                isCalmMode   = settings.isCalmMode,
+                                configJson   = activity.configJson,
+                                onCardResult = { contentId, isCorrect, _, _, attempts ->
+                                    viewModel.onAnswerSubmitted(
+                                        isCorrect      = isCorrect,
+                                        contentId      = contentId,
+                                        responseTimeMs = System.currentTimeMillis(),
+                                        attempts       = attempts
+                                    )
+                                },
+                                onComplete = { _, _ -> }
+                            )
+
+                            // ── Trace ─────────────────────────────────────
                             "TRACE" -> TraceScreen(
                                 currentItem = currentItem,
                                 isCalmMode  = settings.isCalmMode,
                                 onComplete  = { result ->
-                                    // 1. Save activity result (score, duration, attempts, touchComplexity)
                                     viewModel.onAnswerSubmitted(
                                         isCorrect       = result.isSuccess,
                                         contentId       = currentItem.contentId,
                                         responseTimeMs  = result.elapsedMs,
                                         attempts        = result.attempts,
                                         touchComplexity = result.touchComplexity,
-                                        scoreOverride   = result.coverage  // actual 0.0–1.0 score
+                                        scoreOverride   = result.coverage
                                     )
-                                    // 2. Save touch interaction event
                                     viewModel.saveTraceInteractionEvent(
                                         contentId       = currentItem.contentId,
                                         touchComplexity = result.touchComplexity,
@@ -198,15 +207,13 @@ fun ActivityShellScreen(
                                 }
                             )
 
-                            "MATCH"  -> GamePlaceholder("MATCH Game — coming soon")
-                            "SPEECH" -> GamePlaceholder("SPEECH Game — coming soon")
-//                            "COUNT"  -> GamePlaceholder("COUNT Game — coming soon")
+                            // ── Count ─────────────────────────────────────
                             "COUNT" -> CountingGameScreen(
                                 currentItem     = currentItem,
                                 isCalmMode      = settings.isCalmMode,
                                 difficultyLevel = activity.difficultyLevel,
                                 activityId      = activity.id,
-                                roundIndex      = state.currentIndex,   // ← tells game which round (0=first)
+                                roundIndex      = state.currentIndex,
                                 onComplete      = { isCorrect, elapsedMs, attempts, touchComplexity ->
                                     viewModel.onAnswerSubmitted(
                                         isCorrect       = isCorrect,
@@ -218,13 +225,15 @@ fun ActivityShellScreen(
                                 }
                             )
 
+                            // ── Coming soon ───────────────────────────────
+                            "SPEECH" -> GamePlaceholder("SPEECH Game — coming soon")
                             "DRAG"   -> GamePlaceholder("DRAG Game — coming soon")
                             else     -> GamePlaceholder("Unknown: ${activity.activityType}")
                         }
                     }
                 }
 
-                // ── Parent lock overlay — on top of everything ────────────
+                // ── Parent lock overlay ───────────────────────────────────
                 if (state.showParentLock) {
                     ParentLockScreen(
                         onUnlocked = {
@@ -239,46 +248,38 @@ fun ActivityShellScreen(
     }
 }
 
-// ── Placeholder ───────────────────────────────────────────────────────────────
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
 @Composable
 private fun GamePlaceholder(label: String) {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+        modifier         = Modifier.fillMaxSize().padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = label,
+            text  = label,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.outline
         )
     }
 }
 
-// ── Loading ───────────────────────────────────────────────────────────────────
 @Composable
 fun ActivityLoadingScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
     }
 }
 
-// ── Error ─────────────────────────────────────────────────────────────────────
 @Composable
 fun ActivityErrorScreen(message: String, onExit: () -> Unit) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier            = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = message,
+            text  = message,
             color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodyLarge
         )
@@ -287,13 +288,10 @@ fun ActivityErrorScreen(message: String, onExit: () -> Unit) {
     }
 }
 
-// ── Completed ─────────────────────────────────────────────────────────────────
 @Composable
 fun ActivityCompletedScreen(score: Int, total: Int, onFinish: () -> Unit) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier            = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -305,18 +303,17 @@ fun ActivityCompletedScreen(score: Int, total: Int, onFinish: () -> Unit) {
     }
 }
 
-// ── Offline Speech Banner ─────────────────────────────────────────────────────
 @Composable
 private fun OfflineSpeechBanner() {
     Box(
-        modifier = Modifier
+        modifier         = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.errorContainer)
             .padding(8.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "وضع الكلام يحتاج إنترنت",
+            text  = "وضع الكلام يحتاج إنترنت",
             color = MaterialTheme.colorScheme.onErrorContainer
         )
     }
