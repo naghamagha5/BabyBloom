@@ -394,4 +394,26 @@
     <string name="habitat_sea">البَحْر</string>
     <string name="habitat_birds">السَّمَاء</string>
 
+    <!-- ── Trace Game Instructions ──────────────────────────────────────────── -->
+    <string name="trace_instruction_letter">اِلْمَس الدَّوَائِر لِتَتَبُّع الحَرْف</string>
+    <string name="trace_instruction_number">اِلْمَس الدَّوَائِر لِتَتَبُّع الرَّقْم</string>
+    <string name="trace_instruction_shape">اِلْمَس الدَّوَائِر لِتَتَبُّع الشَّكْل</string>
+
+    <!-- ── Trace Game Popups ───────────────────────────────────────────────── -->
+    <string name="trace_success_title">أَحْسَنْت!</string>
+    <string name="trace_try_again_title">حَاوِل مَرَّة أُخْرَى!</string>
+    <string name="trace_last_attempt_title">لَا بَأْس، حَاوِل المَرَّة القَادِمَة!</string>
+    <string name="trace_remaining_one">تَبَقَّى مُحَاوَلَة وَاحِدَة</string>
+    <string name="trace_remaining_format">تَبَقَّى %d مُحَاوَلَات</string>
+    <string name="trace_coverage_format">%d%% ✓</string>
+
+    <!-- ── Trace Game Errors ───────────────────────────────────────────────── -->
+    <string name="trace_no_path_title">لَمْ يُعْثَر عَلَى مَسَار التَّتَبُّع</string>
+    <string name="trace_no_path_needed">المَطْلُوب: %s_trace.xml</string>
+
+    <!-- ── Emoji for popups (kept in strings so they can be localised/changed) -->
+    <string name="trace_success_emoji">🌟</string>
+    <string name="trace_try_again_emoji">😉</string>
+    <string name="trace_last_attempt_emoji">💪</string>
+
 </resources>

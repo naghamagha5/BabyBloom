@@ -169,7 +169,8 @@ class ActivityViewModel @Inject constructor(
         responseTimeMs: Long,
         attempts: Int = 1,
         speechConfidence: Float? = null,
-        touchComplexity: Float? = null
+        touchComplexity: Float? = null,
+        scoreOverride: Float? = null
     ) {
         val current = _uiState.value as? ActivityUiState.Playing ?: return
         val attentionScore = attentionTracker.computeScore().takeIf { it > 0f }
@@ -234,7 +235,23 @@ class ActivityViewModel @Inject constructor(
             }
         }
     }
-
+    fun saveTraceInteractionEvent(
+        contentId: String,
+        touchComplexity: Float,
+        avgStrokeLength: Float,
+        correctionCount: Int
+    ) {
+        val cur = _uiState.value as? ActivityUiState.Playing ?: return
+        viewModelScope.launch {
+            interactionEventRepository.saveEvent(InteractionEvent(
+                sessionId  = sessionId,
+                childId    = cur.sessionSettings.childId,
+                activityId = cur.activityWithContent.activity.id,
+                eventType  = "TOUCH",
+                eventData  = """{"contentId":"$contentId","touchComplexity":$touchComplexity,"avgStrokeLength":$avgStrokeLength,"correctionCount":$correctionCount}"""
+            ))
+        }
+    }
     // ── Parent Lock ───────────────────────────────────────────────────────────
 
     fun requestExit() {
