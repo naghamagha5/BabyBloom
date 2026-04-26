@@ -173,3 +173,7 @@ val Card3 = Color(0xFFFFDCC2)
 
 val DarkPurple = Color(0xFF2E2645)
 
+// Match Screen —
+
+val RevealGold      = Color(0xFFFFD700)   // correct-reveal state border & badge
+val MatchQuestionBg = TextFieldBackground // question card background alias

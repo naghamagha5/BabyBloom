@@ -175,15 +175,23 @@ fun ActivityShellScreen(
                             "MATCH" -> MatchScreen(
                                 contentItems = state.activityWithContent.contentItems,
                                 isCalmMode   = settings.isCalmMode,
-                                configJson   = activity.configJson,  // ← ADD THIS
-                                onComplete   = { elapsedMs ->
+                                configJson   = activity.configJson,
+                                onCardResult = { contentId, isCorrect, correct, incorrect, attempts ->
                                     viewModel.onAnswerSubmitted(
-                                        isCorrect      = true,
-                                        contentId      = currentItem.contentId,
-                                        responseTimeMs = elapsedMs
+                                        isCorrect      = isCorrect,
+                                        contentId      = contentId,
+                                        responseTimeMs = System.currentTimeMillis(), // or track per-card time if needed
+                                        attempts       = attempts,
+                                        // pass correct/incorrect if your onAnswerSubmitted supports them
                                     )
+                                },
+                                onComplete = { elapsedMs, correctCount ->
+                                    // optionally log a summary row, or just navigate — nav is handled by Done state
                                 }
                             )
+
+
+
                             "TRACE"  -> GamePlaceholder("TRACE Game — coming soon")
                             "SPEECH" -> GamePlaceholder("SPEECH Game — coming soon")
                             "COUNT"  -> GamePlaceholder("COUNT Game — coming soon")
