@@ -214,6 +214,25 @@
     ]
   },
   {
+    "id": "speech_letters_sounds_d1",
+    "title": "قُل صَوْت الحَرْف",
+    "description": "انْظُر إِلَى الحَرْف وَقُل صَوْتَهُ",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 1,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "letter_alef_s",
+      "letter_ba_s",
+      "letter_meem_s",
+      "letter_ha_s",
+      "letter_jeem_s",
+      "letter_dal_s"
+    ]
+  },
+  {
     "id": "speech_letters_d1",
     "title": "قُل اسْم الحَرْف",
     "description": "انْظُر إِلَى الحَرْف وَقُل اسْمَهُ",

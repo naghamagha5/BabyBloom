@@ -21,7 +21,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.babybloom.R
 import com.babybloom.presentation.viewmodels.ActivityUiState
 import com.babybloom.presentation.viewmodels.ActivityViewModel
-import com.babybloom.presentation.screens.CountingGameScreen
 
 @Composable
 fun ActivityShellScreen(
@@ -168,6 +167,19 @@ fun ActivityShellScreen(
                                     )
                                 }
                             )
+                            "SPEECH" -> SpeechScreen(
+                                currentItem = currentItem,
+                                isCalmMode = settings.isCalmMode,
+                                onComplete = { elapsedMs, attempts, confidence, isCorrect ->
+                                    viewModel.onAnswerSubmitted(
+                                        isCorrect      = isCorrect,
+                                        contentId      = currentItem.contentId,
+                                        responseTimeMs = elapsedMs,
+                                        attempts       = attempts,
+                                        speechConfidence = confidence
+                                    )
+                                }
+                            )
 
                             // ── Match ─────────────────────────────────────
                             "MATCH" -> MatchScreen(
@@ -241,9 +253,6 @@ fun ActivityShellScreen(
                                     )
                                 }
                             )
-
-                            // ── Speech (coming soon) ───────────────────────
-                            "SPEECH" -> GamePlaceholder("SPEECH Game — coming soon")
 
                             else -> GamePlaceholder("Unknown: ${activity.activityType}")
                         }

@@ -232,201 +232,200 @@ class LearningContentSeeder @Inject constructor(
     private fun soundOfLetters() = listOf(
         LearningContentEntity(
             id             = "letter_alef_s",
-            labelAr        = "أَلِف",
+            labelAr        = "أَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 1,
             learningOrder = 1
         ),
         LearningContentEntity(
             id             = "letter_ba_s",
-            labelAr        = "بَاء",
+            labelAr        = "بَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 1,
             learningOrder = 2
         ),
         LearningContentEntity(
             id             = "letter_ta_s",
-            labelAr        = "تَاء",
+            labelAr        = "تَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 2,
             learningOrder = 8
         ),
         LearningContentEntity(
             id             = "letter_tha_s",
-            labelAr        = "ثَاء",
+            labelAr        = "ثَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 5,
             learningOrder = 27
         ),
         LearningContentEntity(
             id             = "letter_jeem_s",
-            labelAr        = "جِيم",
+            labelAr        = "جَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 1,
             learningOrder = 5
         ),
         LearningContentEntity(
             id             = "letter_ha_s",
-            labelAr        = "حَاء",
+            labelAr        = "حَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 1,
             learningOrder = 4
         ),
         LearningContentEntity(
             id             = "letter_kha_s",
-            labelAr        = "خَاء",
+            labelAr        = "خَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 2,
             learningOrder = 7
         ),
         LearningContentEntity(
             id             = "letter_dal_s",
-            labelAr        = "دَال",
+            labelAr        = "دَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 1,
             learningOrder = 6
         ),
         LearningContentEntity(
             id             = "letter_thal_s",
-            labelAr        = "ذَال",
+            labelAr        = "ذَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 4,
             learningOrder = 21
         ),
         LearningContentEntity(
             id             = "letter_ra_s",
-            labelAr        = "رَاء",
+            labelAr        = "رَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 3,
             learningOrder = 12
         ),
         LearningContentEntity(
             id             = "letter_zay_s",
-            labelAr        = "زَاي",
+            labelAr        = "زَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 4,
             learningOrder = 23
         ),
         LearningContentEntity(
             id             = "letter_seen_s",
-            labelAr        = "سِين",
+            labelAr        = "سَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 2,
             learningOrder = 10
         ),
         LearningContentEntity(
             id             = "letter_sheen_s",
-            labelAr        = "شِين",
+            labelAr        = "شَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 4,
             learningOrder = 18
         ),
         LearningContentEntity(
             id             = "letter_sad_s",
-            labelAr        = "صَاد",
+            labelAr        = "صَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 5,
             learningOrder = 25
         ),
         LearningContentEntity(
             id             = "letter_dad_s",
-            labelAr        = "ضَاد",
+            labelAr        = "ضَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 5,
             learningOrder = 26
         ),
         LearningContentEntity(
             id             = "letter_tah_s",
-            labelAr        = "طَاء",
+            labelAr        = "طَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 5,
             learningOrder = 24
         ),
         LearningContentEntity(
             id             = "letter_zah_s",
-            labelAr        = "ظَاء",
+            labelAr        = "ظَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 4,
             learningOrder = 22
         ),
         LearningContentEntity(
             id             = "letter_ain_s",
-            labelAr        = "عَيْن",
+            labelAr        = "عَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 3,
             learningOrder = 17
         ),
         LearningContentEntity(
             id             = "letter_ghain_s",
-            labelAr        = "غَيْن",
+            labelAr        = "غَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 5,
             learningOrder = 28
         ),
         LearningContentEntity(
             id             = "letter_fa_s",
-            labelAr        = "فَاء",
+            labelAr        = "فَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 3,
             learningOrder = 13
         ),
         LearningContentEntity(
             id             = "letter_qaf_s",
-            labelAr        = "قَاف",
+            labelAr        = "قَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 3,
             learningOrder = 15
         ),
         LearningContentEntity(
             id             = "letter_kaf_s",
-            labelAr        = "كَاف",
+            labelAr        = "كَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 3,
             learningOrder = 14
         ),
         LearningContentEntity(
             id             = "letter_lam_s",
-            labelAr        = "لَام",
+            labelAr        = "لَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 2,
             learningOrder = 9
         ),
         LearningContentEntity(
             id             = "letter_meem_s",
-            labelAr        = "مِيم",
+            labelAr        = "مَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 1,
             learningOrder = 3
         ),
         LearningContentEntity(
             id             = "letter_noon_s",
-            labelAr        = "نُون",
+            labelAr        = "نَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 2,
             learningOrder = 11
         ),
         LearningContentEntity(
             id             = "letter_ha2_s",
-            labelAr        = "هَاء",
+            labelAr        = "هَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 4,
             learningOrder = 20
         ),
         LearningContentEntity(
             id             = "letter_waw_s",
-            labelAr        = "وَاو",
+            labelAr        = "وَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 4,
             learningOrder = 19
         ),
         LearningContentEntity(
             id             = "letter_ya_s",
-            labelAr        = "يَاء",
+            labelAr        = "يَ",
             category       = Category.LETTER_SOUND,
             difficultyLevel = 3,
             learningOrder = 16
         )
-
     )
     // ─────────────────────────────────────────
     // NUMBERS
