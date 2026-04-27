@@ -10,19 +10,19 @@ val Purple40 = Color(0xFF6650a4)
 val PurpleGrey40 = Color(0xFF625b71)
 val Pink40 = Color(0xFF7D5260)
 
-// Brand palette — extracted from your design
-val PurpleLavender          = Color(0xFFD4C5F9)   // screen background gradient top
-val LavenderLight           = Color(0xFFE8DFF8)   // gradient bottom
-val NavyDark                = Color(0xFF1A1A3E)   // primary button background
+// ── Brand palette ─────────────────────────────────────────────────────────────
+val PurpleLavender          = Color(0xFFD4C5F9)
+val LavenderLight           = Color(0xFFE8DFF8)
+val NavyDark                = Color(0xFF1A1A3E)
 val White                   = Color(0xFFFFFFFF)
-val TextPrimary             = Color(0xFF1A1A3E)   // dark navy for headings
-val TextSecondary           = Color(0xFF6B6B8A)   // hint/placeholder text
-val TextFieldBackground     = Color(0xFFF5F2FF)   // input field fill
-val TextFieldBorder         = Color(0xFFDDD5F3)   // input field border
+val TextPrimary             = Color(0xFF1A1A3E)
+val TextSecondary           = Color(0xFF6B6B8A)
+val TextFieldBackground     = Color(0xFFF5F2FF)
+val TextFieldBorder         = Color(0xFFDDD5F3)
 val ErrorRed                = Color(0xFFE53935)
 val DividerGray             = Color(0xFFCCC5E0)
 val ButtonText              = Color(0xFFFFFFFF)
-val LinkColor               = Color(0xFF6B4EFF)   // "forgot password" link
+val LinkColor               = Color(0xFF6B4EFF)
 
 // ── Register Screen ───────────────────────────────────────────────────────────
 val GradientTop             = Color(0xFFB8A9E8)
@@ -42,14 +42,30 @@ val GradientOrangeLight     = Color(0xFFFDCC6D)
 val GradientOrangeMedium    = Color(0xFFF9A45E)
 val GradientOrangeDark      = Color(0xFFF5734C)
 val BorderGray              = Color(0xFFD1D1D1)
+val Gradient1               = Color(0xFF161C36)
+val Gradient2               = Color(0xFF8C59C0)
+val Gradient3               = Color(0xFF7F80DA)
 
 // ── Child Profile ─────────────────────────────────────────────────────────────
 val BackgroundLight         = Color(0xFFF8F5FC)
 val CardPurple              = Color(0xFFEDE7F6)
 val ProgressPurple          = Color(0xFF7C4DBC)
+val Card1                   = Color(0xFFDFCCED)
+val Card2                   = Color(0xFFB3DFED)
+val Card3                   = Color(0xFFFFDCC2)
+val ChildCardBackground     = Color(0xFFEAEFFF)
+val ChildName               = Color(0xFF2E2645)
+val AvatarBorder            = Color(0xFF8E2357)
+val DarkPurple              = Color(0xFF2E2645)
 
 // ── Status ────────────────────────────────────────────────────────────────────
 val BadgeGreen              = Color(0xFF4CAF50)
+val StatusActiveBackground  = Color(0xFFC1D8F2)
+val StatusActiveDot         = Color(0xFF5B9BB8)
+val StatusCalmBackground    = Color(0xFFC1E8D8)
+val StatusCalmDot           = Color(0xFF5BB89B)
+val StatusNeedsSupportBackground = Color(0xFFFFE0C1)
+val StatusNeedsSupportDot   = Color(0xFFE89B5B)
 
 // ── Danger ────────────────────────────────────────────────────────────────────
 val DangerRed               = Color(0xFFE53935)
@@ -116,30 +132,43 @@ val TextOnLight             = Color(0xFF2D2D2D)
 val InputBackground         = Color(0xFFF5F5F5)
 val ProgressBarFill         = Color(0xFF030213)
 val ProgressBarTrack        = Color(0x1A030213)
-val ChildCardBackground     = Color(0xFFEAEFFF)
 val ScreenBackground        = Color(0xFFF5F6F9)
 val AddChildButton          = Color(0xFFB9B7E6)
 val SearchBarIcon           = Color(0xFF7B68B8)
 val MyChildrenTextDark      = Color(0xFF241726)
-val StatusActiveBackground  = Color(0xFFC1D8F2)
-val StatusActiveDot         = Color(0xFF5B9BB8)
-val StatusCalmBackground    = Color(0xFFC1E8D8)
-val StatusCalmDot           = Color(0xFF5BB89B)
-val StatusNeedsSupportBackground = Color(0xFFFFE0C1)
-val StatusNeedsSupportDot   = Color(0xFFE89B5B)
-val ChildName               = Color(0xFF2E2645)
-val AvatarBorder            = Color(0xFF8E2357)
-val Gradient1               = Color(0xFF161C36)
-val Gradient2               = Color(0xFF8C59C0)
-val Gradient3               = Color(0xFF7F80DA)
-val Card1                   = Color(0xFFDFCCED)
-val Card2                   = Color(0xFFB3DFED)
-val Card3                   = Color(0xFFFFDCC2)
-val DarkPurple              = Color(0xFF2E2645)
 
 // ── Match Game ────────────────────────────────────────────────────────────────
 val RevealGold              = Color(0xFFFFD700)   // correct-reveal border & badge
 val MatchQuestionBg         = TextFieldBackground  // question card background alias
+
+// ── Drag Game ─────────────────────────────────────────────────────────────────
+val DragCalmCardBorder      = Color(0xFFB2CFCA)
+val DragActiveCardBorder    = Color(0xFFFFB347)
+val DragCalmCardBg          = Color(0xFFE8F4F0)
+val DragActiveCardBg        = Color(0xFFFFF0B3)
+val DragShapeWrongBg        = Color(0xFFFFCDD2)
+val DragAttemptDotFull      = Color(0xFF212121)
+val DragLetterTileBg        = Color(0xFFFFF8E1)
+val DragLetterSlotCorrectBg = Color(0xFFE8F5E9)
+val DragLetterSlotWrongBg   = Color(0xFFFFEBEE)
+val DragResultCorrectBg     = Color(0xCCE8F5E9)
+val DragResultWrongBg       = Color(0xCCFFEBEE)
+val DragResultWrongText     = Color(0xFFC62828)
+val DragResultCorrectText   = Color(0xFF2E7D32)
+val DragProgressDone        = Color(0xFF43A047)
+val DragProgressIdle        = Color(0xFFBDBDBD)
+val DragTimerOk             = Color(0xFF43A047)
+val DragTimerMid            = Color(0xFFFF9800)
+val DragTimerLow            = Color(0xFFE53935)
+val DragTimerTrack          = Color(0xFFE0E0E0)
+
+// Hex Long constants used with Color(Long) constructor in the color-to-shape game
+const val DragColorRedHex    : Long = 0xFFE53935L
+const val DragColorBlueHex   : Long = 0xFF1E88E5L
+const val DragColorYellowHex : Long = 0xFFFDD835L
+const val DragColorGreenHex  : Long = 0xFF43A047L
+const val DragColorGrayHex   : Long = 0xFF333333L
+const val DragColorMidGrayHex: Long = 0xFF9E9E9EL
 
 // ── Trace Game ────────────────────────────────────────────────────────────────
 val TraceCardBackground     = Color(0xFFFFF8E7)   // warm cream card background

@@ -225,10 +225,27 @@ fun ActivityShellScreen(
                                 }
                             )
 
-                            // ── Coming soon ───────────────────────────────
+                            // ── Drag ──────────────────────────────────────
+                            "DRAG" -> DragGameScreen(
+                                currentItem = currentItem,
+                                isCalmMode  = settings.isCalmMode,
+                                onComplete  = { isCorrect, encodedMs ->
+                                    // VM encodes: encodedMs = elapsedMs + attemptsUsed * 100_000
+                                    val attempts     = (encodedMs / 100_000L).toInt().coerceAtLeast(1)
+                                    val responseTime = encodedMs % 100_000L
+                                    viewModel.onAnswerSubmitted(
+                                        isCorrect      = isCorrect,
+                                        contentId      = currentItem.contentId,
+                                        responseTimeMs = responseTime,
+                                        attempts       = attempts
+                                    )
+                                }
+                            )
+
+                            // ── Speech (coming soon) ───────────────────────
                             "SPEECH" -> GamePlaceholder("SPEECH Game — coming soon")
-                            "DRAG"   -> GamePlaceholder("DRAG Game — coming soon")
-                            else     -> GamePlaceholder("Unknown: ${activity.activityType}")
+
+                            else -> GamePlaceholder("Unknown: ${activity.activityType}")
                         }
                     }
                 }
