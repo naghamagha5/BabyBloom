@@ -279,5 +279,32 @@
     "isActive": true,
     "configJson": "{}",
     "contentIds": ["color_red", "color_blue", "color_yellow"]
+  },
+
+
+  {
+    "id": "count_animals_d1",
+    "title": "عُدّ الحيوانات",
+    "description": "عُدّ الحيوانات واختر العدد الصحيح",
+    "modality": "INTERACTIVE",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 1,
+    "activityType": "COUNT",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": ["number_1", "number_2", "number_3"]
+  },
+  {
+    "id": "count_shapes_d1",
+    "title": "عُدّ الأشكال",
+    "description": "عُدّ الأشكال واختر العدد الصحيح",
+    "modality": "INTERACTIVE",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 1,
+    "activityType": "COUNT",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": ["number_1", "number_2", "number_3"]
   }
+
 ]

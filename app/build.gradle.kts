@@ -125,6 +125,7 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("org.mindrot:jbcrypt:0.4")
 
+    implementation("com.airbnb.android:lottie-compose:6.3.0")
 }
 
 room {

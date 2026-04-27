@@ -374,6 +374,81 @@
     <string name="welcome_learning_greeting">مرحبًا يا %1$s!\nهل أنت مستعد للتعلّم واللعب مع BabyBloom؟</string>
     <string name="welcome_learning_subtitle">اليوم لدينا مغامرة رائعة بانتظارك!</string>
     <string name="welcome_learning_start_button">هيا نبدأ!</string>
+    <!-- ════════════════════════════════════════════════════════════════════
+         MATCH SCREEN
+         ════════════════════════════════════════════════════════════════════ -->
+
+    <!-- Game 1: Animal → Habitat prompt -->
+    <string name="match_prompt_where_lives">أَيْنَ يَعِيش؟</string>
+
+    <!-- Game 2: Letter → Animal prompt -->
+    <string name="match_prompt_choose_animal">اخْتَر الحَيَوَان الَّذِي يَبْدَأ بِالحَرْف</string>
+    <!-- ════════════════════════════════════════════════════════════════════
+     MATCH SCREEN — Habitat labels
+     ════════════════════════════════════════════════════════════════════ -->
+    <string name="habitat_savanna">السَّافَانا</string>
+    <string name="habitat_forest">الغَابَة</string>
+    <string name="habitat_desert">الصَّحْرَاء</string>
+    <string name="habitat_farm">المَزْرَعَة</string>
+    <string name="habitat_wetlands">الأَهْوَار</string>
+    <string name="habitat_sea">البَحْر</string>
+    <string name="habitat_birds">السَّمَاء</string>
+
+    <!-- ── Trace Game Instructions ──────────────────────────────────────────── -->
+    <string name="trace_instruction_letter">اِلْمَس الدَّوَائِر لِتَتَبُّع الحَرْف</string>
+    <string name="trace_instruction_number">اِلْمَس الدَّوَائِر لِتَتَبُّع الرَّقْم</string>
+    <string name="trace_instruction_shape">اِلْمَس الدَّوَائِر لِتَتَبُّع الشَّكْل</string>
+
+    <!-- ── Trace Game Popups ───────────────────────────────────────────────── -->
+    <string name="trace_success_title">أَحْسَنْت!</string>
+    <string name="trace_try_again_title">حَاوِل مَرَّة أُخْرَى!</string>
+    <string name="trace_last_attempt_title">لَا بَأْس، حَاوِل المَرَّة القَادِمَة!</string>
+    <string name="trace_remaining_one">تَبَقَّى مُحَاوَلَة وَاحِدَة</string>
+    <string name="trace_remaining_format">تَبَقَّى %d مُحَاوَلَات</string>
+    <string name="trace_coverage_format">%d%% ✓</string>
+
+    <!-- ── Trace Game Errors ───────────────────────────────────────────────── -->
+    <string name="trace_no_path_title">لَمْ يُعْثَر عَلَى مَسَار التَّتَبُّع</string>
+    <string name="trace_no_path_needed">المَطْلُوب: %s_trace.xml</string>
+
+    <!-- ── Emoji for popups (kept in strings so they can be localised/changed) -->
+    <string name="trace_success_emoji">🌟</string>
+    <string name="trace_try_again_emoji">😉</string>
+    <string name="trace_last_attempt_emoji">💪</string>
+
+    <!-- ── Drag Game ─────────────────────────────────────────────────────────── -->
+    <!-- Screen instructions -->
+    <string name="drag_color_instruction">اسْحَب اللَّوْن الصَّحِيح لِتَلوين الشَّكْل</string>
+    <string name="drag_letter_instruction">اسْحَب الحَرْف الصَّحِيح لِإِكمَال الكَلِمَة</string>
+    <!-- Result banner -->
+    <string name="drag_result_correct">✓ أَحْسَنْت!</string>
+    <string name="drag_result_wrong">✗ حَاوِل مَرَّة أُخرى</string>
+    <!-- Shape placeholders -->
+    <string name="drag_color_shape_placeholder">؟</string>
+    <string name="drag_checkmark">✓</string>
+    <string name="drag_crossmark">✗</string>
+    <!-- Letter game -->
+    <string name="drag_letter_gap_placeholder">_</string>
+    <!-- Round indicator: %1$d = current round, %2$d = total rounds -->
+    <string name="drag_round_indicator">الجَوْلَة %1$d مِن %2$d</string>
+    <!-- Content description -->
+    <string name="cd_cage">القفص</string>
+    <!-- Cage game instruction: %1$s = numeral, %2$s = animal name with article -->
+    <string name="drag_cage_instruction">اسحب %1$s مِن %2$s إِلَى القَفَص</string>
+    <string name="drag_animal_article_prefix">ال</string>
+    <!-- Arabic numerals -->
+    <string name="drag_numeral_1">١</string>
+    <string name="drag_numeral_2">٢</string>
+    <string name="drag_numeral_3">٣</string>
+    <!-- Word puzzle texts: alef = أَسَد (lion), ba = بَطَّة (duck), meem = مَاعِز (goat), ha = حِصَان (horse) -->
+    <string name="drag_puzzle_alef_part">سَد</string>
+    <string name="drag_puzzle_alef_full">أَسَد</string>
+    <string name="drag_puzzle_ba_part">طَّة</string>
+    <string name="drag_puzzle_ba_full">بَطَّة</string>
+    <string name="drag_puzzle_meem_part">اعِز</string>
+    <string name="drag_puzzle_meem_full">مَاعِز</string>
+    <string name="drag_puzzle_ha_part">صَان</string>
+    <string name="drag_puzzle_ha_full">حِصَان</string>
 
     <!-- Speech Screen -->
     <string name="speech_listen_and_repeat">استمع جيدًا و كرر ورائي</string>

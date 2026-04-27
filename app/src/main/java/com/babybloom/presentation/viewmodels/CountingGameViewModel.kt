@@ -1,0 +1,308 @@
+package com.babybloom.presentation.viewmodels
+
+import android.content.Context
+import android.media.MediaPlayer
+import android.util.Log
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.babybloom.data.local.dao.LearningContentDao
+import com.babybloom.domain.model.ActivityContent
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+// ── Game type ─────────────────────────────────────────────────────────────────
+
+enum class CountGameType { ANIMAL, SHAPE }
+
+data class ShapeInfo(
+    val id           : String,
+    val labelAr      : String,
+    val labelArPlural: String,
+    val drawableName : String
+)
+
+// ── UI State ──────────────────────────────────────────────────────────────────
+
+sealed class CountingGameUiState {
+    object Loading : CountingGameUiState()
+
+    data class Playing(
+        val gameType          : CountGameType,
+        val targetCount       : Int,           // always 1, 2, or 3
+        val subjectId         : String,
+        val subjectLabelAr    : String,
+        val subjectQuestionAr : String,
+        val choices           : List<Int>,     // 4 choices from 1-6 in Arabic
+        val roundIndex        : Int,           // 0, 1, 2  (3 rounds total)
+
+        // Bounce animation — active in ALL 3 rounds
+        val countingStep      : Int      = -1,
+        val isAnimating       : Boolean  = false,
+
+        // Answer state
+        val selectedAnswer    : Int?     = null,
+        val isCorrect         : Boolean? = null,
+        val wrongAnswerIndex  : Int?     = null,
+        val showCorrectHint   : Boolean  = false,
+        val showCelebration   : Boolean  = false,
+        val autoComplete      : Boolean  = false,
+
+        val attempts          : Int      = 0,
+        val maxAttempts       : Int      = 3,
+        val startTimeMs       : Long     = System.currentTimeMillis()
+    ) : CountingGameUiState()
+}
+
+// ── ViewModel ─────────────────────────────────────────────────────────────────
+
+@HiltViewModel
+class CountingGameViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val learningContentDao: LearningContentDao
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow<CountingGameUiState>(CountingGameUiState.Loading)
+    val uiState: StateFlow<CountingGameUiState> = _uiState.asStateFlow()
+
+    private var mediaPlayer  : MediaPlayer? = null
+    private var animationJob : Job?         = null
+
+    // 3 rounds — each gets a unique count from 1..3
+    private var roundCounts: List<Int> = emptyList()
+
+    // ── Animal catalogue ──────────────────────────────────────────────────────
+    private val animalInfo = mapOf(
+        "animal_bear"       to Pair("دُبّ",        "الدِّبَبَة"),
+        "animal_camel"      to Pair("جَمَل",       "الجِمَال"),
+        "animal_chimpanzee" to Pair("شِمبانزي",    "الشِّمبانزي"),
+        "animal_crocodile"  to Pair("تِمسَاح",     "التَّمَاسِيح"),
+        "animal_deer"       to Pair("غَزَال",      "الغِزْلَان"),
+        "animal_dog"        to Pair("كَلب",        "الكِلَاب"),
+        "animal_dove"       to Pair("حَمَامَة",    "الحَمَام"),
+        "animal_duck"       to Pair("بَطَّة",      "البَطّ"),
+        "animal_elephant"   to Pair("فِيل",        "الفِيَلَة"),
+        "animal_falcon"     to Pair("صَقر",        "الصُّقُور"),
+        "animal_fish"       to Pair("سَمَكَة",     "الأَسْمَاك"),
+        "animal_frog"       to Pair("ضُفْدَع",     "الضَّفَادِع"),
+        "animal_giraffe"    to Pair("زَرَافَة",    "الزَّرَافَات"),
+        "animal_goat"       to Pair("مَاعِز",      "المَاعِز"),
+        "animal_horse"      to Pair("حِصَان",      "الخُيُول"),
+        "animal_lion"       to Pair("أَسَد",       "الأُسُود"),
+        "animal_monkey"     to Pair("قِرْد",       "القِرَدَة"),
+        "animal_peacock"    to Pair("طَاوُوس",     "الطَّوَاوِيس"),
+        "animal_sheep"      to Pair("خَرُوف",      "الخِرَاف"),
+        "animal_tiger"      to Pair("نَمِر",       "النُّمُور"),
+        "animal_wolf"       to Pair("ذِئْب",       "الذِّئَاب")
+    )
+    private val availableAnimals = animalInfo.keys.toList()
+
+    val availableShapes = listOf(
+        ShapeInfo("shape_circle",    "دَائِرَة",   "الدَّوَائِر",    "shape_circle"),
+        ShapeInfo("shape_rectangle", "مُسْتَطِيل", "المُسْتَطِيلَات","shape_rectangle"),
+        ShapeInfo("shape_square",    "مُرَبَّع",   "المُرَبَّعَات",  "shape_square"),
+        ShapeInfo("shape_triangle",  "مُثَلَّث",   "المُثَلَّثَات",  "shape_triangle")
+    )
+
+    // ── Pre-generate round counts ─────────────────────────────────────────────
+    //
+    // 3 rounds, questions always about 1, 2, or 3 only.
+    // Shuffle [1, 2, 3] so each round has a different unique count.
+    // Round 0 → e.g. 2,  Round 1 → e.g. 3,  Round 2 → e.g. 1
+    //
+    private fun generateRoundCounts(): List<Int> =
+        listOf(1, 2, 3)   // Round 0=1 animal, Round 1=2 animals, Round 2=3 animals
+    // ── Load ──────────────────────────────────────────────────────────────────
+
+    fun loadGame(
+        item           : ActivityContent,
+        difficultyLevel: Int,
+        activityId     : String,
+        roundIndex     : Int           // 0, 1, or 2
+    ) {
+        animationJob?.cancel()
+
+        viewModelScope.launch {
+            _uiState.value = CountingGameUiState.Loading
+
+            // Generate counts once on first round
+            if (roundIndex == 0 || roundCounts.isEmpty()) {
+                roundCounts = generateRoundCounts()
+            }
+
+            val gameType = if (activityId.contains("shape", ignoreCase = true))
+                CountGameType.SHAPE else CountGameType.ANIMAL
+
+            // Always 1, 2, or 3 — level 1 appropriate
+            val targetCount = roundCounts.getOrElse(roundIndex) { (1..3).random() }
+
+            val (subjectId, labelAr, pluralAr) = when (gameType) {
+                CountGameType.ANIMAL -> {
+                    val id   = availableAnimals.random()
+                    val info = animalInfo[id] ?: Pair("حَيَوَان", "الحَيَوَانَات")
+                    Triple(id, info.first, info.second)
+                }
+                CountGameType.SHAPE -> {
+                    val s = availableShapes.random()
+                    Triple(s.id, s.labelAr, s.labelArPlural)
+                }
+            }
+
+            // Show animals/shapes statically first
+            _uiState.value = CountingGameUiState.Playing(
+                gameType          = gameType,
+                targetCount       = targetCount,
+                subjectId         = subjectId,
+                subjectLabelAr    = labelAr,
+                subjectQuestionAr = "كم عدد $pluralAr؟",
+                choices           = generateChoices(targetCount),
+                roundIndex        = roundIndex,
+                isAnimating       = true,   // block buttons until sequence done
+                startTimeMs       = System.currentTimeMillis()
+            )
+
+            // Wait 800ms — child sees animals before audio
+            delay(800)
+
+            // Play question audio ("كم عدد الأسود؟")
+            playQuestionAudio(subjectId)
+            delay(2200)   // wait for audio
+
+            // ALL 3 rounds get bounce animation — hint for every round
+            startBounceAnimation(targetCount)
+        }
+    }
+
+    // ── Bounce animation — ALL rounds ─────────────────────────────────────────
+
+    private fun startBounceAnimation(count: Int) {
+        animationJob?.cancel()
+        animationJob = viewModelScope.launch {
+            updatePlaying { it.copy(isAnimating = true, countingStep = -1) }
+            for (i in 0 until count) {
+                updatePlaying { it.copy(countingStep = i) }
+                delay(1500)
+            }
+            updatePlaying { it.copy(countingStep = -1, isAnimating = false) }
+        }
+    }
+
+    // ── Answer handling ───────────────────────────────────────────────────────
+
+    fun onAnswerSelected(
+        selected  : Int,
+        onComplete: (isCorrect: Boolean, elapsedMs: Long, attempts: Int, touchComplexity: Float) -> Unit
+    ) {
+        val state = _uiState.value as? CountingGameUiState.Playing ?: return
+        if (state.selectedAnswer != null || state.isAnimating) return
+
+        val isCorrect   = selected == state.targetCount
+        val newAttempts = state.attempts + 1
+        val elapsedMs   = System.currentTimeMillis() - state.startTimeMs
+        val touch       = computeTouch(newAttempts)
+
+        viewModelScope.launch {
+            if (isCorrect) {
+                updatePlaying { it.copy(selectedAnswer = selected, isCorrect = true, attempts = newAttempts) }
+                delay(300)
+                playNumberAudio(state.targetCount)
+                delay(1400)
+                updatePlaying { it.copy(showCelebration = true) }
+                delay(2200)
+                updatePlaying { it.copy(showCelebration = false) }
+                delay(300)
+                onComplete(true, elapsedMs, newAttempts, touch)
+
+            } else {
+                updatePlaying { it.copy(
+                    selectedAnswer   = selected,
+                    isCorrect        = false,
+                    wrongAnswerIndex = selected,
+                    attempts         = newAttempts
+                )}
+                delay(900)
+                updatePlaying { it.copy(wrongAnswerIndex = null) }
+
+                if (newAttempts >= state.maxAttempts) {
+                    delay(400)
+                    updatePlaying { it.copy(selectedAnswer = null, isCorrect = null, showCorrectHint = true) }
+                    delay(800)
+                    playNumberAudio(state.targetCount)
+                    delay(3000)
+                    updatePlaying { it.copy(showCorrectHint = false) }
+                    delay(300)
+                    onComplete(false, elapsedMs, newAttempts, touch)
+                } else {
+                    delay(400)
+                    updatePlaying { it.copy(selectedAnswer = null, isCorrect = null) }
+                }
+            }
+        }
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /**
+     * 4 unique choices from 1..6.
+     * Correct answer always included.
+     * Shown as Arabic number drawables in the Screen.
+     */
+    private fun generateChoices(correct: Int): List<Int> {
+        val pool = (1..6).toMutableList()
+        pool.remove(correct)
+        pool.shuffle()
+        return (listOf(correct) + pool.take(3)).shuffled()
+    }
+
+    private fun computeTouch(attempts: Int): Float =
+        (1f - (attempts - 1) * 0.2f).coerceIn(0f, 1f)
+
+    private fun updatePlaying(block: (CountingGameUiState.Playing) -> CountingGameUiState.Playing) {
+        val s = _uiState.value as? CountingGameUiState.Playing ?: return
+        _uiState.value = block(s)
+    }
+
+    // ── Audio ─────────────────────────────────────────────────────────────────
+
+    private fun playQuestionAudio(subjectId: String) =
+        playAsset("learning_content/audio/count_questions/count_${subjectId
+            .removePrefix("animal_")
+            .removePrefix("shape_")}.ogg")
+
+    fun playNumberAudio(number: Int) =
+        playAsset("learning_content/audio/numbers/number_$number.ogg")
+
+    private fun playAsset(path: String) {
+        try {
+            releasePlayer()
+            mediaPlayer = MediaPlayer()
+            val afd = context.assets.openFd(path)
+            mediaPlayer?.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+            mediaPlayer?.prepare()
+            mediaPlayer?.start()
+        } catch (e: Exception) {
+            Log.w("CountingGameVM", "Audio not found: $path", e)
+        }
+    }
+
+    private fun releasePlayer() {
+        try { mediaPlayer?.stop(); mediaPlayer?.release() } catch (_: Exception) {}
+        mediaPlayer = null
+    }
+
+    fun getShapeInfo(shapeId: String): ShapeInfo? =
+        availableShapes.firstOrNull { it.id == shapeId }
+
+    override fun onCleared() {
+        super.onCleared()
+        animationJob?.cancel()
+        releasePlayer()
+        roundCounts = emptyList()
+    }
+}
