@@ -173,3 +173,31 @@ val Card3 = Color(0xFFFFDCC2)
 
 val DarkPurple = Color(0xFF2E2645)
 
+// ── Drag Game ─────────────────────────────────────────────────────────────────
+val DragCalmCardBorder      = Color(0xFFB2CFCA)
+val DragActiveCardBorder    = Color(0xFFFFB347)
+val DragCalmCardBg          = Color(0xFFE8F4F0)
+val DragActiveCardBg        = Color(0xFFFFF0B3)
+val DragShapeWrongBg        = Color(0xFFFFCDD2)
+val DragAttemptDotFull      = Color(0xFF212121)
+val DragLetterTileBg        = Color(0xFFFFF8E1)
+val DragLetterSlotCorrectBg = Color(0xFFE8F5E9)
+val DragLetterSlotWrongBg   = Color(0xFFFFEBEE)
+val DragResultCorrectBg     = Color(0xCCE8F5E9)
+val DragResultWrongBg       = Color(0xCCFFEBEE)
+val DragResultWrongText     = Color(0xFFC62828)
+val DragProgressDone        = Color(0xFF43A047)
+val DragProgressIdle        = Color(0xFFBDBDBD)
+val DragTimerMid            = Color(0xFFFF9800)
+val DragTimerTrack          = Color(0xFFE0E0E0)
+val DragResultCorrectText   = Color(0xFF2E7D32)
+val DragTimerOk             = Color(0xFF43A047)
+val DragTimerLow            = Color(0xFFE53935)
+// Hex Long constants for Color(Long) constructor in the color-to-shape game
+const val DragColorRedHex    : Long = 0xFFE53935L
+const val DragColorBlueHex   : Long = 0xFF1E88E5L
+const val DragColorYellowHex : Long = 0xFFFDD835L
+const val DragColorGreenHex  : Long = 0xFF43A047L
+const val DragColorGrayHex   : Long = 0xFF333333L
+const val DragColorMidGrayHex: Long = 0xFF9E9E9EL
+

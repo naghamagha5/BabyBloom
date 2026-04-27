@@ -176,7 +176,22 @@ fun ActivityShellScreen(
                             "TRACE"  -> GamePlaceholder("TRACE Game — coming soon")
                             "SPEECH" -> GamePlaceholder("SPEECH Game — coming soon")
                             "COUNT"  -> GamePlaceholder("COUNT Game — coming soon")
-                            "DRAG"   -> GamePlaceholder("DRAG Game — coming soon")
+                            //"DRAG"   -> GamePlaceholder("DRAG Game — coming soon")
+                            "DRAG" -> DragGameScreen(
+                                currentItem = currentItem,
+                                isCalmMode = settings.isCalmMode,
+                                onComplete = { isCorrect, encodedMs ->
+                                    // VM encodes: encoded = elapsedMs + attemptsUsed * 100_000
+                                    val attempts     = (encodedMs / 100_000L).toInt().coerceAtLeast(1)
+                                    val responseTime = encodedMs % 100_000L
+                                    viewModel.onAnswerSubmitted(
+                                        isCorrect      = isCorrect,
+                                        contentId      = currentItem.contentId,
+                                        responseTimeMs = responseTime,
+                                        attempts       = attempts
+                                    )
+                                }
+                            )
                             else     -> GamePlaceholder("Unknown: ${activity.activityType}")
                         }
                     }

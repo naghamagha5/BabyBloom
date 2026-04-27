@@ -375,4 +375,38 @@
     <string name="welcome_learning_subtitle">اليوم لدينا مغامرة رائعة بانتظارك!</string>
     <string name="welcome_learning_start_button">هيا نبدأ!</string>
 
+    <!-- ── Drag Game ─────────────────────────────────────────────────────────── -->
+    <!-- Screen instructions -->
+    <string name="drag_color_instruction">اسْحَب اللَّوْن الصَّحِيح لِتَلوين الشَّكْل</string>
+    <string name="drag_letter_instruction">اسْحَب الحَرْف الصَّحِيح لِإِكمَال الكَلِمَة</string>
+    <!-- Result banner -->
+    <string name="drag_result_correct">✓ أَحْسَنْت!</string>
+    <string name="drag_result_wrong">✗ حَاوِل مَرَّة أُخرى</string>
+    <!-- Shape placeholders -->
+    <string name="drag_color_shape_placeholder">؟</string>
+    <string name="drag_checkmark">✓</string>
+    <string name="drag_crossmark">✗</string>
+    <!-- Letter game -->
+    <string name="drag_letter_gap_placeholder">_</string>
+    <!-- Round indicator: %1$d = current round, %2$d = total rounds -->
+    <string name="drag_round_indicator">الجَوْلَة %1$d مِن %2$d</string>
+    <!-- Content description -->
+    <string name="cd_cage">القفص</string>
+    <!-- Cage game instruction: %1$s = numeral, %2$s = animal name with article -->
+    <string name="drag_cage_instruction">اسحب %1$s مِن %2$s إِلَى القَفَص</string>
+    <string name="drag_animal_article_prefix">ال</string>
+    <!-- Arabic numerals -->
+    <string name="drag_numeral_1">١</string>
+    <string name="drag_numeral_2">٢</string>
+    <string name="drag_numeral_3">٣</string>
+    <!-- Word puzzle texts: alef = أَسَد (lion), ba = بَطَّة (duck), meem = مَاعِز (goat), ha = حِصَان (horse) -->
+    <string name="drag_puzzle_alef_part">سَد</string>
+    <string name="drag_puzzle_alef_full">أَسَد</string>
+    <string name="drag_puzzle_ba_part">طَّة</string>
+    <string name="drag_puzzle_ba_full">بَطَّة</string>
+    <string name="drag_puzzle_meem_part">اعِز</string>
+    <string name="drag_puzzle_meem_full">مَاعِز</string>
+    <string name="drag_puzzle_ha_part">صَان</string>
+    <string name="drag_puzzle_ha_full">حِصَان</string>
+
 </resources>
