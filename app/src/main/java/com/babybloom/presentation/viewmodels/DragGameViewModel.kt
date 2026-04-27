@@ -48,7 +48,7 @@ data class LetterOption(
 )
 
 // ── Animal option ─────────────────────────────────────────────────────────────
-data class AnimalOption(
+data class DragAnimalOption(
     val animalId : String,
     val assetPath: String,
     val audioPath: String,
@@ -92,7 +92,7 @@ data class DragGameState(
     val targetNumeral   : String               = "",
     val targetCount     : Int                  = 0,
     val targetAnimalId  : String               = "",
-    val cagePool        : List<AnimalOption>   = emptyList(),
+    val cagePool        : List<DragAnimalOption>   = emptyList(),
     val scatterPositions: List<ScatterPosition> = emptyList(),
     val inCageSet       : Set<Int>             = emptySet(),
     val rejectIdx       : Int                  = -1,
@@ -319,7 +319,7 @@ class DragGameViewModel @Inject constructor(
         val targetAnimalId     = targetAnimalEntity.id
 
         val pool = List(CAGE_POOL_SIZE) {
-            AnimalOption(
+            DragAnimalOption(
                 animalId  = targetAnimalId,
                 assetPath = VISUAL_ASSET_TEMPLATE.format(mood, targetAnimalId),
                 audioPath = AssetPathResolver.audioPathFor(targetAnimalId, CATEGORY_ANIMAL),

@@ -45,7 +45,7 @@ import coil.request.ImageRequest
 import com.babybloom.R
 import com.babybloom.domain.model.ActivityContent
 import com.babybloom.ui.theme.*
-import com.babybloom.presentation.viewmodels.AnimalOption
+import com.babybloom.presentation.viewmodels.DragAnimalOption
 import com.babybloom.presentation.viewmodels.ColorOption
 import com.babybloom.presentation.viewmodels.DragGameState
 import com.babybloom.presentation.viewmodels.DragGameViewModel
@@ -1003,7 +1003,7 @@ private fun CageTimerArc(state: DragGameState) {
 // ── Draggable pool animal ─────────────────────────────────────────────────────
 @Composable
 private fun DraggablePoolAnimal(
-    animal       : AnimalOption,
+    animal       : DragAnimalOption,
     isInCage     : Boolean,
     isRejecting  : Boolean,
     isAnswered   : Boolean,
