@@ -28,13 +28,13 @@ data class Habitat(
 )
 
 val ALL_HABITATS = listOf(
-    Habitat("savanna",  R.string.habitat_savanna,  "Savanna.jpeg",   "Savanna_calm.jpeg"),
-    Habitat("forest",   R.string.habitat_forest,   "Jungle(1).jpeg", "Jungle_calm.jpeg"),
-    Habitat("desert",   R.string.habitat_desert,   "Desert(1).jpg",  "Desert_calm.jpeg"),
-    Habitat("farm",     R.string.habitat_farm,     "Farm(1).jpeg",   "Farm_calm.jpeg"),
-    Habitat("wetlands", R.string.habitat_wetlands, "Wetlands.jpeg",  "Wetlands_calm.jpeg"),
-    Habitat("sea",      R.string.habitat_sea,      "Sea(1).jpeg",    "Sea(1).jpeg"),
-    Habitat("birds",    R.string.habitat_birds,    "Birds.jpeg",     "Birds_calm.jpeg")
+    Habitat("savanna",  R.string.habitat_savanna,  "Savanna_active.jpeg",   "Savanna_calm.jpeg"),
+    Habitat("forest",   R.string.habitat_forest,   "Jungle_active.jpeg", "Jungle_calm.jpeg"),
+    Habitat("desert",   R.string.habitat_desert,   "Desert_active.jpg",  "Desert_calm.jpeg"),
+    Habitat("farm",     R.string.habitat_farm,     "Farm_active.jpeg",   "Farm_calm.jpeg"),
+    Habitat("wetlands", R.string.habitat_wetlands, "Wetlands_active.jpeg",  "Wetlands_calm.jpeg"),
+    Habitat("sea",      R.string.habitat_sea,      "Sea_active.jpeg",    "Sea_active.jpeg"),
+    Habitat("birds",    R.string.habitat_birds,    "Birds_active.jpeg",     "Birds_calm.jpeg")
 )
 
 // ── Animal → Habitat mapping ──────────────────────────────────────────────────
@@ -84,8 +84,8 @@ private const val SFX_TAP             = "learning_content/audio/tap.ogg"
 private const val SFX_CORRECT         = "learning_content/audio/correct.ogg"
 private const val SFX_WRONG           = "learning_content/audio/wrong.ogg"
 private const val SFX_COMPLETE        = "learning_content/audio/complete.ogg"
-private const val INSTRUCTION_ANIMALS = "learning_content/audio/match_instruction_animals.ogg"
-private const val INSTRUCTION_LETTERS = "learning_content/audio/match_instruction_letters.ogg"
+private const val INSTRUCTION_ANIMALS = "activities/audio/match/match_instruction_animals.ogg"
+private const val INSTRUCTION_LETTERS = "activities/audio/match/match_instruction_letters.ogg"
 
 // ── Timings & limits ──────────────────────────────────────────────────────────
 private const val HINT_WIGGLE_MS      = 5_000L

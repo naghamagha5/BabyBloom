@@ -271,7 +271,7 @@ class CountingGameViewModel @Inject constructor(
     // ── Audio ─────────────────────────────────────────────────────────────────
 
     private fun playQuestionAudio(subjectId: String) =
-        playAsset("learning_content/audio/count_questions/count_${subjectId
+        playAsset("learning_content/audio/count/count_${subjectId
             .removePrefix("animal_")
             .removePrefix("shape_")}.ogg")
 
