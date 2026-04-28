@@ -59,16 +59,11 @@ fun StoryScreen(
         contentAlignment = Alignment.Center
     ) {
         when (val state = cardState) {
-            is StoryCardState.Loading -> CircularProgressIndicator()
-
-            is StoryCardState.LetterCard ->
-                LetterCardLayout(state, isCalmMode)
-
-            is StoryCardState.NumberCard ->
-                NumberCardLayout(state, isCalmMode)
-
-            is StoryCardState.SimpleCard ->
-                SimpleCardLayout(state, isCalmMode)
+            is StoryCardState.Intro      -> IntroScreen()           // ✅
+            is StoryCardState.Loading    -> CircularProgressIndicator()
+            is StoryCardState.LetterCard -> LetterCardLayout(state, isCalmMode)
+            is StoryCardState.NumberCard -> NumberCardLayout(state, isCalmMode)
+            is StoryCardState.SimpleCard -> SimpleCardLayout(state, isCalmMode)
         }
     }
 }
@@ -209,37 +204,40 @@ private fun NumberCardLayout(
     state: StoryCardState.NumberCard,
     isCalmMode: Boolean
 ) {
-    val context = LocalContext.current
+    val context    = LocalContext.current
     val cardColor  = if (isCalmMode) CalmCardColor  else ActiveCardColor
     val cardBorder = if (isCalmMode) CalmCardBorder else ActiveCardBorder
-    val mood = if (isCalmMode) "calm" else "active"
+    val mood       = if (isCalmMode) "calm" else "active"
+
+    // Scale size and columns based on animal count
+    val (animalSize, columns) = when (state.animals.size) {
+        1       -> 160.dp to 1
+        2       -> 130.dp to 2
+        in 3..4 -> 100.dp to 2
+        in 5..6 -> 90.dp  to 3
+        else    -> 80.dp  to 3
+    }
+    val rows = state.animals.chunked(columns)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         Spacer(Modifier.height(8.dp))
 
         ListenBanner()
 
-        // Number SVG
+        // Number SVG — outside the box, same position as letter SVG
         ContentImage(
             asset = state.numberImageAsset,
             label = state.number.labelAr,
-            modifier = Modifier.size(100.dp)
+            modifier = Modifier.size(120.dp)
         )
 
-        Text(
-            text = state.number.labelAr,
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold
-            )
-        )
-
-        // Animals grid in mood card
+        // Box: animals centered + number label at bottom
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -248,30 +246,46 @@ private fun NumberCardLayout(
                 .background(cardColor)
                 .padding(16.dp)
         ) {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 80.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.heightIn(max = 300.dp)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                items(state.animals) { animal ->
-                    val fileName = animal.id.removePrefix("animal_")
-                        .replaceFirstChar { it.uppercase() }
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data("file:///android_asset/learning_content/visual/$mood/$fileName.png")
-                            .build(),
-                        contentDescription = animal.labelAr,
-                        modifier = Modifier
-                            .size(72.dp)
-                            .padding(4.dp),
-                        contentScale = ContentScale.Fit
-                    )
+                // Centered rows of animals
+                rows.forEach { row ->
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        row.forEach { animal ->
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data("file:///android_asset/learning_content/visual/$mood/${animal.id}.png")
+                                    .build(),
+                                contentDescription = animal.labelAr,
+                                modifier = Modifier
+                                    .size(animalSize)
+                                    .padding(4.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                    }
                 }
+
+                Spacer(Modifier.height(12.dp))
+
+                Text(
+                    text = state.number.labelAr,
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 28.sp
+                    ),
+                    textAlign = TextAlign.Center
+                )
             }
         }
 
         RepeatDots(repeatsDone = state.repeatsDone, total = 3)
+        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -309,7 +323,8 @@ private fun SimpleCardLayout(
                 ContentImage(
                     asset = state.imageAsset,
                     label = state.item.labelAr,
-                    modifier = Modifier.size(180.dp)
+                    modifier = Modifier.size(180.dp),
+                    applyTint = state.item.category != "COLOR"  // ✅ colors keep their own fill
                 )
                 Spacer(Modifier.height(16.dp))
                 Text(
@@ -332,7 +347,8 @@ private fun SimpleCardLayout(
 fun ContentImage(
     asset: ImageAsset,
     label: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    applyTint: Boolean = true   // ✅ new param — false for COLOR category
 ) {
     val context = LocalContext.current
     when (asset) {
@@ -355,7 +371,10 @@ fun ContentImage(
                     painter = painterResource(id = drawableId),
                     contentDescription = label,
                     modifier = modifier,
-                    colorFilter = ColorFilter.tint(colorResource(id = asset.tintColor))
+                    // ✅ FIX 2: only tint when caller allows it
+                    colorFilter = if (applyTint)
+                        ColorFilter.tint(colorResource(id = asset.tintColor))
+                    else null
                 )
             } else {
                 Box(
@@ -394,6 +413,72 @@ private fun RepeatDots(repeatsDone: Int, total: Int) {
                         shape = CircleShape
                     )
             )
+        }
+    }
+}
+@Composable
+private fun IntroScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(32.dp)
+        ) {
+            // Animated sound wave rings
+            Box(contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .size(140.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                )
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                )
+                Box(
+                    modifier = Modifier
+                        .size(68.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = "استمع جيدًا وكرّر ورائي",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 28.sp
+                ),
+                textAlign = TextAlign.Center
+            )
+
+            // Sound wave dots
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                listOf(16.dp, 26.dp, 20.dp, 26.dp, 16.dp).forEach { h ->
+                    Box(
+                        modifier = Modifier
+                            .width(5.dp)
+                            .height(h)
+                            .clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                    )
+                }
+            }
         }
     }
 }

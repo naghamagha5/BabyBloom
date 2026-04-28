@@ -453,5 +453,20 @@
     <!-- Good Job Screen -->
     <string name="good_job_text">أحسنت يا بطل!</string>
 
+    <!-- Speech Screen -->
+    <string name="speech_listen_and_repeat">استمع جيدًا و كرر ورائي</string>
+
+    <string name="speech_mic_idle">جاري التحضير</string>
+    <string name="speech_mic_listening">قل الكلمة الآن</string>
+    <string name="speech_mic_processing">جاري المعالجة</string>
+
+    <string name="speech_success_emoji">🌟</string>
+    <string name="speech_success_label">أحسنت!</string>
+
+    <string name="speech_permission_denied_title">يحتاج هذا النشاط إلى إذن الميكروفون</string>
+    <string name="speech_permission_denied_body">يرجى السماح باستخدام الميكروفون من إعدادات التطبيق</string>
+
+    <string name="speech_offline_title">هذه اللعبة تحتاج إلى اتصال بالإنترنت</string>
+    <string name="speech_offline_body">يرجى الاتصال بالإنترنت والمحاولة مجدداً</string>
 
 </resources>

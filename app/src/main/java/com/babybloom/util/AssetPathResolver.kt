@@ -31,7 +31,7 @@ object AssetPathResolver {
 
         return if (resolvedCategory == "ANIMAL") {
             val mood = if (isCalmMode) "calm" else "active"
-            val name = contentId.replaceFirstChar { it.uppercase() }
+            val name = contentId
             ImageAsset.PngAsset("learning_content/visual/$mood/$name.png")
         } else {
             val tintColor = if (isCalmMode) R.color.calm_tint else R.color.active_tint

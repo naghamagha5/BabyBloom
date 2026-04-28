@@ -275,13 +275,13 @@ class ActivityViewModel @Inject constructor(
     ) {
         val current = _uiState.value as? ActivityUiState.Playing ?: return
         viewModelScope.launch {
-            if (userRepository.verifyParentLockPin(
+            try {
+                val ok = userRepository.verifyParentLockPin(
                     current.sessionSettings.userId, enteredPin
                 )
-            ) {
-                onSuccess()
-            } else {
-                onError("الرقم غلط، حاول مرة أخرى")
+                if (ok) onSuccess() else onError("الرقم خطاء، حاول مرة أخرى")
+            } catch (e: Exception) {
+                onError("حدث خطأ، حاول مرة أخرى")
             }
         }
     }
@@ -293,13 +293,13 @@ class ActivityViewModel @Inject constructor(
     ) {
         val current = _uiState.value as? ActivityUiState.Playing ?: return
         viewModelScope.launch {
-            if (userRepository.verifyParentPassword(
+            try {
+                val ok = userRepository.verifyParentPassword(
                     current.sessionSettings.userId, enteredPassword
                 )
-            ) {
-                onSuccess()
-            } else {
-                onError("كلمة المرور غلط")
+                if (ok) onSuccess() else onError("كلمة المرور خطاء، حاول مرة أخرى")
+            } catch (e: Exception) {
+                onError("حدث خطأ، حاول مرة أخرى")
             }
         }
     }
