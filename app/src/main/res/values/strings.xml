@@ -450,6 +450,9 @@
     <string name="drag_puzzle_ha_part">صَان</string>
     <string name="drag_puzzle_ha_full">حِصَان</string>
 
+    <!-- Good Job Screen -->
+    <string name="good_job_text">أحسنت يا بطل!</string>
+
     <!-- Speech Screen -->
     <string name="speech_listen_and_repeat">استمع جيدًا و كرر ورائي</string>
 

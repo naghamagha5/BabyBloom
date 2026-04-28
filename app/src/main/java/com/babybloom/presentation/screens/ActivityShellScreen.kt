@@ -24,12 +24,12 @@ import com.babybloom.presentation.viewmodels.ActivityViewModel
 
 @Composable
 fun ActivityShellScreen(
-    activityId:         String,
-    sessionId:          Long,
-    childId:            Long,
+    activityId        : String,
+    sessionId         : Long,
+    childId           : Long,
     onActivityComplete: (score: Int, total: Int) -> Unit,
-    onExit:             () -> Unit,
-    viewModel:          ActivityViewModel = hiltViewModel()
+    onExit            : () -> Unit,
+    viewModel         : ActivityViewModel = hiltViewModel()
 ) {
     LaunchedEffect(activityId) { viewModel.loadActivity(activityId, sessionId, childId) }
     BackHandler { viewModel.requestExit() }
@@ -45,12 +45,12 @@ fun ActivityShellScreen(
             onExit  = onExit
         )
 
+        // ── Completed → show GoodJobScreen for 5 s then navigate away ─────────
         is ActivityUiState.Completed -> {
-            LaunchedEffect(Unit) { onActivityComplete(state.score, state.total) }
-            ActivityCompletedScreen(
-                score    = state.score,
-                total    = state.total,
-                onFinish = { onActivityComplete(state.score, state.total) }
+            GoodJobScreen(
+                score      = state.score,
+                total      = state.total,
+                onFinished = { onActivityComplete(state.score, state.total) }
             )
         }
 
@@ -242,7 +242,6 @@ fun ActivityShellScreen(
                                 currentItem = currentItem,
                                 isCalmMode  = settings.isCalmMode,
                                 onComplete  = { isCorrect, encodedMs ->
-                                    // VM encodes: encodedMs = elapsedMs + attemptsUsed * 100_000
                                     val attempts     = (encodedMs / 100_000L).toInt().coerceAtLeast(1)
                                     val responseTime = encodedMs % 100_000L
                                     viewModel.onAnswerSubmitted(
@@ -311,21 +310,6 @@ fun ActivityErrorScreen(message: String, onExit: () -> Unit) {
         )
         Spacer(Modifier.height(16.dp))
         Button(onClick = onExit) { Text("خروج") }
-    }
-}
-
-@Composable
-fun ActivityCompletedScreen(score: Int, total: Int, onFinish: () -> Unit) {
-    Column(
-        modifier            = Modifier.fillMaxSize().padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text("أحسنت!", style = MaterialTheme.typography.headlineLarge)
-        Spacer(Modifier.height(8.dp))
-        Text("درجتك: $score من $total", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(24.dp))
-        Button(onClick = onFinish) { Text("تم") }
     }
 }
 
