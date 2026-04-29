@@ -187,3 +187,29 @@ val TraceActiveAccent       = Color(0xFFFF7043)   // active mode: accent & borde
 val TraceActiveCovered      = Color(0xFF66BB6A)   // active mode: colored dot fill
 val TraceCalmAccent         = Color(0xFF5B9BD5)   // calm mode: accent & border
 val TraceCalmCovered        = Color(0xFF26A69A)   // calm mode: colored dot fill
+
+// ── Game Mode – Calm palette ──────────────────────────────────────────────────
+//   Accent swatches (pick one randomly per round as the card/UI accent color)
+val GameCalmSwatch1  = Color(0xFFB08EBB)   // muted lavender
+val GameCalmSwatch2  = Color(0xFFEBA887)   // soft peach
+val GameCalmSwatch3  = Color(0xFFE3C27C)   // warm sand
+val GameCalmSwatch4  = Color(0xFF91CCA6)   // sage green
+val GameCalmSwatch5  = Color(0xFF669EC4)   // sky blue
+
+//   Semantic colors (fixed roles, never randomised)
+val GameCalmBackground = Color(0xFFFCF0EC) // off-white / warm cream  → card & screen BG
+val GameCalmWrong      = Color(0xFFFA8484) // coral red               → wrong answer
+val GameCalmCorrect    = Color(0xFFADF3B0) // soft green              → correct answer
+
+// ── Game Mode – Active palette ────────────────────────────────────────────────
+//   Accent swatches
+val GameActiveSwatch1  = Color(0xFFEB6584)  // hot pink
+val GameActiveSwatch2  = Color(0xFFF0B362)  // vivid orange
+val GameActiveSwatch3  = Color(0xFFFFEA80)  // bright yellow
+val GameActiveSwatch4  = Color(0xFFA4EBA2)  // vivid mint
+val GameActiveSwatch5  = Color(0xFF95ADF0)  // bright periwinkle
+
+//   Semantic colors
+val GameActiveBackground = Color(0xFFFFFFFF) // pure white              → card & screen BG
+val GameActiveWrong      = Color(0xFFFF0606) // pure red                → wrong answer
+val GameActiveCorrect    = Color(0xFF00FF0D) // pure green              → correct answer

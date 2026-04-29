@@ -122,7 +122,7 @@ class TraceViewModel @Inject constructor(
         private const val SUCCESS_POPUP_MS     = 2_200L
         private const val ENCOURAGING_HOLD_MS  = 3_500L
 
-        private const val INSTRUCTION_AUDIO_DIR = "activities/audio"
+        private const val INSTRUCTION_AUDIO_DIR = "activities/audio/trace"
 
         private val INSTRUCTION_AUDIO_ATTRS = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)

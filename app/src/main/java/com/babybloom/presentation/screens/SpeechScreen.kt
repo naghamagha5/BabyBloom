@@ -37,11 +37,17 @@ import com.babybloom.domain.model.ActivityContent
 import com.babybloom.presentation.viewmodels.MicState
 import com.babybloom.presentation.viewmodels.SpeechCardState
 import com.babybloom.presentation.viewmodels.SpeechViewModel
+import com.babybloom.ui.theme.LocalGameColorScheme
 
-private val ActiveCardColor  = Color(0xFFFFF0B3)
-private val CalmCardColor    = Color(0xFFE8F4F0)
-private val ActiveCardBorder = Color(0xFFFFB347)
-private val CalmCardBorder   = Color(0xFFB2CFCA)
+// ─────────────────────────────────────────────────────────────────────────────
+// SpeechScreen.kt
+//
+// Card/border colors now come from LocalGameColorScheme (accent / background),
+// exactly like StoryScreen and the rest of the fixed game screens.
+//
+// The success popup is replaced by the unified GoodJobPopup.
+// SpeechViewModel plays no SFX — voice audio only — so no sound changes needed.
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun SpeechScreen(
@@ -51,6 +57,7 @@ fun SpeechScreen(
     viewModel: SpeechViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val colors  = LocalGameColorScheme.current
 
     var hasPermission by remember {
         mutableStateOf(
@@ -81,11 +88,17 @@ fun SpeechScreen(
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when {
             permissionDenied -> PermissionDeniedBlock()
-            !hasPermission   -> CircularProgressIndicator()
+            !hasPermission   -> CircularProgressIndicator(color = colors.accent)
             else -> when (val state = cardState) {
-                is SpeechCardState.Loading -> CircularProgressIndicator()
+                is SpeechCardState.Loading -> CircularProgressIndicator(color = colors.accent)
                 is SpeechCardState.Offline -> OfflineBlock()
-                is SpeechCardState.Card    -> SpeechCardLayout(state, isCalmMode)
+                is SpeechCardState.Card    -> {
+                    SpeechCardLayout(state, isCalmMode)
+                    // ── Unified celebration popup ──────────────────────────
+                    if (state.showSuccess) {
+                        GoodJobPopup()
+                    }
+                }
             }
         }
     }
@@ -94,6 +107,7 @@ fun SpeechScreen(
 // ── Listen and repeat banner ──────────────────────────────────────────────────
 @Composable
 private fun ListenAndRepeatBanner() {
+    val colors = LocalGameColorScheme.current
     Box(
         modifier = Modifier
             .wrapContentWidth()
@@ -117,7 +131,8 @@ private fun ListenAndRepeatBanner() {
                             .width(3.dp)
                             .height(h)
                             .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                            // Sound-wave bars use accent color from scheme
+                            .background(colors.accent.copy(alpha = 0.7f))
                     )
                 }
             }
@@ -131,7 +146,8 @@ private fun ListenAndRepeatBanner() {
             Icon(
                 imageVector = Icons.Default.VolumeUp,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                // Icon tint uses accent from scheme
+                tint = colors.accent,
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -141,10 +157,13 @@ private fun ListenAndRepeatBanner() {
 // ── Main card layout ──────────────────────────────────────────────────────────
 @Composable
 private fun SpeechCardLayout(state: SpeechCardState.Card, isCalmMode: Boolean) {
-    val context    = LocalContext.current
-    val cardColor  = if (isCalmMode) CalmCardColor  else ActiveCardColor
-    val cardBorder = if (isCalmMode) CalmCardBorder else ActiveCardBorder
-    val mood       = if (isCalmMode) "calm" else "active"
+    val context = LocalContext.current
+    val colors  = LocalGameColorScheme.current
+    val mood    = if (isCalmMode) "calm" else "active"
+
+    // Card background and border from scheme — replaces hardcoded CalmCardColor/ActiveCardColor
+    val cardColor  = colors.background
+    val cardBorder = colors.accent
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -198,7 +217,9 @@ private fun SpeechCardLayout(state: SpeechCardState.Card, isCalmMode: Boolean) {
                         text = state.item.labelAr,
                         style = MaterialTheme.typography.displaySmall.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 32.sp
+                            fontSize = 32.sp,
+                            // Label uses accent color from scheme
+                            color = colors.accent
                         ),
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
@@ -212,8 +233,8 @@ private fun SpeechCardLayout(state: SpeechCardState.Card, isCalmMode: Boolean) {
 
             Spacer(Modifier.height(8.dp))
         }
-
-        if (state.showSuccess) SuccessPopup()
+        // GoodJobPopup is rendered in the parent SpeechScreen composable
+        // so it sits above the entire layout — no inline popup here.
     }
 }
 
@@ -275,54 +296,23 @@ private fun MicIndicator(micState: MicState) {
 // ── Attempt dots ──────────────────────────────────────────────────────────────
 @Composable
 private fun AttemptDots(attempts: Int, total: Int) {
+    val colors = LocalGameColorScheme.current
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         repeat(total) { i ->
+            val used = i < attempts
             Box(
                 modifier = Modifier
-                    .size(if (i < attempts) 14.dp else 10.dp)
+                    .size(if (used) 14.dp else 10.dp)
                     .background(
-                        color = if (i < attempts)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.outlineVariant,
+                        // Used attempt dots → accent (progress); remaining → faded
+                        color = if (used) colors.accent
+                        else colors.accent.copy(alpha = 0.25f),
                         shape = CircleShape
                     )
             )
-        }
-    }
-}
-
-// ── Success popup ─────────────────────────────────────────────────────────────
-@Composable
-private fun SuccessPopup() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.45f)),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(32.dp))
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(horizontal = 56.dp, vertical = 40.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(text = stringResource(R.string.speech_success_emoji), fontSize = 72.sp)
-                Text(
-                    text = stringResource(R.string.speech_success_label),
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-            }
         }
     }
 }

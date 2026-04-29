@@ -95,9 +95,13 @@ fun TraceScreen(
     }
     val contentType = remember(currentItem.contentId) { contentTypeOf(currentItem.contentId) }
 
-    // Accent / covered colours from Color.kt — no hardcoding
-    val accentColor  = if (isCalmMode) TraceCalmAccent  else TraceActiveAccent
-    val coveredColor = if (isCalmMode) TraceCalmCovered else TraceActiveCovered
+    // ── Colors from the shell-provided scheme ─────────────────────────────────
+    // accent  → card borders, SVG dot rings, label, progress bar fill
+    // correct → colored-in dots (the "covered" fill) — green = "you got it"
+    // background → reveal card background
+    // The instruction badge (TraceInstructionBadge) is left completely
+    // unchanged — it uses its own fixed TraceBadgeBorder / TraceBadgeText tokens.
+    val colors = LocalGameColorScheme.current
 
     Box(Modifier.fillMaxSize()) {
         when (val s = uiState) {
@@ -108,8 +112,8 @@ fun TraceScreen(
             is TraceUiState.Tracing -> TraceGameScreen(
                 state           = s.state,
                 traceDrawableId = traceDrawableId,
-                accentColor     = accentColor,
-                coveredColor    = coveredColor,
+                accentColor     = colors.accent,
+                coveredColor    = colors.correct,
                 contentType     = contentType,
                 onDragStart     = { cs, p -> viewModel.onDragStart(cs, p) },
                 onDrag          = { cs, p -> viewModel.onDrag(cs, p) },
@@ -119,31 +123,31 @@ fun TraceScreen(
             is TraceUiState.RevealContent -> TraceRevealScreen(
                 state            = s.state,
                 letterDrawableId = letterDrawableId,
-                accentColor      = accentColor,
+                accentColor      = colors.accent,
+                cardBackground   = colors.background,
                 contentType      = contentType
             )
 
             is TraceUiState.ShowSuccess -> {
-                // Same colored-letter background + popup on top
                 TraceRevealScreen(
                     state            = s.state,
                     letterDrawableId = letterDrawableId,
-                    accentColor      = accentColor,
+                    accentColor      = colors.accent,
+                    cardBackground   = colors.background,
                     contentType      = contentType
                 )
                 TraceSuccessPopup(coverage = s.finalScore)
             }
 
             is TraceUiState.ShowEncouraging -> {
-                // Show trace SVG with all circles colored so the child sees the letter
                 TraceGameScreen(
                     state = s.state.copy(
                         coloredIndices = s.state.pathData.circles.indices.toSet(),
                         showHandHint   = false
                     ),
                     traceDrawableId = traceDrawableId,
-                    accentColor     = accentColor,
-                    coveredColor    = coveredColor,
+                    accentColor     = colors.accent,
+                    coveredColor    = colors.correct,
                     contentType     = contentType,
                     onDragStart     = { _, _ -> },
                     onDrag          = { _, _ -> },
@@ -187,7 +191,6 @@ private fun TraceGameScreen(
         if (state.showHandHint) 1f else 0f, tween(300), label = "ha"
     )
 
-    // Tracks the actual pixel size of the rendered SVG (after ContentScale.Fit)
     var svgRenderedSize by remember { mutableStateOf(IntSize.Zero) }
     val density = LocalDensity.current
 
@@ -198,20 +201,11 @@ private fun TraceGameScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(4.dp))
+        // ── Banner is left exactly as it was — uses its own fixed tokens ──────
         TraceInstructionBadge(text = instructionText(contentType), accentColor = accentColor)
         Spacer(Modifier.height(8.dp))
         TraceProgressBar(progress = animCoverage, accentColor = accentColor)
         Spacer(Modifier.height(10.dp))
-
-        // ── SVG area — sits on the transparent surface background ─────────────
-        //
-        // ContentScale.Fit preserves the SVG's natural aspect ratio and centers it.
-        // For narrow letters (e.g. alef 18×101) this means a narrow centered strip.
-        // For wide shapes (e.g. circle 100×100) this fills the box evenly.
-        //
-        // The Canvas is sized to EXACTLY the rendered SVG pixels so dot circle
-        // coordinates (normalised 0..1 × rendered size) land precisely on the
-        // white circles drawn in the SVG.
 
         Box(
             modifier         = Modifier
@@ -220,9 +214,6 @@ private fun TraceGameScreen(
                 .padding(horizontal = 32.dp, vertical = 16.dp),
             contentAlignment = Alignment.Center
         ) {
-            // SVG: uniform TraceSvgGray tint — letter body and logic_* paths
-            // are both non-transparent, so SrcIn turns everything the same gray.
-            // The Canvas will repaint white holes (uncovered) or coveredColor (touched).
             if (traceDrawableId != null) {
                 Image(
                     painter            = painterResource(traceDrawableId),
@@ -232,13 +223,11 @@ private fun TraceGameScreen(
                     modifier           = Modifier
                         .fillMaxSize()
                         .onSizeChanged { containerSize ->
-                            // Replicate the ContentScale.Fit sizing math to get the actual
-                            // pixel rect the SVG occupies inside the container.
-                            val vpRatio    = state.pathData.viewportRatio
-                            val cW         = containerSize.width.toFloat()
-                            val cH         = containerSize.height.toFloat()
-                            val cR         = cW / cH
-                            val (rW, rH)   = if (vpRatio > cR) {
+                            val vpRatio  = state.pathData.viewportRatio
+                            val cW       = containerSize.width.toFloat()
+                            val cH       = containerSize.height.toFloat()
+                            val cR       = cW / cH
+                            val (rW, rH) = if (vpRatio > cR) {
                                 cW to (cW / vpRatio)
                             } else {
                                 (cH * vpRatio) to cH
@@ -248,7 +237,6 @@ private fun TraceGameScreen(
                 )
             }
 
-            // Canvas — same pixel size as the rendered SVG
             if (svgRenderedSize != IntSize.Zero) {
                 val svgW = with(density) { svgRenderedSize.width.toDp() }
                 val svgH = with(density) { svgRenderedSize.height.toDp() }
@@ -281,10 +269,8 @@ private fun TraceGameScreen(
                             )
                         }
                 ) {
-                    // 1. Dot circles (white holes + colored fills)
                     drawDotCircles(state, coveredColor, accentColor)
 
-                    // 2. Start-point pulse before first touch
                     val hintPts = state.pathData.hintPath
                     if (state.coloredIndices.isEmpty() && hintPts.isNotEmpty()) {
                         drawStartPulse(
@@ -296,7 +282,6 @@ private fun TraceGameScreen(
                         )
                     }
 
-                    // 3. Animated hand-hint orb along the logic path
                     if (hintAlpha > 0f) {
                         val strokes = state.pathData.orderedHintStrokes
                         val si      = state.handHintIndex / 10_000
@@ -314,7 +299,7 @@ private fun TraceGameScreen(
             }
         }
 
-        // Label below the SVG — uses accentColor (no hardcoding)
+        // Label — accent from scheme instead of hardcoded calm/active color
         Text(
             text       = state.item.labelAr,
             fontSize   = 50.sp,
@@ -328,15 +313,17 @@ private fun TraceGameScreen(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Reveal screen — colored letter after success (no popup)
+// Reveal screen
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun TraceRevealScreen(
-    state:            TraceState,
+    state:           TraceState,
     letterDrawableId: Int?,
-    accentColor:      Color,
-    contentType:      TraceContentType
+    accentColor:     Color,
+    // Card background from scheme (colors.background) instead of fixed TraceCardBackground
+    cardBackground:  Color,
+    contentType:     TraceContentType
 ) {
     var popped by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { delay(60L); popped = true }
@@ -356,20 +343,22 @@ private fun TraceRevealScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(4.dp))
+        // ── Banner unchanged ──────────────────────────────────────────────────
         TraceInstructionBadge(text = instructionText(contentType), accentColor = accentColor)
         Spacer(Modifier.height(8.dp))
         TraceProgressBar(progress = 1f, accentColor = accentColor)
 
         Spacer(Modifier.weight(0.3f))
 
-        // Centered square card with pop-in animation
         Box(
             modifier = Modifier
                 .aspectRatio(1f)
                 .fillMaxWidth(0.85f)
+                // Border uses accent from scheme
                 .border(6.dp, accentColor, RoundedCornerShape(24.dp))
                 .clip(RoundedCornerShape(24.dp))
-                .background(TraceCardBackground)
+                // Card background from scheme instead of fixed TraceCardBackground
+                .background(cardBackground)
                 .graphicsLayer(scaleX = scale, scaleY = scale, alpha = revealAlpha),
             contentAlignment = Alignment.Center
         ) {
@@ -385,6 +374,7 @@ private fun TraceRevealScreen(
                         painter            = painterResource(letterDrawableId),
                         contentDescription = state.item.labelAr,
                         contentScale       = ContentScale.Fit,
+                        // SVG tinted with accent from scheme
                         colorFilter        = ColorFilter.tint(accentColor, BlendMode.SrcIn),
                         modifier           = Modifier
                             .fillMaxWidth(0.6f)
@@ -420,6 +410,7 @@ private fun TraceRevealScreen(
 // Shared sub-composables
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Banner — UNCHANGED, uses its own fixed tokens (TraceBadgeBorder / TraceBadgeText)
 @Composable
 private fun TraceInstructionBadge(text: String, accentColor: Color) {
     Box(
@@ -432,7 +423,6 @@ private fun TraceInstructionBadge(text: String, accentColor: Color) {
             verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            // Text on the right, hand icon on the left (Arabic RTL reads right-to-left)
             Text(
                 text       = text,
                 fontSize   = 17.sp,
@@ -469,6 +459,7 @@ private fun TraceProgressBar(progress: Float, accentColor: Color) {
                     .fillMaxHeight()
                     .fillMaxWidth(progress.coerceIn(0f, 1f))
                     .clip(RoundedCornerShape(50))
+                    // Full bar (≥80%) → TraceStartPulse green; otherwise accent from scheme
                     .background(if (progress >= 0.8f) TraceStartPulse else accentColor)
             )
         }
@@ -482,7 +473,7 @@ private fun TraceProgressBar(progress: Float, accentColor: Color) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Popups
+// Popups — unchanged (use their own fixed TraceOverlayScrim / TraceSuccessText tokens)
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -508,7 +499,6 @@ fun TraceSuccessPopup(coverage: Float) {
             .background(TraceOverlayScrim),
         contentAlignment = Alignment.Center
     ) {
-        // Lottie confetti layer (behind the card)
         LottieAnimation(
             composition = lottieComposition,
             progress    = { (lottieProgress % 1f).coerceIn(0f, 1f) },
@@ -606,30 +596,20 @@ fun TraceEncouragingPopup(attemptsDone: Int, isLastAttempt: Boolean) {
 // Canvas draw extensions
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Draws dot circles on top of the uniformly-gray SVG.
- *
- * Layer order (bottom → top):
- *   SVG tinted [TraceSvgGray]   — letter body + logic paths all same gray
- *   White circles               — restores the "empty hole" look for uncovered dots
- *   [coveredColor] circles      — satisfying fill-in when the child touches
- *   [borderColor] ring          — thin accent ring makes dots pop against gray
- */
 private fun DrawScope.drawDotCircles(
-    state:       TraceState,
+    state:        TraceState,
     coveredColor: Color,
     borderColor:  Color
 ) {
     val strokeWidth = 7f
 
     state.pathData.circles.forEachIndexed { i, circle ->
-        val cx      = circle.center.x * size.width
-        val cy      = circle.center.y * size.height
-        val r       = circle.radius   * size.width
-        val center  = Offset(cx, cy)
+        val cx     = circle.center.x * size.width
+        val cy     = circle.center.y * size.height
+        val r      = circle.radius   * size.width
+        val center = Offset(cx, cy)
         val touched = i in state.coloredIndices
 
-        // Accent border ring (same for covered and uncovered)
         drawCircle(
             color  = borderColor,
             radius = r + strokeWidth / 2,
@@ -638,7 +618,6 @@ private fun DrawScope.drawDotCircles(
         )
 
         if (touched) {
-            // Filled radial-gradient circle
             drawCircle(
                 brush = Brush.radialGradient(
                     0.0f to coveredColor,
@@ -650,31 +629,22 @@ private fun DrawScope.drawDotCircles(
                 radius = r * 1.05f,
                 center = center
             )
-            // Inner white shimmer
             drawCircle(Color.White.copy(alpha = 0.30f), r * 0.38f, center)
         } else {
-            // White fill restores the "empty hole" over the gray SVG
             drawCircle(Color.White, r, center)
         }
     }
 }
 
-/** Pulsing [TraceStartPulse] ring + white dot — marks the path start point. */
 private fun DrawScope.drawStartPulse(center: Offset, scale: Float) {
     drawCircle(TraceStartPulse.copy(alpha = 0.18f), 24.dp.toPx() * scale, center)
     drawCircle(TraceStartPulse.copy(alpha = 0.65f), 14.dp.toPx(), center)
     drawCircle(Color.White.copy(alpha = 0.90f),      6.dp.toPx(), center)
 }
 
-/**
- * Animated hand-hint orb.
- * All colours come from Color.kt: [HintOrbColor], [HintFingerColor].
- * [alpha] lets it fade in/out smoothly on drag start/end.
- */
 private fun DrawScope.drawHandHint(position: Offset, prev: Offset?, alpha: Float) {
     if (alpha <= 0f) return
 
-    // Outer glow ring
     drawCircle(
         Brush.radialGradient(
             listOf(HintOrbColor.copy(alpha = 0.28f * alpha), Color.Transparent),
@@ -682,7 +652,6 @@ private fun DrawScope.drawHandHint(position: Offset, prev: Offset?, alpha: Float
         ),
         36.dp.toPx(), position
     )
-    // Central orb
     drawCircle(
         Brush.radialGradient(
             listOf(Color.White.copy(alpha = alpha), HintOrbColor.copy(alpha = alpha)),
@@ -690,7 +659,6 @@ private fun DrawScope.drawHandHint(position: Offset, prev: Offset?, alpha: Float
         ),
         18.dp.toPx(), position
     )
-    // Direction chevron
     prev?.let { p ->
         val dx  = position.x - p.x; val dy = position.y - p.y
         val len = sqrt(dx * dx + dy * dy).coerceAtLeast(1f)
@@ -708,7 +676,6 @@ private fun DrawScope.drawHandHint(position: Offset, prev: Offset?, alpha: Float
             style = Stroke(3.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
     }
-    // Finger stub below the orb
     val fw = 10.dp.toPx(); val fh = 17.dp.toPx()
     drawRoundRect(
         HintFingerColor.copy(alpha = alpha),

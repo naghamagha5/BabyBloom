@@ -44,73 +44,74 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.babybloom.R
 import com.babybloom.domain.model.ActivityContent
-import com.babybloom.ui.theme.*
-import com.babybloom.presentation.viewmodels.DragAnimalOption
 import com.babybloom.presentation.viewmodels.ColorOption
+import com.babybloom.presentation.viewmodels.DragAnimalOption
 import com.babybloom.presentation.viewmodels.DragGameState
 import com.babybloom.presentation.viewmodels.DragGameViewModel
 import com.babybloom.presentation.viewmodels.DragType
 import com.babybloom.presentation.viewmodels.LetterOption
 import com.babybloom.presentation.viewmodels.ScatterPosition
+import com.babybloom.ui.theme.DragAttemptDotFull
+import com.babybloom.ui.theme.DragProgressIdle
+import com.babybloom.ui.theme.DragTimerLow
+import com.babybloom.ui.theme.DragTimerMid
+import com.babybloom.ui.theme.DragTimerOk
+import com.babybloom.ui.theme.DragTimerTrack
+import com.babybloom.ui.theme.LocalGameColorScheme
 import com.babybloom.util.ImageAsset
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
-// ── UI constants ──────────────────────────────────────────────────────────────
-private val DROP_RADIUS_DP          = 90.dp
-private val CAGE_DROP_RADIUS_FACTOR = 1.8f   // cage drop zone = DROP_RADIUS * factor
+// ─────────────────────────────────────────────────────────────────────────────
+// DragGameScreen.kt
+// ─────────────────────────────────────────────────────────────────────────────
 
-// Color-game
-private val COLOR_GAME_SHAPE_SIZE   = 180.dp
-private val COLOR_GAME_PEN_BOX_H    = 110.dp
-private val COLOR_GAME_SWATCH_H     = 96.dp
-private val COLOR_GAME_EDGE_PAD     = 4.dp
-private val COLOR_GAME_FILL_DIVISOR = 3000f  // pen-stroke fill sensitivity
+private val DROP_RADIUS_DP          = 90.dp
+private val CAGE_DROP_RADIUS_FACTOR = 1.8f
+
+private val COLOR_GAME_SHAPE_SIZE          = 180.dp
+private val COLOR_GAME_PEN_BOX_H           = 110.dp
+private val COLOR_GAME_SWATCH_H            = 96.dp
+private val COLOR_GAME_EDGE_PAD            = 4.dp
 private val COLOR_GAME_INSTRUCTION_SIZE_SP = 18
 
-// Letter-game
-private val LETTER_ANIMAL_IMG_SIZE  = 130.dp
-private val LETTER_TILE_SIZE        = 80.dp
-private val LETTER_TILE_TOUCH_SIZE  = 88.dp
-private val LETTER_SLOT_SIZE        = 72.dp
-private val LETTER_PUZZLE_FONT_SP   = 52
+private val LETTER_ANIMAL_IMG_SIZE     = 130.dp
+private val LETTER_TILE_SIZE           = 80.dp
+private val LETTER_TILE_TOUCH_SIZE     = 88.dp
+private val LETTER_SLOT_SIZE           = 72.dp
+private val LETTER_PUZZLE_FONT_SP      = 52
 private val LETTER_INSTRUCTION_SIZE_SP = 17
-private val LETTER_FALLBACK_FONT_SP = 40
+private val LETTER_FALLBACK_FONT_SP    = 40
 
-// Cage-game
-private val CAGE_ANIMAL_SIZE        = 200.dp
-private val CAGE_IMG_PADDING        = 4.dp
-private val CAGE_INTERIOR_HORPAD_FRACTION = 0.22f  // horizontal padding as fraction of cage width
+private val CAGE_ANIMAL_SIZE                = 200.dp
+private val CAGE_IMG_PADDING                = 4.dp
+private val CAGE_INTERIOR_HORPAD_FRACTION   = 0.22f
 private val CAGE_INTERIOR_Y_OFFSET_FRACTION = 0.08f
-private val CAGE_PROGRESS_DOT_SIZE  = 18.dp
-private val CAGE_TIMER_ARC_SIZE     = 52.dp
-private val CAGE_TIMER_STROKE_DP    = 5
-private val CAGE_IN_CAGE_IMG_MAX    = 120.dp
-private val CAGE_IN_CAGE_IMG_MIN    = 50.dp
-private val CAGE_INSTRUCTION_SIZE_SP = 18
-private val CAGE_TIMER_NUMBER_SIZE_SP = 22 // headlineSmall equivalent
+private val CAGE_PROGRESS_DOT_SIZE          = 18.dp
+private val CAGE_TIMER_ARC_SIZE             = 52.dp
+private val CAGE_TIMER_STROKE_DP            = 5
+private val CAGE_IN_CAGE_IMG_MAX            = 120.dp
+private val CAGE_IN_CAGE_IMG_MIN            = 50.dp
+private val CAGE_INSTRUCTION_SIZE_SP        = 18
+private val CAGE_TIMER_NUMBER_SIZE_SP       = 22
 
-// Attempt dots
-private val ATTEMPT_DOT_SIZE        = 12.dp
+private val ATTEMPT_DOT_SIZE = 12.dp
 
-// Drag scale
-private const val DRAG_SCALE_ACTIVE  = 1.25f
-private const val DRAG_SCALE_DEFAULT = 1f
-private const val PEN_DRAG_SCALE     = 1.4f
+private const val DRAG_SCALE_ACTIVE      = 1.25f
+private const val DRAG_SCALE_DEFAULT     = 1f
+private const val PEN_DRAG_SCALE         = 1.4f
 private const val PEN_DRAG_SCALE_DEFAULT = 1f
-private const val POOL_DRAG_SCALE    = 1.35f
-private const val POOL_IN_CAGE_SCALE = 0.6f
+private const val POOL_DRAG_SCALE        = 1.35f
+private const val POOL_IN_CAGE_SCALE     = 0.6f
 
-// Hint wobble timing (keyframe values)
-private const val HINT_WOBBLE_DURATION_MS   = 700
-private const val HINT_WOBBLE_PAUSE_MS      = 300L
-private const val REJECT_ANIM_DURATION_MS   = 350
-private const val SHAKE_ANIM_DURATION_MS    = 500
+private const val HINT_WOBBLE_DURATION_MS = 700
+private const val HINT_WOBBLE_PAUSE_MS    = 300L
+private const val REJECT_ANIM_DURATION_MS = 350
+private const val SHAKE_ANIM_DURATION_MS  = 500
 
-// Timer animation
-private const val TIMER_ARC_TWEEN_MS        = 900
-private const val TIMER_LOW_FRACTION        = 0.3f
-private const val TIMER_MID_FRACTION        = 0.5f
+private const val TIMER_ARC_TWEEN_MS = 900
+private const val TIMER_LOW_FRACTION = 0.3f
+private const val TIMER_MID_FRACTION = 0.5f
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Entry point
@@ -140,19 +141,28 @@ fun DragGameScreen(
     }
 
     if (state.isLoading) {
+        val colors = LocalGameColorScheme.current
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(color = colors.accent)
         }
         return
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        RoundIndicator(state)
-        AttemptsRow(state)
-        when (state.dragType) {
-            DragType.COLOR_TO_SHAPE  -> ColorToPaintGame(state, isCalmMode, viewModel)
-            DragType.LETTER_TO_WORD  -> LetterToWordGame(state, viewModel)
-            DragType.ANIMALS_TO_CAGE -> AnimalsToCageGame(state, viewModel)
+    // Root Box so GoodJobPopup can sit on top of the entire game layout
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            RoundIndicator(state)
+            AttemptsRow(state)
+            when (state.dragType) {
+                DragType.COLOR_TO_SHAPE  -> ColorToPaintGame(state, viewModel)
+                DragType.LETTER_TO_WORD  -> LetterToWordGame(state, viewModel)
+                DragType.ANIMALS_TO_CAGE -> AnimalsToCageGame(state, viewModel)
+            }
+        }
+
+        // ── Unified celebration popup ─────────────────────────────────────────
+        if (state.showCelebration) {
+            GoodJobPopup()
         }
     }
 }
@@ -161,6 +171,7 @@ fun DragGameScreen(
 @Composable
 private fun RoundIndicator(state: DragGameState) {
     if (state.totalRounds == 0 || state.questionsInRound == 0) return
+    val colors = LocalGameColorScheme.current
     Row(
         modifier              = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -175,8 +186,8 @@ private fun RoundIndicator(state: DragGameState) {
                 Box(
                     modifier = Modifier.size(10.dp).background(
                         color = when {
-                            i < state.questionInRound - 1  -> MaterialTheme.colorScheme.primary
-                            i == state.questionInRound - 1 -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                            i < state.questionInRound - 1  -> colors.accent
+                            i == state.questionInRound - 1 -> colors.accent.copy(alpha = 0.5f)
                             else                           -> DragProgressIdle
                         },
                         shape = CircleShape
@@ -187,7 +198,7 @@ private fun RoundIndicator(state: DragGameState) {
     }
 }
 
-// ── Attempts row — filled/empty dots showing remaining attempts ────────────────
+// ── Attempts row ──────────────────────────────────────────────────────────────
 @Composable
 private fun AttemptsRow(state: DragGameState) {
     Row(
@@ -215,14 +226,12 @@ private fun AttemptsRow(state: DragGameState) {
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun ColorToPaintGame(
-    state     : DragGameState,
-    isCalmMode: Boolean,
-    viewModel : DragGameViewModel
+    state    : DragGameState,
+    viewModel: DragGameViewModel
 ) {
-    val cardBorder = if (isCalmMode) DragCalmCardBorder else DragActiveCardBorder
-    val cardColor  = if (isCalmMode) DragCalmCardBg else DragActiveCardBg
-    val resetKey   = "${state.correctId}_${state.resetTrigger}"
-    val strokeKey  = "${resetKey}_${state.attemptsUsed}"
+    val colors    = LocalGameColorScheme.current
+    val resetKey  = "${state.correctId}_${state.resetTrigger}"
+    val strokeKey = "${resetKey}_${state.attemptsUsed}"
 
     var shapeCenterPx   by remember { mutableStateOf(Offset.Zero) }
     var shapeHalfSizePx by remember { mutableStateOf(0f) }
@@ -241,8 +250,8 @@ private fun ColorToPaintGame(
     }
 
     val activeColor = state.activeColorId?.let { id ->
-        state.colorOptions.find { it.colorId == id }?.hexColor?.let { Color(it) }
-    }
+        state.colorOptions.find { it.colorId == id }
+    }?.let { option -> colorForContentId(option.colorId) }
 
     Column(
         modifier            = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -257,12 +266,12 @@ private fun ColorToPaintGame(
             modifier  = Modifier.padding(bottom = 8.dp)
         )
 
-        val correctHex = state.colorOptions.find { it.colorId == state.correctId }?.hexColor
-            ?: colorHexForDisplay(state.correctId)
+        val correctDisplayColor = colorForContentId(state.correctId)
         Text(
             text  = state.currentLabel,
             style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold, color = Color(correctHex)
+                fontWeight = FontWeight.Bold,
+                color      = correctDisplayColor
             ),
             textAlign = TextAlign.Center,
             modifier  = Modifier.padding(bottom = 12.dp)
@@ -284,9 +293,9 @@ private fun ColorToPaintGame(
             androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
                 val path = buildCirclePath(size)
                 val base = when {
-                    state.isCorrect                      -> activeColor ?: cardColor
-                    state.isAnswered && !state.isCorrect -> DragShapeWrongBg
-                    else                                 -> cardColor
+                    state.isCorrect                      -> activeColor ?: colors.background
+                    state.isAnswered && !state.isCorrect -> colors.wrong.copy(alpha = 0.25f)
+                    else                                 -> colors.background
                 }
                 drawPath(path = path, color = base)
                 if (penStrokePts.size >= 2 && activeColor != null) {
@@ -302,7 +311,11 @@ private fun ColorToPaintGame(
                 }
                 drawPath(
                     path  = path,
-                    color = if (state.isCorrect) DragResultCorrectText else cardBorder,
+                    color = when {
+                        state.isCorrect                      -> colors.correct
+                        state.isAnswered && !state.isCorrect -> colors.wrong
+                        else                                 -> colors.accent
+                    },
                     style = Stroke(width = 10f)
                 )
             }
@@ -310,9 +323,9 @@ private fun ColorToPaintGame(
                 state.isCorrect ->
                     Text(stringResource(R.string.drag_checkmark), fontSize = 60.sp, color = Color.White, fontWeight = FontWeight.Bold)
                 state.isAnswered && !state.isCorrect ->
-                    Text(stringResource(R.string.drag_crossmark), fontSize = 60.sp, color = DragResultWrongText, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.drag_crossmark), fontSize = 60.sp, color = colors.wrong, fontWeight = FontWeight.Bold)
                 penStrokePts.isEmpty() ->
-                    Text(stringResource(R.string.drag_color_shape_placeholder), fontSize = 60.sp, fontWeight = FontWeight.Bold, color = cardBorder)
+                    Text(stringResource(R.string.drag_color_shape_placeholder), fontSize = 60.sp, fontWeight = FontWeight.Bold, color = colors.accent)
             }
         }
 
@@ -320,13 +333,12 @@ private fun ColorToPaintGame(
             modifier         = Modifier.fillMaxWidth().weight(1f),
             contentAlignment = Alignment.Center
         ) {
-            val shapeSize2 = COLOR_GAME_SHAPE_SIZE
-            val shapeR2    = shapeSize2 / 2
-            val penBoxH    = COLOR_GAME_PEN_BOX_H
-            val swatchH    = COLOR_GAME_SWATCH_H
-            val colH2      = penBoxH + 6.dp + swatchH
-            val edgePad    = COLOR_GAME_EDGE_PAD
-            val colVPad    = ((maxHeight / 2) - shapeR2 - edgePad - colH2).coerceAtLeast(0.dp)
+            val shapeR2 = COLOR_GAME_SHAPE_SIZE / 2
+            val penBoxH = COLOR_GAME_PEN_BOX_H
+            val swatchH = COLOR_GAME_SWATCH_H
+            val colH2   = penBoxH + 6.dp + swatchH
+            val edgePad = COLOR_GAME_EDGE_PAD
+            val colVPad = ((maxHeight / 2) - shapeR2 - edgePad - colH2).coerceAtLeast(0.dp)
 
             val cornerMods = listOf(
                 Modifier.align(Alignment.TopStart)   .padding(start = edgePad, top    = colVPad),
@@ -369,15 +381,15 @@ private fun ColorToPaintGame(
     }
 }
 
-// ── Draggable pen icon for color game ─────────────────────────────────────────
+// ── Draggable pen icon ────────────────────────────────────────────────────────
 @Composable
 private fun DraggablePen(
-    colorOption   : ColorOption,
-    penBoxDp      : Dp  = 68.dp,
-    isAnswered    : Boolean,
-    resetKey      : Any = Unit,
-    onDragStarted : () -> Unit = {},
-    onPenMove     : (penRootPx: Offset, dragDelta: Offset) -> Unit
+    colorOption  : ColorOption,
+    penBoxDp     : Dp  = 68.dp,
+    isAnswered   : Boolean,
+    resetKey     : Any = Unit,
+    onDragStarted: () -> Unit = {},
+    onPenMove    : (penRootPx: Offset, dragDelta: Offset) -> Unit
 ) {
     var offsetX    by remember(resetKey) { mutableStateOf(0f) }
     var offsetY    by remember(resetKey) { mutableStateOf(0f) }
@@ -425,10 +437,7 @@ private fun DraggablePen(
             contentDescription = colorOption.labelAr,
             modifier           = Modifier
                 .size(if (isDragging) penBoxDp * 0.95f else penBoxDp * 0.85f)
-                .graphicsLayer {
-                    rotationZ = -25f
-                    alpha     = if (isAnswered) 0.4f else 1f
-                }
+                .graphicsLayer { rotationZ = -25f; alpha = if (isAnswered) 0.4f else 1f }
         )
     }
 }
@@ -441,6 +450,7 @@ private fun LetterToWordGame(
     state    : DragGameState,
     viewModel: DragGameViewModel
 ) {
+    val colors       = LocalGameColorScheme.current
     val density      = LocalDensity.current
     val dropRadiusPx = with(density) { DROP_RADIUS_DP.toPx() }
     val resetKey     = "${state.correctId}_${state.resetTrigger}_${state.attemptsUsed}"
@@ -476,8 +486,8 @@ private fun LetterToWordGame(
                 .size(LETTER_ANIMAL_IMG_SIZE)
                 .shadow(4.dp, RoundedCornerShape(20.dp))
                 .clip(RoundedCornerShape(20.dp))
-                .background(DragLetterTileBg)
-                .border(3.dp, DragActiveCardBorder, RoundedCornerShape(20.dp)),
+                .background(colors.background)
+                .border(3.dp, colors.accent, RoundedCornerShape(20.dp)),
             contentAlignment = Alignment.Center
         ) {
             val animalPath = state.animalQuestionImage
@@ -499,8 +509,8 @@ private fun LetterToWordGame(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
-                .border(3.dp, DragActiveCardBorder, RoundedCornerShape(20.dp))
-                .background(DragActiveCardBg)
+                .border(3.dp, colors.accent, RoundedCornerShape(20.dp))
+                .background(colors.background)
                 .padding(vertical = 18.dp, horizontal = 16.dp)
                 .graphicsLayer { translationX = shakeAnim.value },
             contentAlignment = Alignment.Center
@@ -511,7 +521,7 @@ private fun LetterToWordGame(
                     style = MaterialTheme.typography.displayMedium.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize   = LETTER_PUZZLE_FONT_SP.sp,
-                        color      = DragResultCorrectText
+                        color      = colors.correct
                     )
                 )
             } else {
@@ -523,7 +533,9 @@ private fun LetterToWordGame(
                         Text(
                             text  = state.wordPuzzleText,
                             style = MaterialTheme.typography.displayMedium.copy(
-                                fontWeight = FontWeight.Bold, fontSize = LETTER_PUZZLE_FONT_SP.sp
+                                fontWeight = FontWeight.Bold,
+                                fontSize   = LETTER_PUZZLE_FONT_SP.sp,
+                                color      = MaterialTheme.colorScheme.onSurface
                             )
                         )
                     }
@@ -578,6 +590,7 @@ private fun LetterGapSlot(
     isAnswered   : Boolean,
     modifier     : Modifier = Modifier
 ) {
+    val colors = LocalGameColorScheme.current
     Box(
         modifier = modifier
             .size(LETTER_SLOT_SIZE)
@@ -585,17 +598,17 @@ private fun LetterGapSlot(
             .border(
                 width = 3.dp,
                 color = when {
-                    isCorrect                -> DragResultCorrectText
-                    isAnswered && !isCorrect -> DragResultWrongText
-                    else                     -> DragActiveCardBorder
+                    isCorrect                -> colors.correct
+                    isAnswered && !isCorrect -> colors.wrong
+                    else                     -> colors.accent
                 },
                 shape = RoundedCornerShape(12.dp)
             )
             .background(
                 when {
-                    isCorrect                -> DragLetterSlotCorrectBg
-                    isAnswered && !isCorrect -> DragLetterSlotWrongBg
-                    else                     -> Color.White.copy(alpha = 0.7f)
+                    isCorrect                -> colors.correct.copy(alpha = 0.15f)
+                    isAnswered && !isCorrect -> colors.wrong.copy(alpha = 0.15f)
+                    else                     -> colors.background
                 }
             ),
         contentAlignment = Alignment.Center
@@ -612,7 +625,7 @@ private fun LetterGapSlot(
                 style = MaterialTheme.typography.displaySmall.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize   = LETTER_FALLBACK_FONT_SP.sp,
-                    color      = DragActiveCardBorder
+                    color      = colors.accent.copy(alpha = 0.4f)
                 )
             )
         }
@@ -628,6 +641,7 @@ private fun DraggableLetterTile(
     onDragStarted: () -> Unit = {},
     onDropped    : (letterId: String, dropPx: Offset) -> Unit
 ) {
+    val colors = LocalGameColorScheme.current
     var offsetX    by remember(resetKey) { mutableStateOf(0f) }
     var offsetY    by remember(resetKey) { mutableStateOf(0f) }
     var isDragging by remember(resetKey) { mutableStateOf(false) }
@@ -648,8 +662,8 @@ private fun DraggableLetterTile(
             .graphicsLayer { scaleX = scale; scaleY = scale; alpha = if (isAnswered) 0.5f else 1f }
             .shadow(if (isDragging) 8.dp else 2.dp, RoundedCornerShape(16.dp))
             .clip(RoundedCornerShape(16.dp))
-            .background(DragLetterTileBg)
-            .border(2.dp, DragActiveCardBorder, RoundedCornerShape(16.dp))
+            .background(colors.background)
+            .border(2.dp, colors.accent, RoundedCornerShape(16.dp))
             .onGloballyPositioned { coords ->
                 if (!isDragging) {
                     rootPos = coords.positionInRoot()
@@ -660,9 +674,7 @@ private fun DraggableLetterTile(
                 if (isAnswered) return@pointerInput
                 detectDragGestures(
                     onDragStart  = { onDragStarted(); isDragging = true },
-                    onDrag       = { change, drag ->
-                        change.consume(); offsetX += drag.x; offsetY += drag.y
-                    },
+                    onDrag       = { change, drag -> change.consume(); offsetX += drag.x; offsetY += drag.y },
                     onDragEnd    = {
                         onDropped(
                             option.letterId,
@@ -691,11 +703,10 @@ private fun AnimalsToCageGame(
     state    : DragGameState,
     viewModel: DragGameViewModel
 ) {
+    val colors       = LocalGameColorScheme.current
     val density      = LocalDensity.current
     val dropRadiusPx = with(density) { DROP_RADIUS_DP.toPx() * CAGE_DROP_RADIUS_FACTOR }
 
-    // The cage center is measured from the cage Box via onGloballyPositioned.
-    // cageCenterX is used to align the top-center animal's horizontal position.
     val cageCenterPx = remember { mutableStateOf(Offset.Zero) }
     val inCageCount  = state.inCageSet.size
 
@@ -729,27 +740,17 @@ private fun AnimalsToCageGame(
         modifier            = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // ── FIX 1: Timer arc sits to the LEFT of the instruction text ─────────
         Row(
-            modifier          = Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp, bottom = 2.dp),
+            modifier          = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Timer widget — always reserves its space so the instruction text
-            // doesn't jump when the question is answered and the timer hides.
             Box(
-                modifier       = Modifier.size(CAGE_TIMER_ARC_SIZE + 8.dp), // match widget size
+                modifier         = Modifier.size(CAGE_TIMER_ARC_SIZE + 8.dp),
                 contentAlignment = Alignment.Center
             ) {
-                if (!state.isAnswered) {
-                    CageTimerArc(state)
-                }
+                if (!state.isAnswered) CageTimerArc(state)
             }
-
             Spacer(Modifier.width(8.dp))
-
-            // Instruction text fills the remaining space
             Text(
                 text      = state.instructionText,
                 style     = MaterialTheme.typography.bodyLarge.copy(
@@ -760,10 +761,6 @@ private fun AnimalsToCageGame(
             )
         }
 
-        // ── Animal pool ───────────────────────────────────────────────────────
-        // We need the cage center's X so the top-center animal can be offset to
-        // align with it. We measure the cage Box below and store cageCenterPx.
-        // The pool Box reads cageCenterPx.value.x when placing the first animal.
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
@@ -774,45 +771,25 @@ private fun AnimalsToCageGame(
             val boxWidthDp  = maxWidth
             val boxHeightDp = maxHeight
 
-            // FIX 2: position of the top-center animal.
-            // Its X offset = (cage-center-X in root) - (this Box's left in root) - (animal width / 2)
-            // We capture the pool box's own root position so we can translate cage coords.
             var poolBoxRootX by remember { mutableStateOf(0f) }
 
-            // Positions:
-            //   idx 0 — top-center, X derived from cageCenterPx so it lines up vertically
-            //           with the cage center; Y stays at top.
-            //   idx 1 — bottom-left
-            //   idx 2 — bottom-right
-            val bottomY = (boxHeightDp - animalSz).value.coerceAtLeast(0f)
-            val bottomLeft  = Offset(0f,                                              bottomY)
+            val bottomY     = (boxHeightDp - animalSz).value.coerceAtLeast(0f)
+            val bottomLeft  = Offset(0f, bottomY)
             val bottomRight = Offset((boxWidthDp - animalSz).value.coerceAtLeast(0f), bottomY)
 
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .onGloballyPositioned { coords ->
-                        poolBoxRootX = coords.positionInRoot().x
-                    }
+                    .onGloballyPositioned { coords -> poolBoxRootX = coords.positionInRoot().x }
             ) {
-                // Compute which pool indices should wobble:
-                //   • hint is only active when showHint=true and game is still live
-                //   • only remaining (not-yet-caged) animals can wobble
-                //   • exactly (targetCount - inCageSet.size) of those remaining animals wobble
-                //     e.g. targetCount=2, 1 already caged → only 1 remaining animal wobbles
                 val wobbleIndices: Set<Int> = if (state.showHint && !state.isAnswered) {
                     val stillNeeded  = (state.targetCount - state.inCageSet.size).coerceAtLeast(0)
                     val remainingIdx = (0 until state.cagePool.size).filter { it !in state.inCageSet }
                     remainingIdx.take(stillNeeded).toSet()
-                } else {
-                    emptySet()
-                }
+                } else emptySet()
 
                 state.cagePool.forEachIndexed { idx, animal ->
-                    // For idx 0 derive X from cage center so animal aligns vertically with cage.
-                    // For idx 1 & 2 use fixed left/right positions.
-                    val xDp: Float
-                    val yDp: Float
+                    val xDp: Float; val yDp: Float
                     when (idx) {
                         0 -> {
                             val cageCenterLocalX = cageCenterPx.value.x - poolBoxRootX
@@ -824,7 +801,6 @@ private fun AnimalsToCageGame(
                         1    -> { xDp = bottomLeft.x;  yDp = bottomLeft.y }
                         else -> { xDp = bottomRight.x; yDp = bottomRight.y }
                     }
-
                     Box(modifier = Modifier.offset(x = xDp.dp, y = yDp.dp)) {
                         DraggablePoolAnimal(
                             animal        = animal,
@@ -832,7 +808,6 @@ private fun AnimalsToCageGame(
                             isRejecting   = idx == state.rejectIdx,
                             isAnswered    = state.isAnswered,
                             animalSize    = animalSz,
-                            // Wobble only the exact number of animals still needed
                             hintRotation  = if (idx in wobbleIndices) hintAnim.value else 0f,
                             onDragStarted = { viewModel.onCageAnimalDragStarted(idx) },
                             onDropped     = { dropPx ->
@@ -846,7 +821,6 @@ private fun AnimalsToCageGame(
             }
         }
 
-        // ── Cage ──────────────────────────────────────────────────────────────
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
@@ -855,12 +829,10 @@ private fun AnimalsToCageGame(
                 .onGloballyPositioned { coords ->
                     val pos = coords.positionInRoot()
                     val sz  = coords.size
-                    // Store cage center in root coordinates — used by pool animal placement above
                     cageCenterPx.value = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
                 },
             contentAlignment = Alignment.Center
         ) {
-            // Layer 1: faint cage body behind animals
             Image(
                 painter            = painterResource(R.drawable.ic_cage),
                 contentDescription = null,
@@ -871,7 +843,6 @@ private fun AnimalsToCageGame(
                 contentScale       = ContentScale.Fit
             )
 
-            // Layer 2: animals inside the cage interior
             val cageAnimals = state.cagePool.filterIndexed { idx, _ -> idx in state.inCageSet }
             if (cageAnimals.isNotEmpty()) {
                 val n      = cageAnimals.size.coerceAtLeast(1)
@@ -901,7 +872,6 @@ private fun AnimalsToCageGame(
                 }
             }
 
-            // Layer 3: cage bars drawn OVER animals
             Image(
                 painter            = painterResource(R.drawable.ic_cage),
                 contentDescription = stringResource(R.string.cd_cage),
@@ -909,22 +879,29 @@ private fun AnimalsToCageGame(
                 contentScale       = ContentScale.Fit
             )
 
-            // Result banner
+            // Small result banner inside the cage — kept because it names the outcome
+            // while GoodJobPopup (rendered above in the root Box) handles celebration.
             if (state.isAnswered) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .background(
-                            color = if (state.isCorrect) DragResultCorrectBg else DragResultWrongBg,
+                            color = if (state.isCorrect)
+                                colors.correct.copy(alpha = 0.85f)
+                            else
+                                colors.wrong.copy(alpha = 0.85f),
                             shape = RoundedCornerShape(12.dp)
                         )
                         .padding(horizontal = 12.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text  = if (state.isCorrect) stringResource(R.string.drag_result_correct) else stringResource(R.string.drag_result_wrong),
+                        text  = if (state.isCorrect)
+                            stringResource(R.string.drag_result_correct)
+                        else
+                            stringResource(R.string.drag_result_wrong),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color      = if (state.isCorrect) DragResultCorrectText else DragResultWrongText
+                            color      = MaterialTheme.colorScheme.onSurface
                         )
                     )
                 }
@@ -937,12 +914,13 @@ private fun AnimalsToCageGame(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             repeat(state.targetCount) { i ->
+                val filled = i < inCageCount
                 Box(
                     modifier = Modifier
                         .size(CAGE_PROGRESS_DOT_SIZE)
                         .shadow(2.dp, CircleShape)
                         .background(
-                            color = if (i < inCageCount) DragProgressDone else DragProgressIdle,
+                            color = if (filled) colors.correct else colors.accent.copy(alpha = 0.25f),
                             shape = CircleShape
                         )
                 )
@@ -951,7 +929,7 @@ private fun AnimalsToCageGame(
     }
 }
 
-// ── Cage timer arc (arc + number, no Row wrapper — caller places it) ──────────
+// ── Cage timer arc ────────────────────────────────────────────────────────────
 @Composable
 private fun CageTimerArc(state: DragGameState) {
     val total    = state.cageTimerTotalSeconds.toFloat().coerceAtLeast(1f)
@@ -1097,12 +1075,19 @@ private fun buildCirclePath(size: Size): Path {
     return Path().apply { addOval(Rect(Offset(cx, cy), r)) }
 }
 
-private fun colorHexForDisplay(colorId: String): Long = when (colorId) {
-    "color_red"    -> DragColorRedHex
-    "color_blue"   -> DragColorBlueHex
-    "color_yellow" -> DragColorYellowHex
-    "color_green"  -> DragColorGreenHex
-    else           -> DragColorGrayHex
+@Composable
+private fun colorForContentId(colorId: String): Color = when (colorId) {
+    "color_red"    -> Color(0xFFE53935)
+    "color_blue"   -> Color(0xFF1E88E5)
+    "color_yellow" -> Color(0xFFFDD835)
+    "color_green"  -> Color(0xFF43A047)
+    "color_black"  -> Color(0xFF212121)
+    "color_white"  -> Color(0xFFF5F5F5)
+    "color_orange" -> Color(0xFFFF8A65)
+    "color_purple" -> Color(0xFF9C27B0)
+    "color_pink"   -> Color(0xFFF48FB1)
+    "color_brown"  -> Color(0xFF6D4C41)
+    else           -> Color(0xFF9E9E9E)
 }
 
 @Composable
@@ -1111,6 +1096,7 @@ private fun DragImage(
     label   : String,
     modifier: Modifier = Modifier
 ) {
+    val colors  = LocalGameColorScheme.current
     val context = LocalContext.current
     when (asset) {
         is ImageAsset.PngAsset -> {
@@ -1139,12 +1125,13 @@ private fun DragImage(
                 Box(
                     modifier         = modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                        .background(colors.accent.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text      = label,
                         style     = MaterialTheme.typography.bodyMedium,
+                        color     = colors.accent,
                         textAlign = TextAlign.Center
                     )
                 }
