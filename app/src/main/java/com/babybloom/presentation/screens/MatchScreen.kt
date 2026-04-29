@@ -18,12 +18,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -39,24 +42,26 @@ import com.babybloom.presentation.viewmodels.AnimalOption
 import com.babybloom.presentation.viewmodels.Habitat
 import com.babybloom.presentation.viewmodels.MatchCardState
 import com.babybloom.presentation.viewmodels.MatchViewModel
+import com.babybloom.ui.theme.LocalGameColorScheme
+import com.babybloom.ui.theme.RevealGold       // kept — semantic "revealed answer" color
+import com.babybloom.ui.theme.TraceBadgeBorder // same banner as TraceScreen
+import com.babybloom.ui.theme.TraceBadgeText   // same banner as TraceScreen
+import com.babybloom.util.ImageAsset
 
-// ── Theme color imports ───────────────────────────────────────────────────────
-import com.babybloom.ui.theme.Card3
-import com.babybloom.ui.theme.DarkPurple
-import com.babybloom.ui.theme.PrimaryPurple
-import com.babybloom.ui.theme.AccentPink
-import com.babybloom.ui.theme.AccentTeal
-import com.babybloom.ui.theme.ErrorRed
-import com.babybloom.ui.theme.RevealGold       // Color(0xFFFFD700) — add to Color.kt
-import com.babybloom.ui.theme.MatchQuestionBg  // alias of TextFieldBackground — add to Color.kt
-
-// ── Local aliases ─────────────────────────────────────────────────────────────
-private val CorrectGreen     = AccentTeal
-private val WrongRed         = ErrorRed
-
-// All option cards use warm peach (Card3)
-private val OptionColors     = listOf(Card3, Card3, Card3, Card3)
-private val OptionBorderIdle = DarkPurple.copy(alpha = 0.25f)
+// ─────────────────────────────────────────────────────────────────────────────
+// MatchScreen.kt
+//
+// All game colors come from LocalGameColorScheme (accent / background /
+// correct / wrong), matching every other game screen.
+//
+// RevealGold is the only fixed semantic color kept — it signals "you ran out
+// of attempts and the answer is being shown to you", which is distinct from
+// both correct (child got it right) and wrong (child got it wrong).
+//
+// The prompt banner matches TraceScreen's TraceInstructionBadge exactly.
+// Attempt dots match the other games (wrong = used, faded accent = remaining).
+// Animal option cards have no background tint (transparent, like habitat cards).
+// ─────────────────────────────────────────────────────────────────────────────
 
 // ── Wiggle animation ──────────────────────────────────────────────────────────
 @Composable
@@ -83,6 +88,8 @@ fun MatchScreen(
     onComplete: (elapsedMs: Long, correctCount: Int) -> Unit,
     viewModel: MatchViewModel = hiltViewModel()
 ) {
+    val colors = LocalGameColorScheme.current
+
     LaunchedEffect(Unit) {
         viewModel.loadActivity(contentItems, isCalmMode, configJson, onCardResult, onComplete)
     }
@@ -95,16 +102,26 @@ fun MatchScreen(
         onComplete(done.elapsedMs, done.correctCount)
     }
 
+    val showCelebration = when (val s = cardState) {
+        is MatchCardState.AnimalHabitatCard -> s.showCelebration
+        is MatchCardState.LetterAnimalCard  -> s.showCelebration
+        else                                -> false
+    }
+
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when (val state = cardState) {
             is MatchCardState.Loading ->
-                CircularProgressIndicator(color = PrimaryPurple)
+                CircularProgressIndicator(color = colors.accent)
             is MatchCardState.Done ->
-                CircularProgressIndicator(color = AccentTeal)
+                CircularProgressIndicator(color = colors.correct)
             is MatchCardState.AnimalHabitatCard ->
                 AnimalHabitatLayout(state, isCalmMode, wiggleTick) { viewModel.onAnswerSelected(it) }
             is MatchCardState.LetterAnimalCard ->
                 LetterAnimalLayout(state, isCalmMode, wiggleTick) { viewModel.onAnswerSelected(it) }
+        }
+
+        if (showCelebration) {
+            GoodJobPopup()
         }
     }
 }
@@ -127,7 +144,7 @@ private fun AnimalHabitatLayout(
     ) {
         Spacer(Modifier.height(4.dp))
         TopRow(state.questionIndex, state.totalQuestions, state.attemptsLeft)
-        PromptBanner(stringResource(R.string.match_prompt_where_lives))
+        MatchPromptBanner(stringResource(R.string.match_prompt_where_lives))
         AnimalQuestionCard(state, isCalmMode)
         HabitatGrid(
             options     = state.options,
@@ -147,16 +164,17 @@ private fun AnimalQuestionCard(
     state: MatchCardState.AnimalHabitatCard,
     isCalmMode: Boolean
 ) {
+    val colors  = LocalGameColorScheme.current
     val context = LocalContext.current
     val mood    = if (isCalmMode) "calm" else "active"
     val path    = "file:///android_asset/learning_content/visual/$mood/${state.animal.contentId}.png"
 
     val borderColor by animateColorAsState(
         targetValue = when (state.answerState) {
-            AnswerState.Correct  -> CorrectGreen
-            AnswerState.Wrong    -> WrongRed
+            AnswerState.Correct  -> colors.correct
+            AnswerState.Wrong    -> colors.wrong
             AnswerState.Revealed -> RevealGold
-            AnswerState.Idle     -> PrimaryPurple
+            AnswerState.Idle     -> colors.accent
         },
         animationSpec = tween(300), label = "qBorder"
     )
@@ -166,7 +184,7 @@ private fun AnimalQuestionCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
             .border(3.dp, borderColor, RoundedCornerShape(24.dp))
-            .background(MatchQuestionBg)
+            .background(colors.background)
             .padding(20.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -182,7 +200,7 @@ private fun AnimalQuestionCard(
                 text       = state.animal.labelAr,
                 fontSize   = 28.sp,
                 fontWeight = FontWeight.Bold,
-                color      = DarkPurple
+                color      = colors.accent
             )
             Spacer(Modifier.width(12.dp))
             FeedbackIcon(state.answerState)
@@ -240,6 +258,7 @@ private fun HabitatOptionCard(
     onSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val colors        = LocalGameColorScheme.current
     val context       = LocalContext.current
     val mood          = if (isCalmMode) "calm" else "active"
     val imgFile       = if (isCalmMode) habitat.calmImage else habitat.activeImage
@@ -252,10 +271,10 @@ private fun HabitatOptionCard(
 
     val borderColor by animateColorAsState(
         targetValue = when {
-            isCorrect && answerState == AnswerState.Correct  -> CorrectGreen
+            isCorrect && answerState == AnswerState.Correct  -> colors.correct
             isCorrect && answerState == AnswerState.Revealed -> RevealGold
-            isWrongTapped                                    -> WrongRed
-            else                                             -> OptionBorderIdle
+            isWrongTapped                                    -> colors.wrong
+            else                                             -> colors.accent.copy(alpha = 0.35f)
         },
         animationSpec = tween(300), label = "hBorder"
     )
@@ -269,11 +288,10 @@ private fun HabitatOptionCard(
             .graphicsLayer { translationX = shake }
             .clip(RoundedCornerShape(20.dp))
             .border(3.dp, borderColor, RoundedCornerShape(20.dp))
-            // FIX: base is always transparent — the image fills the card at all times
             .background(Color.Transparent)
             .clickable(enabled = enabled) { onSelected(habitat.id) }
     ) {
-        // Layer 1: habitat photo — ALWAYS visible (alpha = 1f at all times)
+        // Layer 1: habitat photo — always visible
         Image(
             painter            = rememberAsyncImagePainter(
                 ImageRequest.Builder(context).data(habitatPath).build()
@@ -283,22 +301,22 @@ private fun HabitatOptionCard(
             contentScale       = ContentScale.Crop
         )
 
-        // Layer 2: correct answer overlay tint
+        // Layer 2: correct overlay tint
         if (showCorrectOverlay) {
             Box(
                 modifier = Modifier.fillMaxSize().background(
                     if (answerState == AnswerState.Revealed) RevealGold.copy(alpha = 0.18f)
-                    else CorrectGreen.copy(alpha = 0.12f)
+                    else colors.correct.copy(alpha = 0.15f)
                 )
             )
         }
 
-        // Layer 3: wrong tint — only on the tapped wrong card
+        // Layer 3: wrong tint
         if (isWrongTapped) {
-            Box(modifier = Modifier.fillMaxSize().background(WrongRed.copy(alpha = 0.22f)))
+            Box(modifier = Modifier.fillMaxSize().background(colors.wrong.copy(alpha = 0.22f)))
         }
 
-        // Layer 4: label bar — always dark overlay since image is always showing
+        // Layer 4: label bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -314,7 +332,6 @@ private fun HabitatOptionCard(
                 text       = habitatLabel,
                 fontSize   = 16.sp,
                 fontWeight = FontWeight.Bold,
-                // FIX: always white since image is always behind the label
                 color      = Color.White
             )
         }
@@ -341,7 +358,7 @@ private fun LetterAnimalLayout(
     ) {
         Spacer(Modifier.height(4.dp))
         TopRow(state.questionIndex, state.totalQuestions, state.attemptsLeft)
-        PromptBanner(stringResource(R.string.match_prompt_choose_animal))
+        MatchPromptBanner(stringResource(R.string.match_prompt_choose_animal))
         LetterQuestionCard(state)
         AnimalGrid(
             options     = state.options,
@@ -358,17 +375,15 @@ private fun LetterAnimalLayout(
 
 @Composable
 private fun LetterQuestionCard(state: MatchCardState.LetterAnimalCard) {
+    val colors  = LocalGameColorScheme.current
     val context = LocalContext.current
-    val resId   = context.resources.getIdentifier(
-        state.letter.contentId, "drawable", context.packageName
-    )
 
     val borderColor by animateColorAsState(
         targetValue = when (state.answerState) {
-            AnswerState.Correct  -> CorrectGreen
-            AnswerState.Wrong    -> WrongRed
+            AnswerState.Correct  -> colors.correct
+            AnswerState.Wrong    -> colors.wrong
             AnswerState.Revealed -> RevealGold
-            AnswerState.Idle     -> PrimaryPurple
+            AnswerState.Idle     -> colors.accent
         },
         animationSpec = tween(300), label = "lBorder"
     )
@@ -378,7 +393,7 @@ private fun LetterQuestionCard(state: MatchCardState.LetterAnimalCard) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
             .border(3.dp, borderColor, RoundedCornerShape(24.dp))
-            .background(MatchQuestionBg)
+            .background(colors.background)
             .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -386,21 +401,45 @@ private fun LetterQuestionCard(state: MatchCardState.LetterAnimalCard) {
             verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            if (resId != 0) {
-                Image(
-                    painter            = painterResource(id = resId),
+            // Replicating CountingGameScreen pattern: use painterResource + ColorFilter.tint(accent)
+            val asset = state.letterImageAsset
+            var shown = false
+            if (asset is ImageAsset.SvgDrawable) {
+                val resId = context.resources.getIdentifier(
+                    asset.drawableName, "drawable", context.packageName
+                )
+                if (resId != 0) {
+                    Image(
+                        painter            = painterResource(id = resId),
+                        contentDescription = state.letter.labelAr,
+                        modifier           = Modifier.size(120.dp),
+                        colorFilter        = ColorFilter.tint(colors.accent),
+                        contentScale       = ContentScale.Fit
+                    )
+                    shown = true
+                }
+            } else if (asset is ImageAsset.PngAsset) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data("file:///android_asset/${asset.path}")
+                        .build(),
                     contentDescription = state.letter.labelAr,
-                    modifier           = Modifier.size(90.dp),
+                    modifier           = Modifier.size(120.dp),
                     contentScale       = ContentScale.Fit
                 )
+                shown = true
             }
-            Spacer(Modifier.width(20.dp))
-            Text(
-                text       = state.letter.labelAr,
-                fontSize   = 52.sp,
-                fontWeight = FontWeight.Black,
-                color      = DarkPurple
-            )
+
+            // Fallback if asset loading fails, show text label in accent
+            if (!shown) {
+                Text(
+                    text       = state.letter.labelAr,
+                    fontSize   = 64.sp,
+                    fontWeight = FontWeight.Black,
+                    color      = colors.accent
+                )
+            }
+            
             Spacer(Modifier.width(12.dp))
             FeedbackIcon(state.answerState)
         }
@@ -457,23 +496,23 @@ private fun AnimalOptionCard(
     onSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val colors        = LocalGameColorScheme.current
     val context       = LocalContext.current
     val mood          = if (isCalmMode) "calm" else "active"
     val animalPath    = "file:///android_asset/learning_content/visual/$mood/${option.entity.id}.png"
     val habitat       = ALL_HABITATS.firstOrNull { it.id == option.habitatId } ?: ALL_HABITATS.first()
     val habitatFile   = if (isCalmMode) habitat.calmImage else habitat.activeImage
     val habitatPath   = "file:///android_asset/learning_content/visual/$mood/$habitatFile"
-    val baseColor     = OptionColors[colorIdx % 4]
     val isWrongTapped = option.entity.id == lastWrongId && answerState == AnswerState.Wrong
     val showHabitatBg = isCorrect &&
             (answerState == AnswerState.Correct || answerState == AnswerState.Revealed)
 
     val borderColor by animateColorAsState(
         targetValue = when {
-            isCorrect && answerState == AnswerState.Correct  -> CorrectGreen
+            isCorrect && answerState == AnswerState.Correct  -> colors.correct
             isCorrect && answerState == AnswerState.Revealed -> RevealGold
-            isWrongTapped                                    -> WrongRed
-            else                                             -> OptionBorderIdle
+            isWrongTapped                                    -> colors.wrong
+            else                                             -> colors.accent.copy(alpha = 0.35f)
         },
         animationSpec = tween(300), label = "aBorder"
     )
@@ -492,7 +531,8 @@ private fun AnimalOptionCard(
             .graphicsLayer { translationX = shake }
             .clip(RoundedCornerShape(20.dp))
             .border(3.dp, borderColor, RoundedCornerShape(20.dp))
-            .background(baseColor)
+            // No background tint — transparent like habitat cards
+            .background(Color.Transparent)
             .clickable(enabled = enabled) { onSelected(option.entity.id) }
     ) {
         // Layer 1: habitat bg — fades in on correct answer
@@ -507,19 +547,19 @@ private fun AnimalOptionCard(
             contentScale       = ContentScale.Crop
         )
 
-        // Layer 2: light tint over photo (only when photo is visible)
+        // Layer 2: correct overlay tint
         if (showHabitatBg) {
             Box(
                 modifier = Modifier.fillMaxSize().background(
                     if (answerState == AnswerState.Revealed) RevealGold.copy(alpha = 0.18f)
-                    else CorrectGreen.copy(alpha = 0.12f)
+                    else colors.correct.copy(alpha = 0.15f)
                 )
             )
         }
 
-        // Layer 3: wrong tint — only on the tapped wrong card
+        // Layer 3: wrong tint
         if (isWrongTapped) {
-            Box(modifier = Modifier.fillMaxSize().background(WrongRed.copy(alpha = 0.22f)))
+            Box(modifier = Modifier.fillMaxSize().background(colors.wrong.copy(alpha = 0.22f)))
         }
 
         // Layer 4: animal image
@@ -534,14 +574,16 @@ private fun AnimalOptionCard(
             contentScale       = ContentScale.Fit
         )
 
-        // Layer 5: label bar
+        // Layer 5: label bar — dark when habitat visible, faint accent tint when idle
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
                 .background(
-                    color = if (showHabitatBg) Color.Black.copy(alpha = 0.55f)
-                    else DarkPurple.copy(alpha = 0.10f),
+                    color = if (showHabitatBg)
+                        Color.Black.copy(alpha = 0.55f)
+                    else
+                        colors.accent.copy(alpha = 0.12f),
                     shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp)
                 )
                 .padding(vertical = 6.dp),
@@ -551,11 +593,10 @@ private fun AnimalOptionCard(
                 text       = option.entity.labelAr,
                 fontSize   = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color      = if (showHabitatBg) Color.White else DarkPurple
+                color      = if (showHabitatBg) Color.White else colors.accent
             )
         }
 
-        // Layer 6: corner badge
         CornerBadge(isCorrect = isCorrect, isWrongTapped = isWrongTapped, answerState = answerState)
     }
 }
@@ -564,8 +605,15 @@ private fun AnimalOptionCard(
 // Shared composables
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Top row: question counter + attempt dots.
+ * Dots follow the same pattern as all other games:
+ *   used attempt → colors.wrong  (red = attempt spent)
+ *   remaining    → colors.accent.copy(alpha = 0.25f)
+ */
 @Composable
 private fun TopRow(questionIndex: Int, totalQuestions: Int, attemptsLeft: Int) {
+    val colors = LocalGameColorScheme.current
     Row(
         modifier              = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -575,40 +623,69 @@ private fun TopRow(questionIndex: Int, totalQuestions: Int, attemptsLeft: Int) {
             text       = "${questionIndex + 1} / $totalQuestions",
             fontSize   = 18.sp,
             fontWeight = FontWeight.Bold,
-            color      = DarkPurple
+            color      = colors.accent
         )
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             repeat(3) { i ->
+                // i=0 is the first dot; dot is "used" when that attempt slot is gone
+                val used = i >= attemptsLeft
+                val color by animateColorAsState(
+                    targetValue   = if (used) colors.wrong else colors.accent.copy(alpha = 0.25f),
+                    animationSpec = tween(300),
+                    label         = "matchDot$i"
+                )
                 Box(
                     modifier = Modifier
-                        .size(14.dp)
+                        .size(if (used) 14.dp else 11.dp)
                         .clip(CircleShape)
-                        .background(if (i < attemptsLeft) AccentPink else DarkPurple.copy(alpha = 0.15f))
+                        .background(color)
                 )
             }
         }
     }
 }
 
+/**
+ * Prompt banner — identical structure to TraceInstructionBadge in TraceScreen.
+ * Uses the same fixed TraceBadgeBorder / TraceBadgeText tokens.
+ */
 @Composable
-private fun PromptBanner(text: String) {
+private fun MatchPromptBanner(text: String) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .border(2.dp, PrimaryPurple.copy(alpha = 0.35f), RoundedCornerShape(50))
-            .background(PrimaryPurple.copy(alpha = 0.08f))
-            .padding(horizontal = 24.dp, vertical = 8.dp)
+            .border(1.5.dp, TraceBadgeBorder, RoundedCornerShape(50))
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Text(text, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = PrimaryPurple)
+        Row(
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text       = text,
+                fontSize   = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color      = TraceBadgeText,
+                maxLines   = 1,
+                style      = LocalTextStyle.current.copy(textDirection = TextDirection.Rtl)
+            )
+            Spacer(Modifier.width(8.dp))
+            Image(
+                painter            = painterResource(R.drawable.front_hand),
+                contentDescription = null,
+                modifier           = Modifier.size(26.dp)
+            )
+        }
     }
 }
 
 @Composable
 private fun FeedbackIcon(answerState: AnswerState) {
+    val colors = LocalGameColorScheme.current
     when (answerState) {
-        AnswerState.Correct  -> Icon(Icons.Default.Check, null, tint = CorrectGreen, modifier = Modifier.size(32.dp))
-        AnswerState.Wrong    -> Icon(Icons.Default.Close, null, tint = WrongRed,     modifier = Modifier.size(32.dp))
-        AnswerState.Revealed -> Icon(Icons.Default.Check, null, tint = RevealGold,   modifier = Modifier.size(32.dp))
+        AnswerState.Correct  -> Icon(Icons.Default.Check, null, tint = colors.correct, modifier = Modifier.size(32.dp))
+        AnswerState.Wrong    -> Icon(Icons.Default.Close, null, tint = colors.wrong,   modifier = Modifier.size(32.dp))
+        AnswerState.Revealed -> Icon(Icons.Default.Check, null, tint = RevealGold,     modifier = Modifier.size(32.dp))
         AnswerState.Idle     -> Spacer(Modifier.size(32.dp))
     }
 }
@@ -619,13 +696,14 @@ private fun BoxScope.CornerBadge(
     isWrongTapped: Boolean,
     answerState: AnswerState
 ) {
+    val colors = LocalGameColorScheme.current
     if (answerState == AnswerState.Idle) return
     val showGreen = isCorrect && answerState == AnswerState.Correct
     val showGold  = isCorrect && answerState == AnswerState.Revealed
     val showRed   = isWrongTapped
     if (!showGreen && !showGold && !showRed) return
 
-    val bg = when { showGreen -> CorrectGreen; showGold -> RevealGold; else -> WrongRed }
+    val bg = when { showGreen -> colors.correct; showGold -> RevealGold; else -> colors.wrong }
 
     Box(
         modifier = Modifier

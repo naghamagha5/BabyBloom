@@ -8,7 +8,11 @@ import androidx.lifecycle.viewModelScope
 import com.babybloom.R
 import com.babybloom.data.local.dao.LearningContentDao
 import com.babybloom.data.local.entity.LearningContentEntity
+import com.babybloom.di.AppSoundSettings
 import com.babybloom.domain.model.ActivityContent
+import com.babybloom.util.AssetPathResolver
+import com.babybloom.util.ImageAsset
+import com.babybloom.util.SoundEffect
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -22,19 +26,19 @@ import javax.inject.Inject
 // ── Habitat definition ────────────────────────────────────────────────────────
 data class Habitat(
     val id: String,
-    val labelResId: Int,      // R.string.habitat_* — mirrors how animal labels work
+    val labelResId: Int,
     val activeImage: String,
     val calmImage: String
 )
 
 val ALL_HABITATS = listOf(
-    Habitat("savanna",  R.string.habitat_savanna,  "Savanna_active.jpeg",   "Savanna_calm.jpeg"),
-    Habitat("forest",   R.string.habitat_forest,   "Jungle_active.jpeg", "Jungle_calm.jpeg"),
-    Habitat("desert",   R.string.habitat_desert,   "Desert_active.jpg",  "Desert_calm.jpeg"),
-    Habitat("farm",     R.string.habitat_farm,     "Farm_active.jpeg",   "Farm_calm.jpeg"),
-    Habitat("wetlands", R.string.habitat_wetlands, "Wetlands_active.jpeg",  "Wetlands_calm.jpeg"),
-    Habitat("sea",      R.string.habitat_sea,      "Sea_active.jpeg",    "Sea_active.jpeg"),
-    Habitat("birds",    R.string.habitat_birds,    "Birds_active.jpeg",     "Birds_calm.jpeg")
+    Habitat("savanna",  R.string.habitat_savanna,  "Savanna_active.jpeg",  "Savanna_calm.jpeg"),
+    Habitat("forest",   R.string.habitat_forest,   "Jungle_active.jpeg",   "Jungle_calm.jpeg"),
+    Habitat("desert",   R.string.habitat_desert,   "Desert_active.jpg",    "Desert_calm.jpeg"),
+    Habitat("farm",     R.string.habitat_farm,     "Farm_active.jpeg",     "Farm_calm.jpeg"),
+    Habitat("wetlands", R.string.habitat_wetlands, "Wetlands_active.jpeg", "Wetlands_calm.jpeg"),
+    Habitat("sea",      R.string.habitat_sea,      "Sea_active.jpeg",      "Sea_active.jpeg"),
+    Habitat("birds",    R.string.habitat_birds,    "Birds_active.jpeg",    "Birds_calm.jpeg")
 )
 
 // ── Animal → Habitat mapping ──────────────────────────────────────────────────
@@ -79,11 +83,7 @@ fun letterSoundAudioPath(contentId: String) =
 fun animalAudioPath(contentId: String) =
     "learning_content/audio/animals/$contentId.ogg"
 
-// ── SFX & instruction audio ───────────────────────────────────────────────────
-private const val SFX_TAP             = "learning_content/audio/tap.ogg"
-private const val SFX_CORRECT         = "learning_content/audio/correct.ogg"
-private const val SFX_WRONG           = "learning_content/audio/wrong.ogg"
-private const val SFX_COMPLETE        = "learning_content/audio/complete.ogg"
+// ── Instruction audio paths ───────────────────────────────────────────────────
 private const val INSTRUCTION_ANIMALS = "activities/audio/match/match_instruction_animals.ogg"
 private const val INSTRUCTION_LETTERS = "activities/audio/match/match_instruction_letters.ogg"
 
@@ -112,11 +112,14 @@ sealed class MatchCardState {
         val showCorrectWiggle: Boolean = false,
         val questionIndex: Int = 0,
         val totalQuestions: Int = QUESTIONS_PER_ROUND,
-        val lastWrongId: String? = null
+        val lastWrongId: String? = null,
+        // ── unified celebration popup ──────────────────────────────────────
+        val showCelebration: Boolean = false
     ) : MatchCardState()
 
     data class LetterAnimalCard(
         val letter: ActivityContent,
+        val letterImageAsset: ImageAsset,
         val options: List<AnimalOption>,
         val correctAnimalId: String,
         val answerState: AnswerState = AnswerState.Idle,
@@ -124,7 +127,9 @@ sealed class MatchCardState {
         val showCorrectWiggle: Boolean = false,
         val questionIndex: Int = 0,
         val totalQuestions: Int = QUESTIONS_PER_ROUND,
-        val lastWrongId: String? = null
+        val lastWrongId: String? = null,
+        // ── unified celebration popup ──────────────────────────────────────
+        val showCelebration: Boolean = false
     ) : MatchCardState()
 }
 
@@ -134,7 +139,13 @@ enum class AnswerState { Idle, Correct, Wrong, Revealed }
 @HiltViewModel
 class MatchViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val learningContentDao: LearningContentDao
+    private val learningContentDao: LearningContentDao,
+    // ── Sound settings — same pattern as TraceViewModel ───────────────────────
+    // SFX (TAP / CORRECT / WRONG / COMPLETE) are routed through AppSoundSettings
+    // so the parent's sound-effects toggle is respected.
+    // Voice audio (letter name, animal name, instruction) still uses its own
+    // MediaPlayer because it plays content audio, not SFX.
+    private val appSoundSettings: AppSoundSettings
 ) : ViewModel() {
 
     private val _cardState  = MutableStateFlow<MatchCardState>(MatchCardState.Loading)
@@ -144,7 +155,6 @@ class MatchViewModel @Inject constructor(
     val wiggleTick: StateFlow<Int> = _wiggleTick.asStateFlow()
 
     private var voicePlayer: MediaPlayer? = null
-    private var sfxPlayer:   MediaPlayer? = null
     private var hintJob:     Job?         = null
 
     private var items:          List<ActivityContent> = emptyList()
@@ -204,7 +214,8 @@ class MatchViewModel @Inject constructor(
         }
 
         cancelHints()
-        playSfx(SFX_TAP)
+        // TAP SFX — routed through AppSoundSettings
+        appSoundSettings.playSoundEffect(SoundEffect.TAP)
 
         if (isCorrect) {
             correctCount++
@@ -215,13 +226,23 @@ class MatchViewModel @Inject constructor(
 
             viewModelScope.launch {
                 delay(250)
-                playSfx(SFX_CORRECT)
-                delay(700)
+                // CORRECT SFX — routed through AppSoundSettings
+                appSoundSettings.playSoundEffect(SoundEffect.CORRECT)
+                delay(400)
+
+                // Show GoodJobPopup + COMPLETE SFX — then play voice content
+                appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
+                setCelebration(true)
+
+                // Play voice content (content audio, not SFX — stays on own player)
                 when (matchType) {
                     "LETTER_TO_ANIMAL"  -> currentLetterPath?.let { playVoiceAndWait(it) }
                     "ANIMAL_TO_HABITAT" -> currentAnimalPath?.let { playVoiceAndWait(it) }
                 }
-                delay(600)
+
+                delay(1_800)       // let popup show for a moment after voice finishes
+                setCelebration(false)
+                delay(300)
                 advanceQuestion()
             }
         } else {
@@ -235,7 +256,8 @@ class MatchViewModel @Inject constructor(
 
             viewModelScope.launch {
                 delay(250)
-                playSfx(SFX_WRONG)
+                // WRONG SFX — routed through AppSoundSettings
+                appSoundSettings.playSoundEffect(SoundEffect.WRONG)
 
                 if (attemptsLeft <= 0) {
                     onCardResult?.invoke(currentContentId, false, cardCorrect, cardIncorrect, cardAttempts)
@@ -279,7 +301,8 @@ class MatchViewModel @Inject constructor(
 
         val item = items.getOrNull(index) ?: run {
             viewModelScope.launch {
-                playSfx(SFX_COMPLETE)
+                // COMPLETE SFX when the whole round finishes — through AppSoundSettings
+                appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
                 delay(1_500)
                 val elapsed = System.currentTimeMillis() - startTime
                 _cardState.value = MatchCardState.Done(elapsed, correctCount)
@@ -351,6 +374,7 @@ class MatchViewModel @Inject constructor(
 
         _cardState.value = MatchCardState.LetterAnimalCard(
             letter          = item,
+            letterImageAsset = AssetPathResolver.imageAssetFor(item.contentId, item.category, isCalmMode),
             options         = options,
             correctAnimalId = animal.id,
             questionIndex   = index,
@@ -413,6 +437,14 @@ class MatchViewModel @Inject constructor(
 
     // ── State helpers ─────────────────────────────────────────────────────────
 
+    private fun setCelebration(show: Boolean) {
+        _cardState.value = when (val s = _cardState.value) {
+            is MatchCardState.AnimalHabitatCard -> s.copy(showCelebration = show)
+            is MatchCardState.LetterAnimalCard  -> s.copy(showCelebration = show)
+            else -> _cardState.value
+        }
+    }
+
     private fun setWiggle(on: Boolean) {
         _cardState.value = when (val s = _cardState.value) {
             is MatchCardState.AnimalHabitatCard -> s.copy(showCorrectWiggle = on)
@@ -451,7 +483,7 @@ class MatchViewModel @Inject constructor(
         else -> AnswerState.Idle
     }
 
-    // ── Audio ─────────────────────────────────────────────────────────────────
+    // ── Voice audio — own MediaPlayer (content audio, not SFX) ───────────────
 
     private fun playVoice(path: String) {
         try {
@@ -475,21 +507,9 @@ class MatchViewModel @Inject constructor(
         } catch (e: Exception) { Log.w("MatchVM", "Voice not found: $path"); delay(600) }
     }
 
-    private fun playSfx(path: String) {
-        try {
-            sfxPlayer?.stop(); sfxPlayer?.release()
-            sfxPlayer = MediaPlayer()
-            val afd = context.assets.openFd(path)
-            sfxPlayer!!.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-            sfxPlayer!!.setOnErrorListener { _, _, _ -> Log.w("MatchVM", "SFX err: $path"); true }
-            sfxPlayer!!.prepare(); sfxPlayer!!.start()
-        } catch (e: Exception) { Log.w("MatchVM", "SFX not found: $path") }
-    }
-
     override fun onCleared() {
         super.onCleared()
         cancelHints()
         voicePlayer?.stop(); voicePlayer?.release(); voicePlayer = null
-        sfxPlayer?.stop();   sfxPlayer?.release();   sfxPlayer   = null
     }
 }

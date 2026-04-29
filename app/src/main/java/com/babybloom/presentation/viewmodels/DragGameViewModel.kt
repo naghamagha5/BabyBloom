@@ -8,11 +8,6 @@ import androidx.lifecycle.viewModelScope
 import com.babybloom.R
 import com.babybloom.data.local.dao.LearningContentDao
 import com.babybloom.domain.model.ActivityContent
-import com.babybloom.ui.theme.DragColorBlueHex
-import com.babybloom.ui.theme.DragColorGreenHex
-import com.babybloom.ui.theme.DragColorMidGrayHex
-import com.babybloom.ui.theme.DragColorRedHex
-import com.babybloom.ui.theme.DragColorYellowHex
 import com.babybloom.util.AssetPathResolver
 import com.babybloom.util.ImageAsset
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,7 +26,6 @@ enum class DragType { COLOR_TO_SHAPE, LETTER_TO_WORD, ANIMALS_TO_CAGE }
 // ── Color option ──────────────────────────────────────────────────────────────
 data class ColorOption(
     val colorId      : String,
-    val hexColor     : Long,
     val labelAr      : String,
     val audioPath    : String,
     val drawableImage: ImageAsset
@@ -39,12 +33,12 @@ data class ColorOption(
 
 // ── Letter option ─────────────────────────────────────────────────────────────
 data class LetterOption(
-    val letterId      : String,
-    val labelAr       : String,
-    val drawableImage : ImageAsset,
-    val audioPath     : String,
+    val letterId       : String,
+    val labelAr        : String,
+    val drawableImage  : ImageAsset,
+    val audioPath      : String,
     val animalAudioPath: String,
-    val isCorrect     : Boolean
+    val isCorrect      : Boolean
 )
 
 // ── Animal option ─────────────────────────────────────────────────────────────
@@ -83,19 +77,17 @@ data class DragGameState(
     val wordFullText       : String             = "",
     val letterOptions      : List<LetterOption> = emptyList(),
     val droppedLetterId    : String?            = null,
-    // Set briefly when a wrong letter is dropped so the Screen can show a
-    // shake/red-flash animation, then cleared after 600 ms. Purely visual.
     val wrongDropLetterId  : String?            = null,
 
     // ── ANIMALS_TO_CAGE ───────────────────────────────────────────────────────
-    val instructionText : String               = "",
-    val targetNumeral   : String               = "",
-    val targetCount     : Int                  = 0,
-    val targetAnimalId  : String               = "",
-    val cagePool        : List<DragAnimalOption>   = emptyList(),
-    val scatterPositions: List<ScatterPosition> = emptyList(),
-    val inCageSet       : Set<Int>             = emptySet(),
-    val rejectIdx       : Int                  = -1,
+    val instructionText : String                  = "",
+    val targetNumeral   : String                  = "",
+    val targetCount     : Int                     = 0,
+    val targetAnimalId  : String                  = "",
+    val cagePool        : List<DragAnimalOption>  = emptyList(),
+    val scatterPositions: List<ScatterPosition>   = emptyList(),
+    val inCageSet       : Set<Int>                = emptySet(),
+    val rejectIdx       : Int                     = -1,
 
     // ── ANIMALS_TO_CAGE timer ─────────────────────────────────────────────────
     val cageTimerSeconds     : Int     = 10,
@@ -104,8 +96,13 @@ data class DragGameState(
     val showHint             : Boolean = false,
 
     // Shared result
-    val isAnswered: Boolean = false,
-    val isCorrect : Boolean = false,
+    val isAnswered     : Boolean = false,
+    val isCorrect      : Boolean = false,
+    // ── Unified celebration popup ─────────────────────────────────────────────
+    // Set true on a correct answer so the Screen can show GoodJobPopup.
+    // Cleared before onComplete fires so the popup doesn't persist into the
+    // next content item.
+    val showCelebration: Boolean = false,
 
     // Session / round tracking
     val currentRound         : Int  = 0,
@@ -128,77 +125,36 @@ class DragGameViewModel @Inject constructor(
     private val learningContentDao: LearningContentDao
 ) : ViewModel() {
 
-    // ── Constants ─────────────────────────────────────────────────────────────
     private companion object {
-        // Audio asset paths
         const val SOUND_TAP     = "learning_content/audio/tap.ogg"
         const val SOUND_CORRECT = "learning_content/audio/correct.ogg"
         const val SOUND_WRONG   = "learning_content/audio/wrong.ogg"
 
-        // Drag-game content id sets
-        val DRAG_COLOR_IDS  = setOf("color_red", "color_blue", "color_yellow", "color_green")
-        val DRAG_LETTER_IDS = setOf("letter_alef", "letter_ba", "letter_meem", "letter_ha")
+        const val MAX_ATTEMPTS            = 3
+        const val CAGE_TIMER_SECONDS      = 15
+        const val HINT_THRESHOLD          = 5
+        const val ATTEMPT_ENCODE_FACTOR   = 100_000L
+        const val WRONG_LETTER_FLASH_MS   = 600L
+        // How long the GoodJobPopup is visible before onComplete fires
+        const val CELEBRATION_DURATION_MS = 2_200L
+        const val SESSION_ADVANCE_DELAY_MS= 1_400L
+        const val CAGE_POOL_SIZE          = 3
 
-        // Cage-game mechanics
-        const val MAX_ATTEMPTS       = 3
-        const val CAGE_TIMER_SECONDS = 15   // total seconds per attempt window
-        const val HINT_THRESHOLD     = 5    // show hint wobble when remaining <= this
-
-        // Attempt encoding: encoded = realElapsedMs + attemptsUsed * ATTEMPT_ENCODE_FACTOR
-        const val ATTEMPT_ENCODE_FACTOR = 100_000L
-
-        // Wrong-letter flash duration (ms)
-        const val WRONG_LETTER_FLASH_MS = 600L
-
-        // Delay before firing onComplete after correct answer (ms)
-        const val CORRECT_ANSWER_DELAY_MS = 900L
-
-        // Session advance delay after answer (ms)
-        const val SESSION_ADVANCE_DELAY_MS = 1_400L
-
-        // Arabic numeral content ids
-        const val NUMBER_1_ID = "number_1"
-        const val NUMBER_2_ID = "number_2"
-        const val NUMBER_3_ID = "number_3"
-
-        // Letter-to-word puzzle answer ids
-        const val LETTER_ALEF = "letter_alef"
-        const val LETTER_BA   = "letter_ba"
-        const val LETTER_MEEM = "letter_meem"
-        const val LETTER_HA   = "letter_ha"
-
-        // Animal ids used in word puzzles
-        const val ANIMAL_LION  = "animal_lion"
-        const val ANIMAL_DUCK  = "animal_duck"
-        const val ANIMAL_GOAT  = "animal_goat"
-        const val ANIMAL_HORSE = "animal_horse"
-
-        // Cage pool size (always 3 animals shown)
-        const val CAGE_POOL_SIZE = 3
-
-        // DB category strings
         const val CATEGORY_COLOR       = "COLOR"
         const val CATEGORY_LETTER_NAME = "LETTER_NAME"
         const val CATEGORY_ANIMAL      = "ANIMAL"
         const val CATEGORY_NUMBER      = "NUMBER"
 
-        // Asset mood folder names
         const val MOOD_CALM   = "calm"
         const val MOOD_ACTIVE = "active"
-
-        // Asset path templates
-        const val VISUAL_ASSET_TEMPLATE = "learning_content/visual/%s/%s.png"
     }
 
     private val _state = MutableStateFlow(DragGameState())
     val state: StateFlow<DragGameState> = _state.asStateFlow()
 
     private var onComplete: ((isCorrect: Boolean, elapsedMs: Long) -> Unit)? = null
-
     private var mediaPlayer: MediaPlayer? = null
     private var cageTimerJob: Job? = null
-
-
 
     // ─────────────────────────────────────────────────────────────────────────
     // Entry point
@@ -224,66 +180,66 @@ class DragGameViewModel @Inject constructor(
     // ─────────────────────────────────────────────────────────────────────────
     // Loaders
     // ─────────────────────────────────────────────────────────────────────────
+
     private suspend fun loadColorToShape(item: ActivityContent, isCalmMode: Boolean) {
-        val colorEntities = learningContentDao.getByCategory(CATEGORY_COLOR)
-            .filter { it.id in DRAG_COLOR_IDS }
-
-        val correctEntity = colorEntities.find { it.id == item.contentId }
-        val distractors   = colorEntities.filter { it.id != item.contentId }.shuffled().take(3)
-        val options       = (listOfNotNull(correctEntity) + distractors).shuffled()
-
-        val colorOptions = options.map { entity ->
+        val allColors     = learningContentDao.getByCategory(CATEGORY_COLOR)
+        val correctEntity = allColors.find { it.id == item.contentId }
+            ?: run { Log.e("DragGameVM", "color entity not found for ${item.contentId}"); return }
+        val distractors  = allColors.filter { it.id != item.contentId }.shuffled().take(3)
+        val colorOptions = (listOf(correctEntity) + distractors).shuffled().map { entity ->
             ColorOption(
                 colorId       = entity.id,
-                hexColor      = colorHexFromContentId(entity.id),
                 labelAr       = entity.labelAr,
                 audioPath     = AssetPathResolver.audioPathFor(entity.id, CATEGORY_COLOR),
                 drawableImage = AssetPathResolver.imageAssetFor(entity.id, CATEGORY_COLOR, isCalmMode)
             )
         }
-
         _state.value = _state.value.copy(
-            dragType      = DragType.COLOR_TO_SHAPE,
-            isLoading     = false,
-            correctId     = item.contentId,
-            currentLabel  = item.labelAr,
-            colorOptions  = colorOptions,
-            fillProgress  = 0f,
-            activeColorId = null,
-            attemptsLeft  = MAX_ATTEMPTS,
-            attemptsUsed  = 0,
-            isAnswered    = false,
-            isCorrect     = false,
-            startTimeMs   = System.currentTimeMillis(),
-            resetTrigger  = _state.value.resetTrigger + 1
+            dragType        = DragType.COLOR_TO_SHAPE,
+            isLoading       = false,
+            correctId       = item.contentId,
+            currentLabel    = item.labelAr,
+            colorOptions    = colorOptions,
+            fillProgress    = 0f,
+            activeColorId   = null,
+            attemptsLeft    = MAX_ATTEMPTS,
+            attemptsUsed    = 0,
+            isAnswered      = false,
+            isCorrect       = false,
+            showCelebration = false,
+            startTimeMs     = System.currentTimeMillis(),
+            resetTrigger    = _state.value.resetTrigger + 1
         )
     }
 
     private suspend fun loadLetterToWord(item: ActivityContent, isCalmMode: Boolean) {
-        val puzzle = wordPuzzleFromContentId(item.contentId)
-
+        val animalEntity     = learningContentDao.getByLearningOrderAndCategory(
+            item.learningOrder, CATEGORY_ANIMAL
+        )
         val mood             = if (isCalmMode) MOOD_CALM else MOOD_ACTIVE
-        val animalImageAsset = VISUAL_ASSET_TEMPLATE.format(mood, puzzle.correctAnimalId)
+        val animalImageAsset = animalEntity?.let {
+            "learning_content/visual/$mood/${it.id}.png"
+        }
+        val fullWord   = animalEntity?.labelAr ?: item.labelAr
+        val puzzleText = if (fullWord.isNotEmpty()) fullWord.substring(1) else ""
 
-        val allLetterEntities = learningContentDao.getByCategory(CATEGORY_LETTER_NAME)
-            .filter { it.id in DRAG_LETTER_IDS }
+        val allLetters    = learningContentDao.getByCategory(CATEGORY_LETTER_NAME)
+        val correctEntity = allLetters.find { it.id == item.contentId }
+            ?: run { Log.e("DragGameVM", "letter entity not found for ${item.contentId}"); return }
+        val distractors   = allLetters.filter { it.id != item.contentId }.shuffled().take(2)
 
-        val correctLetterEntity = allLetterEntities.find { it.id == item.contentId }
-        val distractors         = allLetterEntities
-            .filter { it.id != item.contentId }
-            .shuffled()
-            .take(2)
-
-        val letterPool = (listOfNotNull(correctLetterEntity) + distractors).shuffled()
-
-        val letterOptions = letterPool.map { entity ->
-            val letterPuzzle = wordPuzzleFromContentId(entity.id)
+        val letterOptions = (listOf(correctEntity) + distractors).shuffled().map { entity ->
+            val pairedAnimalId = learningContentDao.getByLearningOrderAndCategory(
+                entity.learningOrder, CATEGORY_ANIMAL
+            )?.id ?: ""
             LetterOption(
                 letterId        = entity.id,
                 labelAr         = entity.labelAr,
                 drawableImage   = AssetPathResolver.imageAssetFor(entity.id, CATEGORY_LETTER_NAME, isCalmMode),
                 audioPath       = AssetPathResolver.audioPathFor(entity.id, CATEGORY_LETTER_NAME),
-                animalAudioPath = AssetPathResolver.audioPathFor(letterPuzzle.correctAnimalId, CATEGORY_ANIMAL),
+                animalAudioPath = if (pairedAnimalId.isNotEmpty())
+                    AssetPathResolver.audioPathFor(pairedAnimalId, CATEGORY_ANIMAL)
+                else "",
                 isCorrect       = entity.id == item.contentId
             )
         }
@@ -294,8 +250,8 @@ class DragGameViewModel @Inject constructor(
             correctId           = item.contentId,
             currentLabel        = item.labelAr,
             animalQuestionImage = animalImageAsset,
-            wordPuzzleText      = puzzle.puzzleText,
-            wordFullText        = puzzle.fullWord,
+            wordPuzzleText      = puzzleText,
+            wordFullText        = fullWord,
             letterOptions       = letterOptions,
             droppedLetterId     = null,
             wrongDropLetterId   = null,
@@ -303,6 +259,7 @@ class DragGameViewModel @Inject constructor(
             attemptsUsed        = 0,
             isAnswered          = false,
             isCorrect           = false,
+            showCelebration     = false,
             startTimeMs         = System.currentTimeMillis(),
             resetTrigger        = _state.value.resetTrigger + 1
         )
@@ -312,32 +269,29 @@ class DragGameViewModel @Inject constructor(
         val targetCount = item.learningOrder.coerceIn(1, CAGE_POOL_SIZE)
         val mood        = if (isCalmMode) MOOD_CALM else MOOD_ACTIVE
 
-        val allAnimals = learningContentDao.getByCategory(CATEGORY_ANIMAL).shuffled()
-        if (allAnimals.isEmpty()) return
-
-        val targetAnimalEntity = allAnimals.first()
-        val targetAnimalId     = targetAnimalEntity.id
+        val oneAnimal = learningContentDao.getByCategory(CATEGORY_ANIMAL).shuffled().firstOrNull()
+            ?: run { Log.e("DragGameVM", "no animals in DB"); return }
 
         val pool = List(CAGE_POOL_SIZE) {
             DragAnimalOption(
-                animalId  = targetAnimalId,
-                assetPath = VISUAL_ASSET_TEMPLATE.format(mood, targetAnimalId),
-                audioPath = AssetPathResolver.audioPathFor(targetAnimalId, CATEGORY_ANIMAL),
+                animalId  = oneAnimal.id,
+                assetPath = AssetPathResolver.imageAssetFor(oneAnimal.id, CATEGORY_ANIMAL, isCalmMode)
+                    .let { asset ->
+                        when (asset) {
+                            is ImageAsset.PngAsset -> asset.path
+                            else -> "learning_content/visual/$mood/${oneAnimal.id}.png"
+                        }
+                    },
+                audioPath = AssetPathResolver.audioPathFor(oneAnimal.id, CATEGORY_ANIMAL),
                 isCorrect = true
             )
         }
 
-        // Scatter positions: 3 animals laid out horizontally.
-        // xFraction is set to 0.5 for the first (top-center) animal so its center
-        // aligns with the cage center; the other two flank it below (handled in UI).
-        val scatterPositions = listOf(
-            ScatterPosition(0.5f,  0.1f),   // top-center — X=0.5 aligns with cage center
-            ScatterPosition(0.18f, 0.55f),  // bottom-left
-            ScatterPosition(0.82f, 0.55f)   // bottom-right
+        val numberEntity = learningContentDao.getByLearningOrderAndCategory(
+            item.learningOrder, CATEGORY_NUMBER
         )
-
-        val numeral     = arabicNumeralFromContentId(item.contentId)
-        val animalName  = context.getString(R.string.drag_animal_article_prefix) + targetAnimalEntity.labelAr
+        val numeral     = numberEntity?.labelAr ?: item.learningOrder.toString()
+        val animalName  = context.getString(R.string.drag_animal_article_prefix) + oneAnimal.labelAr
         val instruction = context.getString(R.string.drag_cage_instruction, numeral, animalName)
 
         _state.value = _state.value.copy(
@@ -348,15 +302,20 @@ class DragGameViewModel @Inject constructor(
             instructionText       = instruction,
             targetNumeral         = numeral,
             targetCount           = targetCount,
-            targetAnimalId        = targetAnimalId,
+            targetAnimalId        = oneAnimal.id,
             cagePool              = pool,
-            scatterPositions      = scatterPositions,
+            scatterPositions      = listOf(
+                ScatterPosition(0.5f, 0.1f),
+                ScatterPosition(0.18f, 0.55f),
+                ScatterPosition(0.82f, 0.55f)
+            ),
             inCageSet             = emptySet(),
             rejectIdx             = -1,
             attemptsLeft          = MAX_ATTEMPTS,
             attemptsUsed          = 0,
             isAnswered            = false,
             isCorrect             = false,
+            showCelebration       = false,
             cageTimerSeconds      = CAGE_TIMER_SECONDS,
             cageTimerTotalSeconds = CAGE_TIMER_SECONDS,
             cageTimerRunning      = false,
@@ -398,29 +357,11 @@ class DragGameViewModel @Inject constructor(
 
     fun onLetterTileDragStarted(letterId: String) {
         val option = _state.value.letterOptions.find { it.letterId == letterId } ?: return
-        playSequence(listOf(option.audioPath, option.animalAudioPath))
-    }
-
-    private fun playSequence(paths: List<String>, index: Int = 0) {
-        if (index >= paths.size) return
-        val path = paths[index]
-        try {
-            releasePlayer()
-            mediaPlayer = MediaPlayer()
-            val afd = context.assets.openFd(path)
-            mediaPlayer?.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-            mediaPlayer?.setOnCompletionListener { playSequence(paths, index + 1) }
-            mediaPlayer?.setOnErrorListener { _, _, _ ->
-                Log.w("DragGameVM", "Error playing: $path")
-                playSequence(paths, index + 1)
-                true
-            }
-            mediaPlayer?.prepare()
-            mediaPlayer?.start()
-        } catch (e: Exception) {
-            Log.w("DragGameVM", "Audio not found: $path — ${e.message}")
-            playSequence(paths, index + 1)
-        }
+        val paths  = listOfNotNull(
+            option.audioPath.takeIf { it.isNotEmpty() },
+            option.animalAudioPath.takeIf { it.isNotEmpty() }
+        )
+        playSequence(paths)
     }
 
     fun onLetterDroppedToSlot(droppedLetterId: String) {
@@ -464,17 +405,20 @@ class DragGameViewModel @Inject constructor(
                 val elapsedMs     = System.currentTimeMillis() - current.startTimeMs
                 val finalAttempts = current.attemptsUsed + 1
                 val encoded       = elapsedMs + finalAttempts.toLong() * ATTEMPT_ENCODE_FACTOR
+
+                playSound(SOUND_CORRECT)
                 _state.value = _state.value.copy(
-                    isAnswered       = true,
-                    isCorrect        = true,
-                    attemptsUsed     = finalAttempts,
-                    cageTimerRunning = false,
-                    showHint         = false,
+                    isAnswered          = true,
+                    isCorrect           = true,
+                    attemptsUsed        = finalAttempts,
+                    cageTimerRunning    = false,
+                    showHint            = false,
+                    showCelebration     = true,          // ← show GoodJobPopup
                     sessionCorrectCount = current.sessionCorrectCount + 1
                 )
                 viewModelScope.launch {
-                    playSound(SOUND_CORRECT)
-                    delay(CORRECT_ANSWER_DELAY_MS)
+                    delay(CELEBRATION_DURATION_MS)
+                    _state.value = _state.value.copy(showCelebration = false)
                     onComplete?.invoke(true, encoded)
                 }
                 advanceSession(elapsedMs)
@@ -531,13 +475,13 @@ class DragGameViewModel @Inject constructor(
                 cageTimerRunning     = false,
                 cageTimerSeconds     = 0,
                 showHint             = false,
+                showCelebration      = false,
                 sessionWrongAttempts = current.sessionWrongAttempts + 1,
                 sessionTotalAttempts = current.sessionTotalAttempts + newUsed
             )
             viewModelScope.launch { onComplete?.invoke(false, encoded) }
             advanceSession(elapsedMs)
         } else {
-            // Wrong attempt — reset cage and restart timer for next attempt window
             _state.value = current.copy(
                 attemptsUsed          = newUsed,
                 attemptsLeft          = newLeft,
@@ -546,6 +490,7 @@ class DragGameViewModel @Inject constructor(
                 cageTimerTotalSeconds = CAGE_TIMER_SECONDS,
                 cageTimerRunning      = false,
                 showHint              = false,
+                showCelebration       = false,
                 sessionWrongAttempts  = current.sessionWrongAttempts + 1,
                 sessionTotalAttempts  = current.sessionTotalAttempts + 1
             )
@@ -554,15 +499,7 @@ class DragGameViewModel @Inject constructor(
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 3-attempt logic
-    //
-    // onComplete is called ONLY when the question is truly over:
-    //   • Correct answer           → onComplete(true,  encoded)
-    //   • All 3 attempts exhausted → onComplete(false, encoded)
-    //
-    // Attempts are encoded into elapsedMs:
-    //   encoded  = realElapsedMs + (attemptsUsed * ATTEMPT_ENCODE_FACTOR)
-    //   attempts = (encoded / ATTEMPT_ENCODE_FACTOR).toInt()  ← Shell decodes
+    // 3-attempt logic (COLOR_TO_SHAPE and LETTER_TO_WORD)
     // ─────────────────────────────────────────────────────────────────────────
     private fun handleAnswer(isCorrect: Boolean) {
         val current = _state.value
@@ -573,31 +510,32 @@ class DragGameViewModel @Inject constructor(
         val newLeft   = (current.attemptsLeft - 1).coerceAtLeast(0)
 
         if (isCorrect) {
-            // ✅ FINAL — correct answer
             playSound(SOUND_CORRECT)
             _state.value = current.copy(
                 isAnswered           = true,
                 isCorrect            = true,
                 attemptsUsed         = newUsed,
                 attemptsLeft         = newLeft,
+                showCelebration      = true,             // ← show GoodJobPopup
                 sessionCorrectCount  = current.sessionCorrectCount + 1,
                 sessionTotalAttempts = current.sessionTotalAttempts + newUsed
             )
             val encoded = elapsedMs + (newUsed.toLong() * ATTEMPT_ENCODE_FACTOR)
             viewModelScope.launch {
-                delay(CORRECT_ANSWER_DELAY_MS)
+                delay(CELEBRATION_DURATION_MS)
+                _state.value = _state.value.copy(showCelebration = false)
                 onComplete?.invoke(true, encoded)
             }
             advanceSession(elapsedMs)
 
         } else if (newLeft == 0) {
-            // ❌ FINAL — all attempts exhausted
             playSound(SOUND_WRONG)
             _state.value = current.copy(
                 isAnswered           = true,
                 isCorrect            = false,
                 attemptsUsed         = newUsed,
                 attemptsLeft         = 0,
+                showCelebration      = false,
                 sessionWrongAttempts = current.sessionWrongAttempts + 1,
                 sessionTotalAttempts = current.sessionTotalAttempts + 1,
                 fillProgress         = 0f,
@@ -605,18 +543,16 @@ class DragGameViewModel @Inject constructor(
                 droppedLetterId      = null
             )
             val encoded = elapsedMs + (newUsed.toLong() * ATTEMPT_ENCODE_FACTOR)
-            viewModelScope.launch {
-                onComplete?.invoke(false, encoded)
-            }
+            viewModelScope.launch { onComplete?.invoke(false, encoded) }
             advanceSession(elapsedMs)
 
         } else {
-            // 🔄 NOT FINAL — wrong but retries remain
             playSound(SOUND_WRONG)
             _state.value = current.copy(
                 isAnswered           = false,
                 attemptsUsed         = newUsed,
                 attemptsLeft         = newLeft,
+                showCelebration      = false,
                 sessionWrongAttempts = current.sessionWrongAttempts + 1,
                 sessionTotalAttempts = current.sessionTotalAttempts + 1,
                 fillProgress         = 0f,
@@ -629,17 +565,14 @@ class DragGameViewModel @Inject constructor(
     // ─────────────────────────────────────────────────────────────────────────
     // Session
     // ─────────────────────────────────────────────────────────────────────────
-
     private fun advanceSession(elapsedMs: Long) {
         viewModelScope.launch {
             delay(SESSION_ADVANCE_DELAY_MS)
             val cur         = _state.value
             val newAnswered = cur.sessionTotalAnswered + 1
-
             val sessionDone = cur.totalRounds > 0 &&
                     cur.questionsInRound > 0 &&
                     newAnswered >= cur.totalRounds * cur.questionsInRound
-
             _state.value = cur.copy(
                 sessionTotalAnswered  = newAnswered,
                 sessionElapsedMs      = cur.sessionElapsedMs + elapsedMs,
@@ -670,7 +603,7 @@ class DragGameViewModel @Inject constructor(
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Lookup tables
+    // Helpers
     // ─────────────────────────────────────────────────────────────────────────
 
     private fun parseDragType(item: ActivityContent): DragType = when {
@@ -680,54 +613,33 @@ class DragGameViewModel @Inject constructor(
         else -> DragType.COLOR_TO_SHAPE
     }
 
-    private fun colorHexFromContentId(id: String): Long = when (id) {
-        "color_red"    -> DragColorRedHex
-        "color_blue"   -> DragColorBlueHex
-        "color_yellow" -> DragColorYellowHex
-        "color_green"  -> DragColorGreenHex
-        else           -> DragColorMidGrayHex
-    }
-
-    private data class WordPuzzleData(
-        val correctAnimalId: String,
-        val puzzleText     : String,
-        val fullWord       : String
-    )
-
-    private fun wordPuzzleFromContentId(letterId: String): WordPuzzleData = when (letterId) {
-        LETTER_ALEF -> WordPuzzleData(ANIMAL_LION,  context.getString(R.string.drag_puzzle_alef_part), context.getString(R.string.drag_puzzle_alef_full))
-        LETTER_BA   -> WordPuzzleData(ANIMAL_DUCK,  context.getString(R.string.drag_puzzle_ba_part),   context.getString(R.string.drag_puzzle_ba_full))
-        LETTER_MEEM -> WordPuzzleData(ANIMAL_GOAT,  context.getString(R.string.drag_puzzle_meem_part), context.getString(R.string.drag_puzzle_meem_full))
-        LETTER_HA   -> WordPuzzleData(ANIMAL_HORSE, context.getString(R.string.drag_puzzle_ha_part),   context.getString(R.string.drag_puzzle_ha_full))
-        else        -> WordPuzzleData(ANIMAL_LION,  "",     letterId)
-    }
-
-    private fun arabicNumeralFromContentId(id: String): String = when (id) {
-        NUMBER_1_ID -> context.getString(R.string.drag_numeral_1)
-        NUMBER_2_ID -> context.getString(R.string.drag_numeral_2)
-        NUMBER_3_ID -> context.getString(R.string.drag_numeral_3)
-        else        -> id.removePrefix("number_")
-    }
-
     // ─────────────────────────────────────────────────────────────────────────
     // Audio
     // ─────────────────────────────────────────────────────────────────────────
 
-    fun playSound(path: String) {
+    private fun playSequence(paths: List<String>, index: Int = 0) {
+        if (index >= paths.size) return
+        val path = paths[index]
         try {
             releasePlayer()
             mediaPlayer = MediaPlayer()
             val afd = context.assets.openFd(path)
             mediaPlayer?.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+            mediaPlayer?.setOnCompletionListener { playSequence(paths, index + 1) }
             mediaPlayer?.setOnErrorListener { _, _, _ ->
-                Log.w("DragGameVM", "Error playing: $path"); true
+                Log.w("DragGameVM", "Error playing: $path")
+                playSequence(paths, index + 1)
+                true
             }
             mediaPlayer?.prepare()
             mediaPlayer?.start()
         } catch (e: Exception) {
             Log.w("DragGameVM", "Audio not found: $path — ${e.message}")
+            playSequence(paths, index + 1)
         }
     }
+
+    fun playSound(path: String) = playSequence(listOf(path))
 
     private fun releasePlayer() {
         try { mediaPlayer?.stop() } catch (_: Exception) {}

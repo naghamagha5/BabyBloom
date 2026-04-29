@@ -38,21 +38,25 @@ import com.babybloom.domain.model.ActivityContent
 import com.babybloom.presentation.viewmodels.CountGameType
 import com.babybloom.presentation.viewmodels.CountingGameUiState
 import com.babybloom.presentation.viewmodels.CountingGameViewModel
-import com.babybloom.ui.theme.DarkPurple
+import com.babybloom.ui.theme.DragAttemptDotFull
+import com.babybloom.ui.theme.DragProgressIdle
+import com.babybloom.ui.theme.LocalGameColorScheme
 import kotlin.math.cos
 import kotlin.math.sin
 
-// ── Palette ───────────────────────────────────────────────────────────────────
-private val ActiveCardBg     = Color(0xFFFFF8E8)
-private val ActiveCardBorder = Color(0xFFFFB347)
-private val CalmCardBg       = Color(0xFFE8F4F0)
-private val CalmCardBorder   = Color(0xFFB2CFCA)
-private val CorrectGreen     = Color(0xFF4CAF50)
-private val CorrectDark      = Color(0xFF388E3C)
-private val WrongRed         = Color(0xFFF44336)
-private val WrongDark        = Color(0xFFD32F2F)
-private val GoldColor        = Color(0xFFFFD700)
+// ─────────────────────────────────────────────────────────────────────────────
+// CountingGameScreen.kt
+//
+// Card/border/button colors → LocalGameColorScheme (accent / background /
+// correct / wrong), exactly like StoryScreen and the fixed DragGameScreen.
+//
+// Fixed semantic values kept:
+//   • GoldColor    — "show correct hint" highlight (content feedback, not theme)
+//   • CALM/ACTIVE shape colors — the *tint applied to shape SVGs*, which is
+//     intentional content coloring, not a game-round theme color.
+// ─────────────────────────────────────────────────────────────────────────────
 
+// ── Shape tint palettes (content colors, not theme colors) ───────────────────
 private val ACTIVE_SHAPE_COLORS = listOf(
     Color(0xFFFF8A65), Color(0xFF9C27B0), Color(0xFF2196F3),
     Color(0xFF4CAF50), Color(0xFFE91E63), Color(0xFFFFB300)
@@ -62,11 +66,14 @@ private val CALM_SHAPE_COLORS = listOf(
     Color(0xFF80CBC4), Color(0xFFEF9A9A), Color(0xFFFFCC80)
 )
 
+// Gold hint — semantic "here is the answer" color, intentionally fixed
+private val GoldColor = Color(0xFFFFD700)
+
 // ── Row layout lookup ─────────────────────────────────────────────────────────
 private fun rowLayout(count: Int): List<List<Int>> = when (count) {
     1    -> listOf(listOf(0))
     2    -> listOf(listOf(0, 1))
-    else -> listOf(listOf(0, 1, 2))   // max 3 for level 1
+    else -> listOf(listOf(0, 1, 2))
 }
 
 // ── Fireworks ─────────────────────────────────────────────────────────────────
@@ -92,49 +99,6 @@ private val BURSTS = listOf(
     FireworksBurst(0.50f, 0.18f, BURST_COLORS[5], particleCount = 10)
 )
 
-@Composable
-private fun FireworksOverlay() {
-    val progress = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        progress.animateTo(1f, tween(1400, easing = LinearEasing))
-    }
-    val p = progress.value
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        BURSTS.forEach { b ->
-            val cx     = b.cxFrac * size.width
-            val cy     = b.cyFrac * size.height
-            val expand = (p / 0.6f).coerceIn(0f, 1f)
-            val alpha  = if (p > 0.6f) 1f - (p - 0.6f) / 0.4f else 1f
-            val radius = expand * b.maxRadius
-            repeat(b.particleCount) { i ->
-                val rad = Math.toRadians((360f / b.particleCount * i).toDouble())
-                val px  = cx + (radius * cos(rad)).toFloat()
-                val py  = cy + (radius * sin(rad)).toFloat()
-                drawCircle(
-                    color  = b.color.copy(alpha = alpha.coerceIn(0f, 1f)),
-                    radius = 10f + (1f - expand) * 8f,
-                    center = Offset(px, py)
-                )
-                if (expand < 0.7f) {
-                    val trailR = radius * 0.3f
-                    drawLine(
-                        color       = b.color.copy(alpha = (alpha * 0.5f).coerceIn(0f, 1f)),
-                        start       = Offset(cx + (trailR * cos(rad)).toFloat(), cy + (trailR * sin(rad)).toFloat()),
-                        end         = Offset(px, py),
-                        strokeWidth = 3f
-                    )
-                }
-            }
-            val flash = (1f - expand) * 40f + 5f
-            if (flash > 0f) drawCircle(
-                color  = Color.White.copy(alpha = (alpha * (1f - expand)).coerceIn(0f, 1f)),
-                radius = flash,
-                center = Offset(cx, cy)
-            )
-        }
-    }
-}
-
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 @Composable
@@ -147,6 +111,8 @@ fun CountingGameScreen(
     onComplete     : (isCorrect: Boolean, elapsedMs: Long, attempts: Int, touchComplexity: Float) -> Unit,
     viewModel      : CountingGameViewModel = hiltViewModel()
 ) {
+    val colors = LocalGameColorScheme.current
+
     LaunchedEffect(currentItem.contentId) {
         viewModel.loadGame(currentItem, difficultyLevel, activityId, roundIndex)
     }
@@ -156,7 +122,8 @@ fun CountingGameScreen(
         when (val s = uiState) {
             is CountingGameUiState.Loading ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    // Spinner uses scheme accent — consistent with other games
+                    CircularProgressIndicator(color = colors.accent)
                 }
             is CountingGameUiState.Playing -> {
                 CountingGameContent(
@@ -165,7 +132,12 @@ fun CountingGameScreen(
                     viewModel        = viewModel,
                     onAnswerSelected = { viewModel.onAnswerSelected(it, onComplete) }
                 )
-                if (s.showCelebration) FireworksOverlay()
+                // ── Unified celebration popup ─────────────────────────────
+                // Replaces the old bespoke FireworksOverlay; GoodJobPopup is
+                // the same confetti+card that TraceScreen uses.
+                if (s.showCelebration) {
+                    GoodJobPopup()
+                }
             }
         }
     }
@@ -180,6 +152,8 @@ private fun CountingGameContent(
     viewModel       : CountingGameViewModel,
     onAnswerSelected: (Int) -> Unit
 ) {
+    val colors = LocalGameColorScheme.current
+
     Column(
         modifier            = Modifier
             .fillMaxSize()
@@ -194,7 +168,8 @@ private fun CountingGameContent(
                 fontSize   = 26.sp
             ),
             textAlign = TextAlign.Center,
-            color     = DarkPurple
+            // Accent color for the question text — matches the round's scheme
+            color     = colors.accent
         )
 
         AttemptsRow(attempts = state.attempts, maxAttempts = state.maxAttempts)
@@ -247,11 +222,14 @@ private fun ObjectsCard(
     viewModel : CountingGameViewModel,
     modifier  : Modifier = Modifier
 ) {
+    val colors = LocalGameColorScheme.current
+
     BoxWithConstraints(
         modifier = modifier
             .clip(RoundedCornerShape(24.dp))
-            .background(if (isCalmMode) CalmCardBg else ActiveCardBg)
-            .border(2.dp, if (isCalmMode) CalmCardBorder else ActiveCardBorder, RoundedCornerShape(24.dp))
+            // background and accent border from scheme — replaces hardcoded calm/active palette
+            .background(colors.background)
+            .border(2.dp, colors.accent, RoundedCornerShape(24.dp))
             .padding(12.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -305,7 +283,6 @@ private fun AnimalOrShapeItem(
     val context = LocalContext.current
     val mood    = if (isCalmMode) "calm" else "active"
 
-    // Bounce in ALL 3 rounds
     val isPulsing = index == state.countingStep
     val animScale by animateFloatAsState(
         targetValue   = if (isPulsing) 1.40f else 1f,
@@ -336,6 +313,8 @@ private fun AnimalOrShapeItem(
                         shape.drawableName, "drawable", context.packageName
                     )
                     if (resId != 0) {
+                        // Shape SVG tint colors are content colors (visual distinction
+                        // between shape instances), not game-theme colors — kept as-is.
                         Image(
                             painter            = painterResource(id = resId),
                             contentDescription = shape.labelAr,
@@ -354,7 +333,7 @@ private fun AnimalOrShapeItem(
     }
 }
 
-// ── Answer button with Arabic number drawable ─────────────────────────────────
+// ── Answer button ─────────────────────────────────────────────────────────────
 
 @Composable
 private fun AnswerButton(
@@ -367,30 +346,36 @@ private fun AnswerButton(
     onClick   : () -> Unit,
     modifier  : Modifier = Modifier
 ) {
+    val colors  = LocalGameColorScheme.current
     val context = LocalContext.current
 
+    // Button background:
+    //   gold hint     → GoldColor (semantic "here is the answer")
+    //   correct       → colors.correct (scheme green)
+    //   wrong         → colors.wrong   (scheme red)
+    //   idle          → colors.background with accent border
     val animBg by animateColorAsState(
         targetValue = when {
             isGoldHint                       -> GoldColor
-            isSelected && isCorrect == true  -> CorrectGreen
-            isSelected && isCorrect == false -> WrongRed
-            else                             -> Color(0xFFF5F2FF)
+            isSelected && isCorrect == true  -> colors.correct
+            isSelected && isCorrect == false -> colors.wrong
+            else                             -> colors.background
         },
         animationSpec = tween(280), label = "bg"
     )
     val animBorder by animateColorAsState(
         targetValue = when {
-            isGoldHint || (isSelected && isCorrect == true)  -> CorrectDark
-            isSelected && isCorrect == false                 -> WrongDark
-            else                                             -> Color(0xFFDDD5F3)
+            isGoldHint || (isSelected && isCorrect == true)  -> colors.correct
+            isSelected && isCorrect == false                 -> colors.wrong
+            else                                             -> colors.accent
         },
         animationSpec = tween(280), label = "border"
     )
 
-    // Tint: white when selected/gold, purple otherwise
+    // Icon tint: white on colored states, accent on idle
     val iconTint = when {
         isGoldHint || (isSelected && isCorrect != null) -> Color.White
-        else                                            -> DarkPurple
+        else                                            -> colors.accent
     }
 
     val shakeAnim = remember { Animatable(0f) }
@@ -427,8 +412,6 @@ private fun AnswerButton(
             ),
         contentAlignment = Alignment.Center
     ) {
-        // ── Arabic number drawable ────────────────────────────────────────
-        // Uses number_1.xml, number_2.xml … number_6.xml from res/drawable
         val drawableId = context.resources.getIdentifier(
             "number_$number", "drawable", context.packageName
         )
@@ -443,7 +426,6 @@ private fun AnswerButton(
                 contentScale       = ContentScale.Fit
             )
         } else {
-            // Fallback to text if drawable not found
             Text(
                 text      = number.toString(),
                 style     = MaterialTheme.typography.headlineMedium.copy(
@@ -461,15 +443,18 @@ private fun AnswerButton(
 
 @Composable
 private fun AttemptsRow(attempts: Int, maxAttempts: Int) {
+    val colors = LocalGameColorScheme.current
     Row(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment     = Alignment.CenterVertically
     ) {
         repeat(maxAttempts) { i ->
             val used  = i < attempts
+            // Used dots → wrong color (red = attempt spent); idle → faded accent
             val color by animateColorAsState(
-                targetValue   = if (used) WrongRed else MaterialTheme.colorScheme.outlineVariant,
-                animationSpec = tween(300), label = "dot$i"
+                targetValue   = if (used) colors.wrong else colors.accent.copy(alpha = 0.25f),
+                animationSpec = tween(300),
+                label         = "dot$i"
             )
             Box(Modifier.size(if (used) 14.dp else 11.dp).background(color, CircleShape))
         }

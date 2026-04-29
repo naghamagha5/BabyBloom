@@ -6,7 +6,9 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babybloom.data.local.dao.LearningContentDao
+import com.babybloom.di.AppSoundSettings
 import com.babybloom.domain.model.ActivityContent
+import com.babybloom.util.SoundEffect
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -35,14 +37,14 @@ sealed class CountingGameUiState {
 
     data class Playing(
         val gameType          : CountGameType,
-        val targetCount       : Int,           // always 1, 2, or 3
+        val targetCount       : Int,
         val subjectId         : String,
         val subjectLabelAr    : String,
         val subjectQuestionAr : String,
-        val choices           : List<Int>,     // 4 choices from 1-6 in Arabic
-        val roundIndex        : Int,           // 0, 1, 2  (3 rounds total)
+        val choices           : List<Int>,
+        val roundIndex        : Int,
 
-        // Bounce animation — active in ALL 3 rounds
+        // Bounce animation
         val countingStep      : Int      = -1,
         val isAnimating       : Boolean  = false,
 
@@ -51,6 +53,8 @@ sealed class CountingGameUiState {
         val isCorrect         : Boolean? = null,
         val wrongAnswerIndex  : Int?     = null,
         val showCorrectHint   : Boolean  = false,
+        // ── unified celebration popup ──────────────────────────────────────
+        // Set to true after a correct answer; the Screen renders GoodJobPopup.
         val showCelebration   : Boolean  = false,
         val autoComplete      : Boolean  = false,
 
@@ -65,7 +69,13 @@ sealed class CountingGameUiState {
 @HiltViewModel
 class CountingGameViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val learningContentDao: LearningContentDao
+    private val learningContentDao: LearningContentDao,
+    // ── Sound settings — same as TraceViewModel ───────────────────────────────
+    // SFX (correct/wrong/tap) are routed through AppSoundSettings so the
+    // parent's sound-effects toggle is respected.
+    // Voice audio (question/number) still uses its own MediaPlayer because
+    // it plays content audio, not SFX.
+    private val appSoundSettings: AppSoundSettings
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<CountingGameUiState>(CountingGameUiState.Loading)
@@ -74,7 +84,6 @@ class CountingGameViewModel @Inject constructor(
     private var mediaPlayer  : MediaPlayer? = null
     private var animationJob : Job?         = null
 
-    // 3 rounds — each gets a unique count from 1..3
     private var roundCounts: List<Int> = emptyList()
 
     // ── Animal catalogue ──────────────────────────────────────────────────────
@@ -110,28 +119,21 @@ class CountingGameViewModel @Inject constructor(
         ShapeInfo("shape_triangle",  "مُثَلَّث",   "المُثَلَّثَات",  "shape_triangle")
     )
 
-    // ── Pre-generate round counts ─────────────────────────────────────────────
-    //
-    // 3 rounds, questions always about 1, 2, or 3 only.
-    // Shuffle [1, 2, 3] so each round has a different unique count.
-    // Round 0 → e.g. 2,  Round 1 → e.g. 3,  Round 2 → e.g. 1
-    //
-    private fun generateRoundCounts(): List<Int> =
-        listOf(1, 2, 3)   // Round 0=1 animal, Round 1=2 animals, Round 2=3 animals
+    private fun generateRoundCounts(): List<Int> = listOf(1, 2, 3)
+
     // ── Load ──────────────────────────────────────────────────────────────────
 
     fun loadGame(
         item           : ActivityContent,
         difficultyLevel: Int,
         activityId     : String,
-        roundIndex     : Int           // 0, 1, or 2
+        roundIndex     : Int
     ) {
         animationJob?.cancel()
 
         viewModelScope.launch {
             _uiState.value = CountingGameUiState.Loading
 
-            // Generate counts once on first round
             if (roundIndex == 0 || roundCounts.isEmpty()) {
                 roundCounts = generateRoundCounts()
             }
@@ -139,7 +141,6 @@ class CountingGameViewModel @Inject constructor(
             val gameType = if (activityId.contains("shape", ignoreCase = true))
                 CountGameType.SHAPE else CountGameType.ANIMAL
 
-            // Always 1, 2, or 3 — level 1 appropriate
             val targetCount = roundCounts.getOrElse(roundIndex) { (1..3).random() }
 
             val (subjectId, labelAr, pluralAr) = when (gameType) {
@@ -154,7 +155,6 @@ class CountingGameViewModel @Inject constructor(
                 }
             }
 
-            // Show animals/shapes statically first
             _uiState.value = CountingGameUiState.Playing(
                 gameType          = gameType,
                 targetCount       = targetCount,
@@ -163,23 +163,18 @@ class CountingGameViewModel @Inject constructor(
                 subjectQuestionAr = "كم عدد $pluralAr؟",
                 choices           = generateChoices(targetCount),
                 roundIndex        = roundIndex,
-                isAnimating       = true,   // block buttons until sequence done
+                isAnimating       = true,
                 startTimeMs       = System.currentTimeMillis()
             )
 
-            // Wait 800ms — child sees animals before audio
             delay(800)
-
-            // Play question audio ("كم عدد الأسود؟")
             playQuestionAudio(subjectId)
-            delay(2200)   // wait for audio
-
-            // ALL 3 rounds get bounce animation — hint for every round
+            delay(2200)
             startBounceAnimation(targetCount)
         }
     }
 
-    // ── Bounce animation — ALL rounds ─────────────────────────────────────────
+    // ── Bounce animation ──────────────────────────────────────────────────────
 
     private fun startBounceAnimation(count: Int) {
         animationJob?.cancel()
@@ -187,6 +182,8 @@ class CountingGameViewModel @Inject constructor(
             updatePlaying { it.copy(isAnimating = true, countingStep = -1) }
             for (i in 0 until count) {
                 updatePlaying { it.copy(countingStep = i) }
+                // TAP sound on each counted item — gated by AppSoundSettings
+                appSoundSettings.playSoundEffect(SoundEffect.TAP)
                 delay(1500)
             }
             updatePlaying { it.copy(countingStep = -1, isAnimating = false) }
@@ -209,23 +206,35 @@ class CountingGameViewModel @Inject constructor(
 
         viewModelScope.launch {
             if (isCorrect) {
+                // ── Correct path ──────────────────────────────────────────
+                // 1. Mark answer, play CORRECT SFX via AppSoundSettings
                 updatePlaying { it.copy(selectedAnswer = selected, isCorrect = true, attempts = newAttempts) }
+                appSoundSettings.playSoundEffect(SoundEffect.CORRECT)
                 delay(300)
+
+                // 2. Play the number audio (voice content — own MediaPlayer)
                 playNumberAudio(state.targetCount)
                 delay(1400)
+
+                // 3. Show GoodJobPopup + COMPLETE SFX (same as Trace pattern)
+                appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
                 updatePlaying { it.copy(showCelebration = true) }
                 delay(2200)
+
+                // 4. Dismiss popup and notify shell
                 updatePlaying { it.copy(showCelebration = false) }
                 delay(300)
                 onComplete(true, elapsedMs, newAttempts, touch)
 
             } else {
+                // ── Wrong path ────────────────────────────────────────────
                 updatePlaying { it.copy(
                     selectedAnswer   = selected,
                     isCorrect        = false,
                     wrongAnswerIndex = selected,
                     attempts         = newAttempts
                 )}
+                appSoundSettings.playSoundEffect(SoundEffect.WRONG)
                 delay(900)
                 updatePlaying { it.copy(wrongAnswerIndex = null) }
 
@@ -248,11 +257,6 @@ class CountingGameViewModel @Inject constructor(
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /**
-     * 4 unique choices from 1..6.
-     * Correct answer always included.
-     * Shown as Arabic number drawables in the Screen.
-     */
     private fun generateChoices(correct: Int): List<Int> {
         val pool = (1..6).toMutableList()
         pool.remove(correct)
@@ -268,10 +272,10 @@ class CountingGameViewModel @Inject constructor(
         _uiState.value = block(s)
     }
 
-    // ── Audio ─────────────────────────────────────────────────────────────────
+    // ── Voice audio — own MediaPlayer (content, not SFX) ─────────────────────
 
     private fun playQuestionAudio(subjectId: String) =
-        playAsset("learning_content/audio/count/count_${subjectId
+        playAsset("activities/audio/count/count_${subjectId
             .removePrefix("animal_")
             .removePrefix("shape_")}.ogg")
 
