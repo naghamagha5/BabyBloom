@@ -38,4 +38,8 @@ object DatabaseModule {
     @Provides fun provideInteractionEventDao(db: AppDatabase) = db.interactionEventDao()
     @Provides fun provideAiInsightDao(db: AppDatabase) = db.aiInsightDao()
 
+    @Provides fun provideActivityRecommendationDao(db: AppDatabase) = db.activityRecommendationDao()
+    @Provides fun provideAssessmentResultDao(db: AppDatabase) = db.assessmentResultDao()
+    @Provides fun provideLevelMasteryDao(db: AppDatabase) = db.levelMasteryDao()
+
 }

@@ -36,4 +36,6 @@ interface ActivityResultRepository {
         childId: Long,
         limit: Int = 20
     ): List<ActivityResult>
+
+    suspend fun getForSession(sessionId: Long): List<ActivityResult>
 }

@@ -35,7 +35,4 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindInteractionEventRepository(impl: InteractionEventRepositoryImpl): InteractionEventRepository
-
-    @Binds @Singleton
-    abstract fun bindAiInsightRepository(impl: AiInsightRepositoryImpl): AiInsightRepository
 }

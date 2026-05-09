@@ -3,14 +3,22 @@ package com.babybloom.presentation.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babybloom.di.AppSoundSettings
+import com.babybloom.domain.algorithm.AdaptiveAlgorithmEngine
+import com.babybloom.domain.algorithm.AlgorithmWeights
+import com.babybloom.domain.model.ActivityLaunchStep
 import com.babybloom.domain.model.ActivityResult
+import com.babybloom.domain.model.ActivitySignal
+import com.babybloom.domain.model.AlgorithmOutput
 import com.babybloom.domain.model.ActivityWithContent
 import com.babybloom.domain.model.InteractionEvent
 import com.babybloom.domain.model.Session
+import com.babybloom.domain.model.SessionDecision
 import com.babybloom.domain.repository.ActivityRepository
 import com.babybloom.domain.repository.ActivityResultRepository
+import com.babybloom.domain.repository.ChildProfileRepository
 import com.babybloom.domain.repository.ChildRepository
 import com.babybloom.domain.repository.InteractionEventRepository
+import com.babybloom.domain.repository.LevelMasteryRepository
 import com.babybloom.domain.repository.SessionRepository
 import com.babybloom.domain.repository.UserRepository
 import com.babybloom.util.SoundEffect
@@ -34,7 +42,8 @@ data class ActivitySessionSettings(
     val sessionDurationMs: Long,
     val childId: Long,
     val userId: Long,
-    val hasParentPin: Boolean
+    val hasParentPin: Boolean,
+    val isAssessment: Boolean
 )
 
 sealed class ActivityUiState {
@@ -49,7 +58,12 @@ sealed class ActivityUiState {
         val showOfflineSpeechBanner: Boolean = false,
         val showParentLock: Boolean = false
     ) : ActivityUiState()
-    data class Completed(val score: Int, val total: Int) : ActivityUiState()
+    data class Completed(
+        val score: Int,
+        val total: Int,
+        val sessionId: Long,
+        val decision: SessionDecision? = null
+    ) : ActivityUiState()
     data class Error(val message: String) : ActivityUiState()
 }
 
@@ -57,10 +71,13 @@ sealed class ActivityUiState {
 class ActivityViewModel @Inject constructor(
     private val activityRepository: ActivityRepository,
     private val activityResultRepository: ActivityResultRepository,
+    private val childProfileRepository: ChildProfileRepository,
     private val childRepository: ChildRepository,
     private val userRepository: UserRepository,
     private val sessionRepository: SessionRepository,
     private val interactionEventRepository: InteractionEventRepository,
+    private val levelMasteryRepository: LevelMasteryRepository,
+    private val algorithmEngine: AdaptiveAlgorithmEngine,
     private val speechRecognitionManager: SpeechRecognitionManager,
     private val appSoundSettings: AppSoundSettings,
     private val attentionDetector: AttentionDetector
@@ -73,12 +90,28 @@ class ActivityViewModel @Inject constructor(
     private var activityStartMs: Long = 0L
     private val attentionTracker = AttentionTracker()
     private var timerJob: Job? = null
+    private var sessionQueue: List<ActivityLaunchStep> = emptyList()
+    private var currentStepIndex: Int = 0
+    private var currentStep: ActivityLaunchStep? = null
+    private var lastAlgorithmOutput: AlgorithmOutput? = null
 
     // ── Load ──────────────────────────────────────────────────────────────────
 
-    fun loadActivity(activityId: String, sessionId: Long, childId: Long) {
+    fun loadActivity(
+        activityId: String,
+        sessionId: Long,
+        childId: Long,
+        contentId: String? = null,
+        queue: List<ActivityLaunchStep> = emptyList(),
+        stepIndex: Int = 0,
+        isAssessment: Boolean = false
+    ) {
         viewModelScope.launch {
             _uiState.value = ActivityUiState.Loading
+            lastAlgorithmOutput = null
+            currentStepIndex = stepIndex
+            currentStep = ActivityLaunchStep(activityId = activityId, contentId = contentId)
+            sessionQueue = if (queue.isEmpty()) listOfNotNull(currentStep) else queue
 
             val child = childRepository.getById(childId) ?: run {
                 _uiState.value = ActivityUiState.Error("Child not found")
@@ -98,7 +131,7 @@ class ActivityViewModel @Inject constructor(
                         childId = childId,
                         startTime = System.currentTimeMillis(),
                         endTime = null,
-                        isAssessment = false,
+                        isAssessment = isAssessment,
                         attentionScore = 0f
                     )
                 )
@@ -107,7 +140,16 @@ class ActivityViewModel @Inject constructor(
             }
             this@ActivityViewModel.sessionId = realSessionId
 
-            val data = activityRepository.getActivityWithContent(activityId) ?: run {
+            val data = activityRepository.getActivityWithContent(activityId)?.let { activityWithContent ->
+                if (contentId.isNullOrBlank()) {
+                    activityWithContent
+                } else {
+                    val filteredItems = activityWithContent.contentItems
+                        .filter { it.contentId == contentId }
+                    if (filteredItems.isEmpty()) null
+                    else activityWithContent.copy(contentItems = filteredItems)
+                }
+            } ?: run {
                 _uiState.value = ActivityUiState.Error("Activity not found")
                 return@launch
             }
@@ -119,7 +161,8 @@ class ActivityViewModel @Inject constructor(
                 sessionDurationMs = child.sessionDurationMinutes * 60_000L,
                 childId = child.id,
                 userId = child.userId,
-                hasParentPin = user.parentLockPin != null
+                hasParentPin = user.parentLockPin != null,
+                isAssessment = isAssessment
             )
 
             appSoundSettings.startSession(
@@ -135,7 +178,11 @@ class ActivityViewModel @Inject constructor(
                 sessionSettings = settings,
                 sessionRemainingMs = settings.sessionDurationMs
             )
-            startSessionTimer(settings.sessionDurationMs)
+            if (isAssessment) {
+                timerJob?.cancel()
+            } else {
+                startSessionTimer(settings.sessionDurationMs)
+            }
         }
     }
 
@@ -155,7 +202,9 @@ class ActivityViewModel @Inject constructor(
                 val current = _uiState.value as? ActivityUiState.Playing ?: return@launch
                 _uiState.value = ActivityUiState.Completed(
                     current.score,
-                    current.activityWithContent.contentItems.size
+                    current.activityWithContent.contentItems.size,
+                    sessionId = this@ActivityViewModel.sessionId,
+                    lastAlgorithmOutput?.let { resolveDecision(it) }
                 )
             }
         }
@@ -178,41 +227,86 @@ class ActivityViewModel @Inject constructor(
         if (isCorrect) appSoundSettings.playSoundEffect(SoundEffect.CORRECT)
         else appSoundSettings.playSoundEffect(SoundEffect.WRONG)
 
+        // Calculate metrics based on total attempts
+        val finalCorrectCount = if (isCorrect) 1 else 0
+        val finalIncorrectCount = (attempts - finalCorrectCount).coerceAtLeast(0)
+        val calculatedScore = if (attempts > 0) {
+            finalCorrectCount.toFloat() / attempts.toFloat()
+        } else 0f
+
         viewModelScope.launch {
+            val activityId = current.activityWithContent.activity.id
+
             activityResultRepository.saveResult(
                 ActivityResult(
                     sessionId        = sessionId,
                     childId          = current.sessionSettings.childId,
-                    activityId       = current.activityWithContent.activity.id,
+                    activityId       = activityId,
                     contentId        = contentId,
-                    score            = if (isCorrect) 1f else 0f,
+                    score            = scoreOverride ?: calculatedScore,
                     duration         = responseTimeMs,
-                    correctCount     = if (isCorrect) 1 else 0,
-                    incorrectCount   = if (!isCorrect) 1 else 0,
+                    correctCount     = finalCorrectCount,
+                    incorrectCount   = finalIncorrectCount,
                     attempts         = attempts,
                     speechConfidence = speechConfidence,
                     touchComplexity  = touchComplexity,
                     attentionScore   = attentionScore
                 )
             )
-        }
 
-        val newScore  = if (isCorrect) current.score + 1 else current.score
-        val nextIndex = current.currentIndex + 1
+            val activity = activityRepository.getById(activityId) ?: return@launch
+            val signal = ActivitySignal(
+                childId = current.sessionSettings.childId,
+                activityId = activityId,
+                skillArea = activity.skillArea,
+                modality = activity.modality,
+                activityType = activity.activityType,
+                difficultyLevel = activity.difficultyLevel,
+                correctCount = finalCorrectCount,
+                incorrectCount = finalIncorrectCount,
+                attempts = attempts,
+                attentionScore = attentionScore,
+                touchComplexity = touchComplexity,
+                speechConfidence = speechConfidence,
+                durationMs = responseTimeMs,
+                expectedDurationMs = 60_000L
+            )
+            val profile = childProfileRepository.getByChildId(current.sessionSettings.childId)
+            if (profile != null) {
+                val output = algorithmEngine.processActivityResult(signal, profile)
+                childProfileRepository.upsert(output.updatedProfile)
+                lastAlgorithmOutput = output
 
-        if (nextIndex >= current.activityWithContent.contentItems.size) {
-            appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
-            _uiState.value = ActivityUiState.Completed(
-                newScore,
-                current.activityWithContent.contentItems.size
-            )
-        } else {
-            attentionTracker.reset()
-            _uiState.value = current.copy(
-                currentIndex  = nextIndex,
-                score         = newScore,
-                totalAttempts = current.totalAttempts + 1
-            )
+                if (algorithmEngine.computeItemScore(signal) >= AlgorithmWeights.LEVEL_UP_THRESHOLD) {
+                    levelMasteryRepository.incrementMastered(
+                        childId = current.sessionSettings.childId,
+                        skillArea = activity.skillArea,
+                        level = activity.difficultyLevel
+                    )
+                }
+            }
+
+            // For the UI score, keep incrementing by 1 if the child eventually got it right,
+            // while the DB row keeps the normalized item score.
+            val newScore  = if (isCorrect) current.score + 1 else current.score
+            val nextIndex = current.currentIndex + 1
+
+            if (nextIndex >= current.activityWithContent.contentItems.size) {
+                appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
+                _uiState.value = ActivityUiState.Completed(
+                    newScore,
+                    current.activityWithContent.contentItems.size,
+                    sessionId = this@ActivityViewModel.sessionId,
+                    lastAlgorithmOutput?.let { resolveDecision(it) }
+                )
+            } else {
+                attentionTracker.reset()
+                _uiState.value = current.copy(
+                    currentIndex  = nextIndex,
+                    score         = newScore,
+                    totalAttempts = current.totalAttempts + attempts
+                )
+            }
         }
     }
 
@@ -315,5 +409,15 @@ class ActivityViewModel @Inject constructor(
         super.onCleared()
         appSoundSettings.stopSession()
         timerJob?.cancel()
+    }
+
+    private fun resolveDecision(output: AlgorithmOutput): SessionDecision? {
+        val step = currentStep ?: return null
+        return algorithmEngine.resolveSessionDecision(
+            output = output,
+            currentStep = step,
+            queue = sessionQueue,
+            currentIndex = currentStepIndex
+        )
     }
 }

@@ -18,6 +18,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.babybloom.domain.model.ActivityLaunchStep
+import com.babybloom.domain.model.SessionDecision
 import com.babybloom.R
 import com.babybloom.presentation.viewmodels.ActivityUiState
 import com.babybloom.presentation.viewmodels.ActivityViewModel
@@ -33,11 +35,27 @@ fun ActivityShellScreen(
     activityId        : String,
     sessionId         : Long,
     childId           : Long,
-    onActivityComplete: (score: Int, total: Int) -> Unit,
+    contentId         : String? = null,
+    queue             : List<ActivityLaunchStep> = emptyList(),
+    stepIndex         : Int = 0,
+    isAssessment      : Boolean = false,
+    assessmentCurrent : Int = 0,
+    assessmentTotal   : Int = 0,
+    onActivityComplete: (score: Int, total: Int, sessionId: Long, decision: SessionDecision?) -> Unit,
     onExit            : () -> Unit,
     viewModel         : ActivityViewModel = hiltViewModel()
 ) {
-    LaunchedEffect(activityId) { viewModel.loadActivity(activityId, sessionId, childId) }
+    LaunchedEffect(activityId, contentId, stepIndex) {
+        viewModel.loadActivity(
+            activityId = activityId,
+            sessionId = sessionId,
+            childId = childId,
+            contentId = contentId,
+            queue = queue,
+            stepIndex = stepIndex,
+            isAssessment = isAssessment
+        )
+    }
     BackHandler { viewModel.requestExit() }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -56,7 +74,14 @@ fun ActivityShellScreen(
             GoodJobScreen(
                 score      = state.score,
                 total      = state.total,
-                onFinished = { onActivityComplete(state.score, state.total) }
+                onFinished = {
+                    onActivityComplete(
+                        state.score,
+                        state.total,
+                        state.sessionId,
+                        state.decision
+                    )
+                }
             )
         }
 
@@ -144,17 +169,23 @@ fun ActivityShellScreen(
 
                             Spacer(Modifier.width(12.dp))
 
-                            // Timer – turns red when < 1 min
-                            val minutes = (state.sessionRemainingMs / 60_000).toInt()
-                            val seconds = ((state.sessionRemainingMs % 60_000) / 1_000).toInt()
-                            Text(
-                                text  = "%02d:%02d".format(minutes, seconds),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (state.sessionRemainingMs < 60_000)
-                                    gameColors.wrong          // reuse semantic wrong = red
-                                else
-                                    MaterialTheme.colorScheme.onSurface
-                            )
+                            if (isAssessment) {
+                                AssessmentStepBadge(
+                                    current = assessmentCurrent,
+                                    total = assessmentTotal
+                                )
+                            } else {
+                                val minutes = (state.sessionRemainingMs / 60_000).toInt()
+                                val seconds = ((state.sessionRemainingMs % 60_000) / 1_000).toInt()
+                                Text(
+                                    text  = "%02d:%02d".format(minutes, seconds),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (state.sessionRemainingMs < 60_000)
+                                        gameColors.wrong
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                         }
                     }
 
@@ -374,6 +405,24 @@ fun OfflineSpeechBanner() {
         Text(
             text  = "وضع الكلام يحتاج إنترنت",
             color = MaterialTheme.colorScheme.onErrorContainer
+        )
+    }
+}
+
+@Composable
+private fun AssessmentStepBadge(
+    current: Int,
+    total: Int
+) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Text(
+            text = "$current / $total",
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
         )
     }
 }

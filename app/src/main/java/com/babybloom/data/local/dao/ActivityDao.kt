@@ -25,11 +25,23 @@ interface ActivityDao {
         difficulty: Int
     ): List<ActivityEntity>
 
-    @Query("SELECT * FROM activities WHERE id = :id LIMIT 1")
-    suspend fun getById(id: String): ActivityEntity?
 
     @Query("SELECT COUNT(*) FROM activities")
     suspend fun count(): Int
+
+    @Query("SELECT * FROM activities WHERE id = :activityId")
+    suspend fun getById(activityId: String): ActivityEntity?
+
+    @Query("""
+    SELECT * FROM activities 
+    WHERE skillArea = :skillArea 
+    AND difficultyLevel = :difficultyLevel 
+    AND isActive = 1
+""")
+    suspend fun getActivitiesForPlanning(
+        skillArea: String,
+        difficultyLevel: Int
+    ): List<ActivityEntity>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)  // IGNORE so re-runs don't crash
     suspend fun insert(activity: ActivityEntity)

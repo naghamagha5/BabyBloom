@@ -18,12 +18,52 @@ class ChildProfileRepositoryImpl @Inject constructor(
     override suspend fun updateProfile(profile: ChildProfile) =
         childProfileDao.update(profile.toEntity())
 
-    override suspend fun getProfile(childId: Long): ChildProfile? =
+    override suspend fun getByChildId(childId: Long): ChildProfile? =
         childProfileDao.getByChildId(childId)?.toDomain()
 
     override fun observeProfile(childId: Long): Flow<ChildProfile?> =
         childProfileDao.observeByChildId(childId).map { it?.toDomain() }
+
+    override suspend fun upsert(profile: ChildProfile) =
+        childProfileDao.upsert(profile.toEntity())
 }
 
-fun ChildProfileEntity.toDomain() = ChildProfile(childId, visualScore, audioScore, gameScore, languageLevel, numeracyLevel, motorLevel, totalSessionCount, lastUpdated)
-fun ChildProfile.toEntity() = ChildProfileEntity(childId, visualScore, audioScore, gameScore, languageLevel, numeracyLevel, motorLevel, totalSessionCount, lastUpdated)
+// ── Mappers ───────────────────────────────────────────────────────────────────
+
+fun ChildProfileEntity.toDomain() = ChildProfile(
+    childId                  = childId,
+    visualScore              = visualScore,
+    audioScore               = audioScore,
+    gameScore                = gameScore,
+    languageLevel            = languageLevel,
+    numeracyLevel            = numeracyLevel,
+    motorLevel               = motorLevel,
+    languageProgress         = languageProgress,
+    numeracyProgress         = numeracyProgress,
+    motorProgress            = motorProgress,
+    dominantModality         = dominantModality,
+    weakSkillAreas           = weakSkillAreas,
+    totalSessionCount        = totalSessionCount,
+    totalActivitiesCompleted = totalActivitiesCompleted,
+    assessmentCompleted      = assessmentCompleted,
+    lastUpdated              = lastUpdated
+)
+
+fun ChildProfile.toEntity() = ChildProfileEntity(
+    childId                  = childId,
+    visualScore              = visualScore,
+    audioScore               = audioScore,
+    gameScore                = gameScore,
+    languageLevel            = languageLevel,
+    numeracyLevel            = numeracyLevel,
+    motorLevel               = motorLevel,
+    languageProgress         = languageProgress,
+    numeracyProgress         = numeracyProgress,
+    motorProgress            = motorProgress,
+    dominantModality         = dominantModality,
+    weakSkillAreas           = weakSkillAreas,
+    totalSessionCount        = totalSessionCount,
+    totalActivitiesCompleted = totalActivitiesCompleted,
+    assessmentCompleted      = assessmentCompleted,
+    lastUpdated              = lastUpdated
+)

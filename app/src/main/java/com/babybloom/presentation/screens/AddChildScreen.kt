@@ -35,7 +35,7 @@ import com.babybloom.ui.theme.*
 
 @Composable
 fun AddChildScreen(
-    onSaveChild: () -> Unit = {},
+    onSaveChild: (Long) -> Unit = {},
     viewModel  : AddChildViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -43,7 +43,9 @@ fun AddChildScreen(
 
     // ── Navigate to Home when child saved successfully ─────────────────────
     LaunchedEffect(uiState.isSaved) {
-        if (uiState.isSaved) onSaveChild()
+        if (uiState.isSaved) {
+            uiState.savedChildId?.let(onSaveChild)
+        }
     }
 
     // ── Snackbar for unexpected DB errors ──────────────────────────────────

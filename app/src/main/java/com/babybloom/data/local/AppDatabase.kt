@@ -17,8 +17,11 @@ import com.babybloom.data.local.entity.*
         ActivityResultEntity::class,
         InteractionEventEntity::class,
         AiInsightEntity::class,
+        LevelMasteryEntity::class,
+        ActivityRecommendationEntity::class,
+        AssessmentResultEntity::class
     ],
-    version = 6,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -31,7 +34,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun activityContentDao(): ActivityContentDao
     abstract fun activityResultDao(): ActivityResultDao
     abstract fun interactionEventDao(): InteractionEventDao
-
     abstract fun aiInsightDao(): AiInsightDao
+    abstract fun levelMasteryDao(): LevelMasteryDao
+    abstract fun activityRecommendationDao(): ActivityRecommendationDao
+    abstract fun assessmentResultDao(): AssessmentResultDao
 
 }

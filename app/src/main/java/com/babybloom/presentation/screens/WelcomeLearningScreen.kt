@@ -24,7 +24,14 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun WelcomeLearningScreen(
-    onNavigateToActivity: (activityId: String, sessionId: Long, childId: Long) -> Unit,
+    onNavigateToActivity: (
+        activityId: String,
+        sessionId: Long,
+        childId: Long,
+        contentId: String?,
+        encodedQueue: String,
+        stepIndex: Int
+    ) -> Unit,
     viewModel: WelcomeLearningViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -32,8 +39,21 @@ fun WelcomeLearningScreen(
 
     LaunchedEffect(uiState.childId) {
         if (uiState.childId == 0L) return@LaunchedEffect
+        viewModel.prepareSession()
+    }
+
+    LaunchedEffect(uiState.encodedQueue, uiState.childId) {
+        if (uiState.childId == 0L || uiState.sessionQueue.isEmpty()) return@LaunchedEffect
         delay(3_000)
-        onNavigateToActivity("speech_letters_d1", 0L, uiState.childId)
+        val firstStep = uiState.sessionQueue.first()
+        onNavigateToActivity(
+            firstStep.activityId,
+            0L,
+            uiState.childId,
+            firstStep.contentId,
+            uiState.encodedQueue,
+            0
+        )
     }
 
     val backgroundRes = if (isCalmMode) R.drawable.ic_welcome_calm

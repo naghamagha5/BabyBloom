@@ -8,10 +8,10 @@ import androidx.room.PrimaryKey
 @Entity(
     tableName = "ai_insights",
     foreignKeys = [ForeignKey(
-        entity = ChildEntity::class,
+        entity    = ChildEntity::class,
         parentColumns = ["id"],
-        childColumns = ["childId"],
-        onDelete = ForeignKey.CASCADE
+        childColumns  = ["childId"],
+        onDelete  = ForeignKey.CASCADE
     )],
     indices = [Index("childId")]
 )

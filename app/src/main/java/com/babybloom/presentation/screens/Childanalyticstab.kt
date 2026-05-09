@@ -361,7 +361,7 @@ private fun LearningPerformanceCard(childProfile: ChildProfile?) {
             progress       = childProfile?.gameScore ?: 0f,
             progressColor  = ChartColorInteractive,
             cardBackground = ChartColorInteractive.copy(alpha = 0.18f),
-            iconRes        = R.drawable.ic_activity_numeracy
+            iconRes        = R.drawable.ic_activity_audio
         )
         Spacer(modifier = Modifier.height(10.dp))
         ModalityCard(
@@ -369,7 +369,7 @@ private fun LearningPerformanceCard(childProfile: ChildProfile?) {
             progress       = childProfile?.audioScore ?: 0f,
             progressColor  = ChartColorNumeracy,
             cardBackground = ChartColorNumeracy.copy(alpha = 0.18f),
-            iconRes        = R.drawable.ic_activity_audio
+            iconRes        = R.drawable.ic_activity_numeracy
         )
     }
 }

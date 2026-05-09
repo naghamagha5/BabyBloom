@@ -1,5 +1,7 @@
 package com.babybloom.navigation
 
+import android.net.Uri
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -16,6 +18,7 @@ import androidx.navigation.navArgument
 import com.babybloom.di.SessionManager
 import com.babybloom.presentation.screens.ActivityShellScreen
 import com.babybloom.presentation.screens.AddChildScreen
+import com.babybloom.presentation.screens.AssessmentScreen
 import com.babybloom.presentation.screens.ChangePasswordScreen
 import com.babybloom.presentation.screens.ChildProfileScreen
 import com.babybloom.presentation.screens.ChildProfileTab
@@ -24,6 +27,7 @@ import com.babybloom.presentation.screens.LoginScreen
 import com.babybloom.presentation.screens.ParentShell
 import com.babybloom.presentation.screens.RegisterScreen
 import com.babybloom.presentation.screens.WelcomeLearningScreen
+import com.babybloom.util.SessionQueueCodec
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 
@@ -36,7 +40,7 @@ object Routes {
     const val HOME               = "home"
     const val CHILD_PROFILE      = "child_profile"
     const val WELCOME_LEARNING   = "welcome_learning"   // ← new
-
+    const val ASSESSMENT         = "assessment"
     const val ACTIVITY_SHELL     = "activity_shell"
 }
 
@@ -128,9 +132,9 @@ fun BabyBloomNavGraph(
         // ── ADD CHILD ──────────────────────────────────────────────────────
         composable(Routes.ADD_CHILD) {
             AddChildScreen(
-                onSaveChild = {
-                    navController.navigate(Routes.HOME) {
-                        popUpTo(0) { inclusive = true }
+                onSaveChild = { childId ->
+                    navController.navigate("${Routes.CHILD_PROFILE}/$childId") {
+                        popUpTo(Routes.ADD_CHILD) { inclusive = true }
                     }
                 }
             )
@@ -185,6 +189,31 @@ fun BabyBloomNavGraph(
                 },
                 onNavigateToWelcomeLearning = { childId ->
                     navController.navigate("${Routes.WELCOME_LEARNING}/$childId")
+                },
+                onNavigateToAssessment = { childId ->
+                    navController.navigate("${Routes.ASSESSMENT}/$childId")
+                }
+            )
+        }
+
+        composable(
+            route = "${Routes.ASSESSMENT}/{childId}",
+            arguments = listOf(navArgument("childId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val childId = backStackEntry.arguments?.getLong("childId") ?: 0L
+
+            AssessmentScreen(
+                childId = childId,
+                onAssessmentComplete = {
+                    navController.navigate("${Routes.CHILD_PROFILE}/$childId") {
+                        popUpTo("${Routes.ASSESSMENT}/$childId") { inclusive = true }
+                    }
+                },
+                onExitAssessment = {
+                    navController.popBackStack(
+                        route = "${Routes.CHILD_PROFILE}/$childId",
+                        inclusive = false
+                    )
                 }
             )
         }
@@ -195,9 +224,14 @@ fun BabyBloomNavGraph(
         ) { backStackEntry ->
             val childId = backStackEntry.arguments?.getLong("childId") ?: 0L
             WelcomeLearningScreen(
-                onNavigateToActivity = { activityId, sessionId, cId ->
+                onNavigateToActivity = { activityId, sessionId, cId, contentId, encodedQueue, stepIndex ->
                     navController.navigate(
-                        "${Routes.ACTIVITY_SHELL}/$activityId/$sessionId/$cId"
+                        buildString {
+                            append("${Routes.ACTIVITY_SHELL}/$activityId/$sessionId/$cId")
+                            append("?contentId=${Uri.encode(contentId.orEmpty())}")
+                            append("&queue=${Uri.encode(encodedQueue)}")
+                            append("&stepIndex=$stepIndex")
+                        }
                     )
                 }
             )
@@ -205,31 +239,67 @@ fun BabyBloomNavGraph(
 
         // ── ACTIVITY SHELL ─────────────────────────────────────────────────────
         composable(
-            route = "${Routes.ACTIVITY_SHELL}/{activityId}/{sessionId}/{childId}",
+            route = "${Routes.ACTIVITY_SHELL}/{activityId}/{sessionId}/{childId}?contentId={contentId}&queue={queue}&stepIndex={stepIndex}",
             arguments = listOf(
                 navArgument("activityId") { type = NavType.StringType },
                 navArgument("sessionId")  { type = NavType.LongType },
-                navArgument("childId")    { type = NavType.LongType }
+                navArgument("childId")    { type = NavType.LongType },
+                navArgument("contentId")  { type = NavType.StringType; defaultValue = "" },
+                navArgument("queue")      { type = NavType.StringType; defaultValue = "" },
+                navArgument("stepIndex")  { type = NavType.IntType; defaultValue = 0 }
             )
         ) { backStackEntry ->
             val activityId = backStackEntry.arguments?.getString("activityId") ?: ""
             val sessionId  = backStackEntry.arguments?.getLong("sessionId")    ?: 0L
             val childId    = backStackEntry.arguments?.getLong("childId")      ?: 0L
+            val contentId  = backStackEntry.arguments?.getString("contentId").orEmpty().ifBlank { null }
+            val queueArg   = backStackEntry.arguments?.getString("queue")
+            val stepIndex  = backStackEntry.arguments?.getInt("stepIndex") ?: 0
+            val queue      = SessionQueueCodec.decode(queueArg)
 
             ActivityShellScreen(
                 activityId         = activityId,
                 sessionId          = sessionId,
                 childId            = childId,
-                onActivityComplete = { _, _ ->
-                    // Pop WELCOME_LEARNING and ACTIVITY_SHELL, land on CHILD_PROFILE
-                    navController.popBackStack(
-                        route     = "${Routes.CHILD_PROFILE}/$childId",
-                        inclusive = false
-                    )
-                    // Tell CHILD_PROFILE to open ANALYTICS tab (index 0)
-                    navController.currentBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("startTab", 0)
+                contentId          = contentId,
+                queue              = queue,
+                stepIndex          = stepIndex,
+                onActivityComplete = { _, _, effectiveSessionId, decision ->
+                    when (decision) {
+                        is com.babybloom.domain.model.SessionDecision.Repeat -> {
+                            navController.navigate(
+                                buildString {
+                                    append("${Routes.ACTIVITY_SHELL}/${decision.activityId}/$effectiveSessionId/$childId")
+                                    append("?contentId=${Uri.encode(decision.contentId.orEmpty())}")
+                                    append("&queue=${Uri.encode(queueArg.orEmpty())}")
+                                    append("&stepIndex=$stepIndex")
+                                }
+                            ) {
+                                popUpTo(backStackEntry.destination.id) { inclusive = true }
+                            }
+                        }
+                        is com.babybloom.domain.model.SessionDecision.Next -> {
+                            navController.navigate(
+                                buildString {
+                                    append("${Routes.ACTIVITY_SHELL}/${decision.activityId}/$effectiveSessionId/$childId")
+                                    append("?contentId=${Uri.encode(decision.contentId.orEmpty())}")
+                                    append("&queue=${Uri.encode(queueArg.orEmpty())}")
+                                    append("&stepIndex=${stepIndex + 1}")
+                                }
+                            ) {
+                                popUpTo(backStackEntry.destination.id) { inclusive = true }
+                            }
+                        }
+                        else -> {
+                            navController.popBackStack(
+                                route     = "${Routes.CHILD_PROFILE}/$childId",
+                                inclusive = false
+                            )
+                            navController.currentBackStackEntry
+                                ?.savedStateHandle
+                                ?.set("startTab", 0)
+                        }
+                    }
                 },
                 onExit = {
                     navController.popBackStack(

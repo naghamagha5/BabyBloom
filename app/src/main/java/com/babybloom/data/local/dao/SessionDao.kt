@@ -33,4 +33,7 @@ interface SessionDao {
     ORDER BY startTime ASC
 """)
     suspend fun getAttentionScoresForChart(childId: Long): List<AttentionScoreRow>
+
+    @Query("UPDATE sessions SET endTime = :endTime WHERE id = :sessionId")
+    suspend fun endSession(sessionId: Long, endTime: Long)
 }

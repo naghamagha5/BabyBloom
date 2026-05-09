@@ -1,150 +1,188 @@
-[
+﻿[
   {
     "id": "story_letters_d1",
     "title": "قِصَّة الحُرُوف",
     "description": "تَعَلَّم الحُرُوف العَرَبِيَّة",
-    "modality": "VISUAL",
+    "modality": "AUDIO",
     "skillArea": "LANGUAGE",
     "difficultyLevel": 1,
     "activityType": "STORY",
     "isActive": true,
     "configJson": "{\"storyType\":\"LETTER\"}",
     "contentIds": [
-      "letter_alef", "letter_ba", "letter_meem",
-      "letter_ha", "letter_jeem", "letter_dal"
+      "letter_alef",
+      "letter_ba",
+      "letter_meem",
+      "letter_ha",
+      "letter_jeem",
+      "letter_dal"
     ]
   },
   {
     "id": "story_numbers_d1",
     "title": "قِصَّة الأَرْقَام",
     "description": "تَعَلَّم الأَرْقَام",
-    "modality": "VISUAL",
+    "modality": "AUDIO",
     "skillArea": "NUMERACY",
     "difficultyLevel": 1,
     "activityType": "STORY",
     "isActive": true,
     "configJson": "{\"storyType\":\"NUMBER\"}",
-    "contentIds": ["number_1", "number_2", "number_3"]
+    "contentIds": [
+      "number_1",
+      "number_2",
+      "number_3"
+    ]
   },
   {
     "id": "story_animals_d1",
     "title": "قِصَّة الحَيَوَانَات",
     "description": "تَعَلَّم الحَيَوَانَات",
-    "modality": "VISUAL",
+    "modality": "AUDIO",
     "skillArea": "LANGUAGE",
     "difficultyLevel": 1,
     "activityType": "STORY",
     "isActive": true,
     "configJson": "{\"storyType\":\"ANIMAL\"}",
     "contentIds": [
-      "animal_lion", "animal_duck", "animal_goat",
-      "animal_horse", "animal_camel", "animal_bear"
+      "animal_lion",
+      "animal_duck",
+      "animal_goat",
+      "animal_horse",
+      "animal_camel",
+      "animal_bear"
     ]
   },
   {
     "id": "story_shapes_d1",
     "title": "قِصَّة الأَشْكَال",
     "description": "تَعَلَّم الأَشْكَال",
-    "modality": "VISUAL",
+    "modality": "AUDIO",
     "skillArea": "LANGUAGE",
     "difficultyLevel": 1,
     "activityType": "STORY",
     "isActive": true,
     "configJson": "{\"storyType\":\"SHAPE\"}",
-    "contentIds": ["shape_circle", "shape_square"]
+    "contentIds": [
+      "shape_circle"
+    ]
   },
   {
     "id": "story_colors_d1",
     "title": "قِصَّة الأَلْوَان",
     "description": "تَعَلَّم الأَلْوَان",
-    "modality": "VISUAL",
+    "modality": "AUDIO",
     "skillArea": "LANGUAGE",
     "difficultyLevel": 1,
     "activityType": "STORY",
     "isActive": true,
     "configJson": "{\"storyType\":\"COLOR\"}",
-    "contentIds": ["color_red", "color_blue", "color_yellow", "color_green"]
+    "contentIds": [
+      "color_red",
+      "color_blue"
+    ]
   },
-
   {
     "id": "match_letters_d1",
     "title": "صَاحِب الحَرْف بِالحَيَوَان",
     "description": "اخْتَر الحَيَوَان الَّذِي يَبْدَأ بِالحَرْف",
-    "modality": "INTERACTIVE",
+    "modality": "VISUAL",
     "skillArea": "LANGUAGE",
     "difficultyLevel": 1,
     "activityType": "MATCH",
     "isActive": true,
     "configJson": "{\"matchType\":\"LETTER_TO_ANIMAL\",\"optionsCount\":4}",
     "contentIds": [
-      "letter_alef", "letter_ba", "letter_meem",
-      "letter_ha", "letter_jeem", "letter_dal"
+      "letter_alef",
+      "letter_ba",
+      "letter_meem",
+      "letter_ha",
+      "letter_jeem",
+      "letter_dal"
     ]
-  },
-  {
-    "id": "match_count_d1",
-    "title": "عُدَّ وَاخْتَر",
-    "description": "عُدَّ الحَيَوَانَات وَاخْتَر العَدَد الصَّحِيح",
-    "modality": "INTERACTIVE",
-    "skillArea": "NUMERACY",
-    "difficultyLevel": 1,
-    "activityType": "MATCH",
-    "isActive": true,
-    "configJson": "{\"matchType\":\"COUNT_TO_NUMBER\",\"optionsCount\":4}",
-    "contentIds": ["number_1", "number_2", "number_3"]
   },
   {
     "id": "match_animals_d1",
     "title": "أَيْنَ يَعِيش؟",
     "description": "اخْتَر المَكَان الَّذِي يَعِيش فِيهِ الحَيَوَان",
-    "modality": "INTERACTIVE",
+    "modality": "VISUAL",
     "skillArea": "LANGUAGE",
     "difficultyLevel": 1,
     "activityType": "MATCH",
     "isActive": true,
     "configJson": "{\"matchType\":\"ANIMAL_TO_HABITAT\",\"optionsCount\":4}",
     "contentIds": [
-      "animal_lion", "animal_duck", "animal_goat",
-      "animal_horse", "animal_camel", "animal_bear"
+      "animal_lion",
+      "animal_duck",
+      "animal_goat",
+      "animal_horse",
+      "animal_camel",
+      "animal_bear"
     ]
   },
-
   {
-    "id": "count_numbers_d1",
-    "title": "كَمْ عَدَدُهُم؟",
-    "description": "عُدَّ الصُّوَر وَاخْتَر العَدَد الصَّحِيح",
-    "modality": "INTERACTIVE",
+    "id": "count_animals_d1",
+    "title": "عُدّ الحيوانات",
+    "description": "عُدّ الحيوانات واختر العدد الصحيح",
+    "modality": "VISUAL",
     "skillArea": "NUMERACY",
     "difficultyLevel": 1,
     "activityType": "COUNT",
     "isActive": true,
     "configJson": "{\"optionsCount\":4}",
-    "contentIds": ["number_1", "number_2", "number_3"]
+    "contentIds": [
+      "number_1",
+      "number_2",
+      "number_3"
+    ]
   },
-
+  {
+    "id": "count_shapes_d1",
+    "title": "عُدّ الأشكال",
+    "description": "عُدّ الأشكال واختر العدد الصحيح",
+    "modality": "VISUAL",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 1,
+    "activityType": "COUNT",
+    "isActive": true,
+    "configJson": "{\"optionsCount\":4}",
+    "contentIds": [
+      "number_1",
+      "number_2",
+      "number_3"
+    ]
+  },
   {
     "id": "trace_letters_d1",
     "title": "تَتَبَّع الحَرْف",
     "description": "تَتَبَّع الحَرْف بِإِصْبَعِك",
     "modality": "INTERACTIVE",
-    "skillArea": "MOTOR",
+    "skillArea": "LANGUAGE",
     "difficultyLevel": 1,
     "activityType": "TRACE",
     "isActive": true,
     "configJson": "{}",
-    "contentIds": ["letter_alef", "letter_ba", "letter_meem"]
+    "contentIds": [
+      "letter_alef",
+      "letter_ba",
+      "letter_meem"
+    ]
   },
   {
     "id": "trace_numbers_d1",
     "title": "تَتَبَّع الرَّقْم",
     "description": "تَتَبَّع الرَّقْم بِإِصْبَعِك",
     "modality": "INTERACTIVE",
-    "skillArea": "MOTOR",
+    "skillArea": "NUMERACY",
     "difficultyLevel": 1,
     "activityType": "TRACE",
     "isActive": true,
     "configJson": "{}",
-    "contentIds": ["number_1", "number_2", "number_3"]
+    "contentIds": [
+      "number_1",
+      "number_2",
+      "number_3"
+    ]
   },
   {
     "id": "trace_shapes_d1",
@@ -156,9 +194,10 @@
     "activityType": "TRACE",
     "isActive": true,
     "configJson": "{}",
-    "contentIds": ["shape_circle", "shape_square"]
+    "contentIds": [
+      "shape_circle"
+    ]
   },
-
   {
     "id": "drag_letters_d1",
     "title": "أَكْمِل الكَلِمَة",
@@ -170,7 +209,10 @@
     "isActive": true,
     "configJson": "{\"dragType\":\"LETTER_TO_WORD\"}",
     "contentIds": [
-      "letter_alef", "letter_ba", "letter_meem", "letter_ha"
+      "letter_alef",
+      "letter_ba",
+      "letter_meem",
+      "letter_ha"
     ]
   },
   {
@@ -183,7 +225,11 @@
     "activityType": "DRAG",
     "isActive": true,
     "configJson": "{\"dragType\":\"ANIMALS_TO_CAGE\"}",
-    "contentIds": ["number_1", "number_2", "number_3"]
+    "contentIds": [
+      "number_1",
+      "number_2",
+      "number_3"
+    ]
   },
   {
     "id": "drag_colors_d1",
@@ -195,9 +241,11 @@
     "activityType": "DRAG",
     "isActive": true,
     "configJson": "{\"dragType\":\"COLOR_TO_CIRCLE\"}",
-    "contentIds": ["color_red", "color_blue", "color_yellow", "color_green"]
+    "contentIds": [
+      "color_red",
+      "color_blue"
+    ]
   },
-
   {
     "id": "speech_animals_d1",
     "title": "قُل اسْم الحَيَوَان",
@@ -209,8 +257,11 @@
     "isActive": true,
     "configJson": "{}",
     "contentIds": [
-      "animal_lion", "animal_duck", "animal_goat",
-      "animal_horse", "animal_camel"
+      "animal_lion",
+      "animal_duck",
+      "animal_goat",
+      "animal_horse",
+      "animal_camel"
     ]
   },
   {
@@ -242,7 +293,12 @@
     "activityType": "SPEECH",
     "isActive": true,
     "configJson": "{}",
-    "contentIds": ["letter_alef", "letter_ba", "letter_meem", "letter_ha"]
+    "contentIds": [
+      "letter_alef",
+      "letter_ba",
+      "letter_meem",
+      "letter_ha"
+    ]
   },
   {
     "id": "speech_numbers_d1",
@@ -254,7 +310,11 @@
     "activityType": "SPEECH",
     "isActive": true,
     "configJson": "{}",
-    "contentIds": ["number_1", "number_2", "number_3"]
+    "contentIds": [
+      "number_1",
+      "number_2",
+      "number_3"
+    ]
   },
   {
     "id": "speech_shapes_d1",
@@ -266,7 +326,9 @@
     "activityType": "SPEECH",
     "isActive": true,
     "configJson": "{}",
-    "contentIds": ["shape_circle", "shape_square"]
+    "contentIds": [
+      "shape_circle"
+    ]
   },
   {
     "id": "speech_colors_d1",
@@ -278,33 +340,1218 @@
     "activityType": "SPEECH",
     "isActive": true,
     "configJson": "{}",
-    "contentIds": ["color_red", "color_blue", "color_yellow"]
+    "contentIds": [
+      "color_red",
+      "color_blue"
+    ]
   },
-
-
   {
-    "id": "count_animals_d1",
+    "id": "story_letters_d2",
+    "title": "قِصَّة الحُرُوف",
+    "description": "تَعَلَّم الحُرُوف العَرَبِيَّة",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"LETTER\"}",
+    "contentIds": [
+      "letter_ta",
+      "letter_kha",
+      "letter_seen",
+      "letter_lam",
+      "letter_noon"
+    ]
+  },
+  {
+    "id": "story_numbers_d2",
+    "title": "قِصَّة الأَرْقَام",
+    "description": "تَعَلَّم الأَرْقَام",
+    "modality": "AUDIO",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 2,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"NUMBER\"}",
+    "contentIds": [
+      "number_4",
+      "number_5",
+      "number_6"
+    ]
+  },
+  {
+    "id": "story_animals_d2",
+    "title": "قِصَّة الحَيَوَانَات",
+    "description": "تَعَلَّم الحَيَوَانَات",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"ANIMAL\"}",
+    "contentIds": [
+      "animal_crocodile",
+      "animal_sheep",
+      "animal_fish",
+      "animal_llama",
+      "animal_tiger"
+    ]
+  },
+  {
+    "id": "story_shapes_d2",
+    "title": "قِصَّة الأَشْكَال",
+    "description": "تَعَلَّم الأَشْكَال",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"SHAPE\"}",
+    "contentIds": [
+      "shape_square"
+    ]
+  },
+  {
+    "id": "story_colors_d2",
+    "title": "قِصَّة الأَلْوَان",
+    "description": "تَعَلَّم الأَلْوَان",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"COLOR\"}",
+    "contentIds": [
+      "color_yellow",
+      "color_green",
+      "color_black",
+      "color_white"
+    ]
+  },
+  {
+    "id": "match_letters_d2",
+    "title": "صَاحِب الحَرْف بِالحَيَوَان",
+    "description": "اخْتَر الحَيَوَان الَّذِي يَبْدَأ بِالحَرْف",
+    "modality": "VISUAL",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"LETTER_TO_ANIMAL\",\"optionsCount\":4}",
+    "contentIds": [
+      "letter_ta",
+      "letter_kha",
+      "letter_seen",
+      "letter_lam",
+      "letter_noon"
+    ]
+  },
+  {
+    "id": "match_animals_d2",
+    "title": "أَيْنَ يَعِيش؟",
+    "description": "اخْتَر المَكَان الَّذِي يَعِيش فِيهِ الحَيَوَان",
+    "modality": "VISUAL",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"ANIMAL_TO_HABITAT\",\"optionsCount\":4}",
+    "contentIds": [
+      "animal_crocodile",
+      "animal_sheep",
+      "animal_fish",
+      "animal_llama",
+      "animal_tiger"
+    ]
+  },
+  {
+    "id": "count_animals_d2",
     "title": "عُدّ الحيوانات",
     "description": "عُدّ الحيوانات واختر العدد الصحيح",
-    "modality": "INTERACTIVE",
+    "modality": "VISUAL",
     "skillArea": "NUMERACY",
-    "difficultyLevel": 1,
+    "difficultyLevel": 2,
     "activityType": "COUNT",
     "isActive": true,
-    "configJson": "{}",
-    "contentIds": ["number_1", "number_2", "number_3"]
+    "configJson": "{\"optionsCount\":4}",
+    "contentIds": [
+      "number_4",
+      "number_5",
+      "number_6"
+    ]
   },
   {
-    "id": "count_shapes_d1",
+    "id": "count_shapes_d2",
     "title": "عُدّ الأشكال",
     "description": "عُدّ الأشكال واختر العدد الصحيح",
-    "modality": "INTERACTIVE",
+    "modality": "VISUAL",
     "skillArea": "NUMERACY",
-    "difficultyLevel": 1,
+    "difficultyLevel": 2,
     "activityType": "COUNT",
     "isActive": true,
+    "configJson": "{\"optionsCount\":4}",
+    "contentIds": [
+      "number_4",
+      "number_5",
+      "number_6"
+    ]
+  },
+  {
+    "id": "trace_letters_d2",
+    "title": "تَتَبَّع الحَرْف",
+    "description": "تَتَبَّع الحَرْف بِإِصْبَعِك",
+    "modality": "INTERACTIVE",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "TRACE",
+    "isActive": true,
     "configJson": "{}",
-    "contentIds": ["number_1", "number_2", "number_3"]
+    "contentIds": [
+      "letter_ta",
+      "letter_kha",
+      "letter_seen",
+      "letter_lam",
+      "letter_noon"
+    ]
+  },
+  {
+    "id": "trace_numbers_d2",
+    "title": "تَتَبَّع الرَّقْم",
+    "description": "تَتَبَّع الرَّقْم بِإِصْبَعِك",
+    "modality": "INTERACTIVE",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 2,
+    "activityType": "TRACE",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "number_4",
+      "number_5",
+      "number_6"
+    ]
+  },
+  {
+    "id": "trace_shapes_d2",
+    "title": "تَتَبَّع الشَّكْل",
+    "description": "تَتَبَّع الشَّكْل بِإِصْبَعِك",
+    "modality": "INTERACTIVE",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 2,
+    "activityType": "TRACE",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "shape_square"
+    ]
+  },
+  {
+    "id": "drag_letters_d2",
+    "title": "أَكْمِل الكَلِمَة",
+    "description": "اسْحَب الحَرْف لِمَكَانِهِ فِي الكَلِمَة",
+    "modality": "INTERACTIVE",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "DRAG",
+    "isActive": true,
+    "configJson": "{\"dragType\":\"LETTER_TO_WORD\"}",
+    "contentIds": [
+      "letter_ta",
+      "letter_kha",
+      "letter_seen",
+      "letter_lam",
+      "letter_noon"
+    ]
+  },
+  {
+    "id": "drag_numbers_d2",
+    "title": "مَلِّئ القَفَص",
+    "description": "حَرِّك العَدَد الصَّحِيح مِن الحَيَوَانَات إِلَى القَفَص",
+    "modality": "INTERACTIVE",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 2,
+    "activityType": "DRAG",
+    "isActive": true,
+    "configJson": "{\"dragType\":\"ANIMALS_TO_CAGE\"}",
+    "contentIds": [
+      "number_4",
+      "number_5",
+      "number_6"
+    ]
+  },
+  {
+    "id": "drag_colors_d2",
+    "title": "لَوِّن الدَّائِرَة",
+    "description": "اخْتَر اللَّوْن الصَّحِيح وَلَوِّن الدَّائِرَة",
+    "modality": "INTERACTIVE",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "DRAG",
+    "isActive": true,
+    "configJson": "{\"dragType\":\"COLOR_TO_CIRCLE\"}",
+    "contentIds": [
+      "color_yellow",
+      "color_green",
+      "color_black",
+      "color_white"
+    ]
+  },
+  {
+    "id": "speech_animals_d2",
+    "title": "قُل اسْم الحَيَوَان",
+    "description": "انْظُر إِلَى الصُّورَة وَقُل اسْمَهَا",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "animal_crocodile",
+      "animal_sheep",
+      "animal_fish",
+      "animal_llama",
+      "animal_tiger"
+    ]
+  },
+  {
+    "id": "speech_letters_sounds_d2",
+    "title": "قُل صَوْت الحَرْف",
+    "description": "انْظُر إِلَى الحَرْف وَقُل صَوْتَهُ",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "letter_ta_s",
+      "letter_kha_s",
+      "letter_seen_s",
+      "letter_lam_s",
+      "letter_noon_s"
+    ]
+  },
+  {
+    "id": "speech_letters_d2",
+    "title": "قُل اسْم الحَرْف",
+    "description": "انْظُر إِلَى الحَرْف وَقُل اسْمَهُ",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "letter_ta",
+      "letter_kha",
+      "letter_seen",
+      "letter_lam",
+      "letter_noon"
+    ]
+  },
+  {
+    "id": "speech_numbers_d2",
+    "title": "قُل الرَّقْم",
+    "description": "انْظُر إِلَى الرَّقْم وَقُل اسْمَهُ",
+    "modality": "AUDIO",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 2,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "number_4",
+      "number_5",
+      "number_6"
+    ]
+  },
+  {
+    "id": "speech_shapes_d2",
+    "title": "قُل اسْم الشَّكْل",
+    "description": "انْظُر إِلَى الشَّكْل وَقُل اسْمَهُ",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "shape_square"
+    ]
+  },
+  {
+    "id": "speech_colors_d2",
+    "title": "قُل اسْم اللَّوْن",
+    "description": "انْظُر إِلَى اللَّوْن وَقُل اسْمَهُ",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "color_yellow",
+      "color_green",
+      "color_black",
+      "color_white"
+    ]
+  },
+  {
+    "id": "story_letters_d3",
+    "title": "قِصَّة الحُرُوف",
+    "description": "تَعَلَّم الحُرُوف العَرَبِيَّة",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"LETTER\"}",
+    "contentIds": [
+      "letter_ra",
+      "letter_fa",
+      "letter_kaf",
+      "letter_qaf",
+      "letter_ya",
+      "letter_ain"
+    ]
+  },
+  {
+    "id": "story_numbers_d3",
+    "title": "قِصَّة الأَرْقَام",
+    "description": "تَعَلَّم الأَرْقَام",
+    "modality": "AUDIO",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 3,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"NUMBER\"}",
+    "contentIds": [
+      "number_7",
+      "number_9"
+    ]
+  },
+  {
+    "id": "story_animals_d3",
+    "title": "قِصَّة الحَيَوَانَات",
+    "description": "تَعَلَّم الحَيَوَانَات",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"ANIMAL\"}",
+    "contentIds": [
+      "animal_shrimp",
+      "animal_elephant",
+      "animal_dog",
+      "animal_monkey",
+      "animal_dove",
+      "animal_spider"
+    ]
+  },
+  {
+    "id": "story_shapes_d3",
+    "title": "قِصَّة الأَشْكَال",
+    "description": "تَعَلَّم الأَشْكَال",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"SHAPE\"}",
+    "contentIds": [
+      "shape_triangle"
+    ]
+  },
+  {
+    "id": "story_colors_d3",
+    "title": "قِصَّة الأَلْوَان",
+    "description": "تَعَلَّم الأَلْوَان",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"COLOR\"}",
+    "contentIds": [
+      "color_orange",
+      "color_pink",
+      "color_brown"
+    ]
+  },
+  {
+    "id": "match_letters_d3",
+    "title": "صَاحِب الحَرْف بِالحَيَوَان",
+    "description": "اخْتَر الحَيَوَان الَّذِي يَبْدَأ بِالحَرْف",
+    "modality": "VISUAL",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"LETTER_TO_ANIMAL\",\"optionsCount\":4}",
+    "contentIds": [
+      "letter_ra",
+      "letter_fa",
+      "letter_kaf",
+      "letter_qaf",
+      "letter_ya",
+      "letter_ain"
+    ]
+  },
+  {
+    "id": "match_animals_d3",
+    "title": "أَيْنَ يَعِيش؟",
+    "description": "اخْتَر المَكَان الَّذِي يَعِيش فِيهِ الحَيَوَان",
+    "modality": "VISUAL",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"ANIMAL_TO_HABITAT\",\"optionsCount\":4}",
+    "contentIds": [
+      "animal_shrimp",
+      "animal_elephant",
+      "animal_dog",
+      "animal_monkey",
+      "animal_dove",
+      "animal_spider"
+    ]
+  },
+  {
+    "id": "count_animals_d3",
+    "title": "عُدّ الحيوانات",
+    "description": "عُدّ الحيوانات واختر العدد الصحيح",
+    "modality": "VISUAL",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 3,
+    "activityType": "COUNT",
+    "isActive": true,
+    "configJson": "{\"optionsCount\":4}",
+    "contentIds": [
+      "number_7",
+      "number_9"
+    ]
+  },
+  {
+    "id": "count_shapes_d3",
+    "title": "عُدّ الأشكال",
+    "description": "عُدّ الأشكال واختر العدد الصحيح",
+    "modality": "VISUAL",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 3,
+    "activityType": "COUNT",
+    "isActive": true,
+    "configJson": "{\"optionsCount\":4}",
+    "contentIds": [
+      "number_7",
+      "number_9"
+    ]
+  },
+  {
+    "id": "trace_letters_d3",
+    "title": "تَتَبَّع الحَرْف",
+    "description": "تَتَبَّع الحَرْف بِإِصْبَعِك",
+    "modality": "INTERACTIVE",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "TRACE",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "letter_ra",
+      "letter_fa",
+      "letter_kaf",
+      "letter_qaf",
+      "letter_ya",
+      "letter_ain"
+    ]
+  },
+  {
+    "id": "trace_numbers_d3",
+    "title": "تَتَبَّع الرَّقْم",
+    "description": "تَتَبَّع الرَّقْم بِإِصْبَعِك",
+    "modality": "INTERACTIVE",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 3,
+    "activityType": "TRACE",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "number_7",
+      "number_9"
+    ]
+  },
+  {
+    "id": "trace_shapes_d3",
+    "title": "تَتَبَّع الشَّكْل",
+    "description": "تَتَبَّع الشَّكْل بِإِصْبَعِك",
+    "modality": "INTERACTIVE",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 3,
+    "activityType": "TRACE",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "shape_triangle"
+    ]
+  },
+  {
+    "id": "drag_letters_d3",
+    "title": "أَكْمِل الكَلِمَة",
+    "description": "اسْحَب الحَرْف لِمَكَانِهِ فِي الكَلِمَة",
+    "modality": "INTERACTIVE",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "DRAG",
+    "isActive": true,
+    "configJson": "{\"dragType\":\"LETTER_TO_WORD\"}",
+    "contentIds": [
+      "letter_ra",
+      "letter_fa",
+      "letter_kaf",
+      "letter_qaf",
+      "letter_ya",
+      "letter_ain"
+    ]
+  },
+  {
+    "id": "drag_numbers_d3",
+    "title": "مَلِّئ القَفَص",
+    "description": "حَرِّك العَدَد الصَّحِيح مِن الحَيَوَانَات إِلَى القَفَص",
+    "modality": "INTERACTIVE",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 3,
+    "activityType": "DRAG",
+    "isActive": true,
+    "configJson": "{\"dragType\":\"ANIMALS_TO_CAGE\"}",
+    "contentIds": [
+      "number_7",
+      "number_9"
+    ]
+  },
+  {
+    "id": "drag_colors_d3",
+    "title": "لَوِّن الدَّائِرَة",
+    "description": "اخْتَر اللَّوْن الصَّحِيح وَلَوِّن الدَّائِرَة",
+    "modality": "INTERACTIVE",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "DRAG",
+    "isActive": true,
+    "configJson": "{\"dragType\":\"COLOR_TO_CIRCLE\"}",
+    "contentIds": [
+      "color_orange",
+      "color_pink",
+      "color_brown"
+    ]
+  },
+  {
+    "id": "speech_animals_d3",
+    "title": "قُل اسْم الحَيَوَان",
+    "description": "انْظُر إِلَى الصُّورَة وَقُل اسْمَهَا",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "animal_shrimp",
+      "animal_elephant",
+      "animal_dog",
+      "animal_monkey",
+      "animal_dove",
+      "animal_spider"
+    ]
+  },
+  {
+    "id": "speech_letters_sounds_d3",
+    "title": "قُل صَوْت الحَرْف",
+    "description": "انْظُر إِلَى الحَرْف وَقُل صَوْتَهُ",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "letter_ra_s",
+      "letter_fa_s",
+      "letter_kaf_s",
+      "letter_qaf_s",
+      "letter_ya_s",
+      "letter_ain_s"
+    ]
+  },
+  {
+    "id": "speech_letters_d3",
+    "title": "قُل اسْم الحَرْف",
+    "description": "انْظُر إِلَى الحَرْف وَقُل اسْمَهُ",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "letter_ra",
+      "letter_fa",
+      "letter_kaf",
+      "letter_qaf",
+      "letter_ya",
+      "letter_ain"
+    ]
+  },
+  {
+    "id": "speech_numbers_d3",
+    "title": "قُل الرَّقْم",
+    "description": "انْظُر إِلَى الرَّقْم وَقُل اسْمَهُ",
+    "modality": "AUDIO",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 3,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "number_7",
+      "number_9"
+    ]
+  },
+  {
+    "id": "speech_shapes_d3",
+    "title": "قُل اسْم الشَّكْل",
+    "description": "انْظُر إِلَى الشَّكْل وَقُل اسْمَهُ",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "shape_triangle"
+    ]
+  },
+  {
+    "id": "speech_colors_d3",
+    "title": "قُل اسْم اللَّوْن",
+    "description": "انْظُر إِلَى اللَّوْن وَقُل اسْمَهُ",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "color_orange",
+      "color_pink",
+      "color_brown"
+    ]
+  },
+  {
+    "id": "story_letters_d4",
+    "title": "قِصَّة الحُرُوف",
+    "description": "تَعَلَّم الحُرُوف العَرَبِيَّة",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"LETTER\"}",
+    "contentIds": [
+      "letter_thal",
+      "letter_sheen",
+      "letter_waw",
+      "letter_ha2",
+      "letter_zah",
+      "letter_zay"
+    ]
+  },
+  {
+    "id": "story_numbers_d4",
+    "title": "قِصَّة الأَرْقَام",
+    "description": "تَعَلَّم الأَرْقَام",
+    "modality": "AUDIO",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 4,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"NUMBER\"}",
+    "contentIds": [
+      "number_8",
+      "number_10"
+    ]
+  },
+  {
+    "id": "story_animals_d4",
+    "title": "قِصَّة الحَيَوَانَات",
+    "description": "تَعَلَّم الحَيَوَانَات",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"ANIMAL\"}",
+    "contentIds": [
+      "animal_wolf",
+      "animal_chimpanzee",
+      "animal_hoopoe",
+      "animal_rhinoceros",
+      "animal_deer",
+      "animal_giraffe"
+    ]
+  },
+  {
+    "id": "story_shapes_d4",
+    "title": "قِصَّة الأَشْكَال",
+    "description": "تَعَلَّم الأَشْكَال",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"SHAPE\"}",
+    "contentIds": [
+      "shape_rectangle"
+    ]
+  },
+  {
+    "id": "story_colors_d4",
+    "title": "قِصَّة الأَلْوَان",
+    "description": "تَعَلَّم الأَلْوَان",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"COLOR\"}",
+    "contentIds": [
+      "color_purple"
+    ]
+  },
+  {
+    "id": "match_letters_d4",
+    "title": "صَاحِب الحَرْف بِالحَيَوَان",
+    "description": "اخْتَر الحَيَوَان الَّذِي يَبْدَأ بِالحَرْف",
+    "modality": "VISUAL",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"LETTER_TO_ANIMAL\",\"optionsCount\":4}",
+    "contentIds": [
+      "letter_thal",
+      "letter_sheen",
+      "letter_waw",
+      "letter_ha2",
+      "letter_zah",
+      "letter_zay"
+    ]
+  },
+  {
+    "id": "match_animals_d4",
+    "title": "أَيْنَ يَعِيش؟",
+    "description": "اخْتَر المَكَان الَّذِي يَعِيش فِيهِ الحَيَوَان",
+    "modality": "VISUAL",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"ANIMAL_TO_HABITAT\",\"optionsCount\":4}",
+    "contentIds": [
+      "animal_wolf",
+      "animal_chimpanzee",
+      "animal_hoopoe",
+      "animal_rhinoceros",
+      "animal_deer",
+      "animal_giraffe"
+    ]
+  },
+  {
+    "id": "count_animals_d4",
+    "title": "عُدّ الحيوانات",
+    "description": "عُدّ الحيوانات واختر العدد الصحيح",
+    "modality": "VISUAL",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 4,
+    "activityType": "COUNT",
+    "isActive": true,
+    "configJson": "{\"optionsCount\":4}",
+    "contentIds": [
+      "number_8",
+      "number_10"
+    ]
+  },
+  {
+    "id": "count_shapes_d4",
+    "title": "عُدّ الأشكال",
+    "description": "عُدّ الأشكال واختر العدد الصحيح",
+    "modality": "VISUAL",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 4,
+    "activityType": "COUNT",
+    "isActive": true,
+    "configJson": "{\"optionsCount\":4}",
+    "contentIds": [
+      "number_8",
+      "number_10"
+    ]
+  },
+  {
+    "id": "trace_letters_d4",
+    "title": "تَتَبَّع الحَرْف",
+    "description": "تَتَبَّع الحَرْف بِإِصْبَعِك",
+    "modality": "INTERACTIVE",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "TRACE",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "letter_thal",
+      "letter_sheen",
+      "letter_waw",
+      "letter_ha2",
+      "letter_zah",
+      "letter_zay"
+    ]
+  },
+  {
+    "id": "trace_numbers_d4",
+    "title": "تَتَبَّع الرَّقْم",
+    "description": "تَتَبَّع الرَّقْم بِإِصْبَعِك",
+    "modality": "INTERACTIVE",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 4,
+    "activityType": "TRACE",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "number_8",
+      "number_10"
+    ]
+  },
+  {
+    "id": "trace_shapes_d4",
+    "title": "تَتَبَّع الشَّكْل",
+    "description": "تَتَبَّع الشَّكْل بِإِصْبَعِك",
+    "modality": "INTERACTIVE",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 4,
+    "activityType": "TRACE",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "shape_rectangle"
+    ]
+  },
+  {
+    "id": "drag_letters_d4",
+    "title": "أَكْمِل الكَلِمَة",
+    "description": "اسْحَب الحَرْف لِمَكَانِهِ فِي الكَلِمَة",
+    "modality": "INTERACTIVE",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "DRAG",
+    "isActive": true,
+    "configJson": "{\"dragType\":\"LETTER_TO_WORD\"}",
+    "contentIds": [
+      "letter_thal",
+      "letter_sheen",
+      "letter_waw",
+      "letter_ha2",
+      "letter_zah",
+      "letter_zay"
+    ]
+  },
+  {
+    "id": "drag_numbers_d4",
+    "title": "مَلِّئ القَفَص",
+    "description": "حَرِّك العَدَد الصَّحِيح مِن الحَيَوَانَات إِلَى القَفَص",
+    "modality": "INTERACTIVE",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 4,
+    "activityType": "DRAG",
+    "isActive": true,
+    "configJson": "{\"dragType\":\"ANIMALS_TO_CAGE\"}",
+    "contentIds": [
+      "number_8",
+      "number_10"
+    ]
+  },
+  {
+    "id": "drag_colors_d4",
+    "title": "لَوِّن الدَّائِرَة",
+    "description": "اخْتَر اللَّوْن الصَّحِيح وَلَوِّن الدَّائِرَة",
+    "modality": "INTERACTIVE",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "DRAG",
+    "isActive": true,
+    "configJson": "{\"dragType\":\"COLOR_TO_CIRCLE\"}",
+    "contentIds": [
+      "color_purple"
+    ]
+  },
+  {
+    "id": "speech_animals_d4",
+    "title": "قُل اسْم الحَيَوَان",
+    "description": "انْظُر إِلَى الصُّورَة وَقُل اسْمَهَا",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "animal_wolf",
+      "animal_chimpanzee",
+      "animal_hoopoe",
+      "animal_rhinoceros",
+      "animal_deer",
+      "animal_giraffe"
+    ]
+  },
+  {
+    "id": "speech_letters_sounds_d4",
+    "title": "قُل صَوْت الحَرْف",
+    "description": "انْظُر إِلَى الحَرْف وَقُل صَوْتَهُ",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "letter_thal_s",
+      "letter_sheen_s",
+      "letter_waw_s",
+      "letter_ha2_s",
+      "letter_zah_s",
+      "letter_zay_s"
+    ]
+  },
+  {
+    "id": "speech_letters_d4",
+    "title": "قُل اسْم الحَرْف",
+    "description": "انْظُر إِلَى الحَرْف وَقُل اسْمَهُ",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "letter_thal",
+      "letter_sheen",
+      "letter_waw",
+      "letter_ha2",
+      "letter_zah",
+      "letter_zay"
+    ]
+  },
+  {
+    "id": "speech_numbers_d4",
+    "title": "قُل الرَّقْم",
+    "description": "انْظُر إِلَى الرَّقْم وَقُل اسْمَهُ",
+    "modality": "AUDIO",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 4,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "number_8",
+      "number_10"
+    ]
+  },
+  {
+    "id": "speech_shapes_d4",
+    "title": "قُل اسْم الشَّكْل",
+    "description": "انْظُر إِلَى الشَّكْل وَقُل اسْمَهُ",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "shape_rectangle"
+    ]
+  },
+  {
+    "id": "speech_colors_d4",
+    "title": "قُل اسْم اللَّوْن",
+    "description": "انْظُر إِلَى اللَّوْن وَقُل اسْمَهُ",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "color_purple"
+    ]
+  },
+  {
+    "id": "story_letters_d5",
+    "title": "قِصَّة الحُرُوف",
+    "description": "تَعَلَّم الحُرُوف العَرَبِيَّة",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 5,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"LETTER\"}",
+    "contentIds": [
+      "letter_tha",
+      "letter_sad",
+      "letter_dad",
+      "letter_tah",
+      "letter_ghain"
+    ]
+  },
+  {
+    "id": "story_animals_d5",
+    "title": "قِصَّة الحَيَوَانَات",
+    "description": "تَعَلَّم الحَيَوَانَات",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 5,
+    "activityType": "STORY",
+    "isActive": true,
+    "configJson": "{\"storyType\":\"ANIMAL\"}",
+    "contentIds": [
+      "animal_snake",
+      "animal_falcon",
+      "animal_frog",
+      "animal_peacock",
+      "animal_gazelle"
+    ]
+  },
+  {
+    "id": "match_letters_d5",
+    "title": "صَاحِب الحَرْف بِالحَيَوَان",
+    "description": "اخْتَر الحَيَوَان الَّذِي يَبْدَأ بِالحَرْف",
+    "modality": "VISUAL",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 5,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"LETTER_TO_ANIMAL\",\"optionsCount\":4}",
+    "contentIds": [
+      "letter_tha",
+      "letter_sad",
+      "letter_dad",
+      "letter_tah",
+      "letter_ghain"
+    ]
+  },
+  {
+    "id": "match_animals_d5",
+    "title": "أَيْنَ يَعِيش؟",
+    "description": "اخْتَر المَكَان الَّذِي يَعِيش فِيهِ الحَيَوَان",
+    "modality": "VISUAL",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 5,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"ANIMAL_TO_HABITAT\",\"optionsCount\":4}",
+    "contentIds": [
+      "animal_snake",
+      "animal_falcon",
+      "animal_frog",
+      "animal_peacock",
+      "animal_gazelle"
+    ]
+  },
+  {
+    "id": "trace_letters_d5",
+    "title": "تَتَبَّع الحَرْف",
+    "description": "تَتَبَّع الحَرْف بِإِصْبَعِك",
+    "modality": "INTERACTIVE",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 5,
+    "activityType": "TRACE",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "letter_tha",
+      "letter_sad",
+      "letter_dad",
+      "letter_tah",
+      "letter_ghain"
+    ]
+  },
+  {
+    "id": "drag_letters_d5",
+    "title": "أَكْمِل الكَلِمَة",
+    "description": "اسْحَب الحَرْف لِمَكَانِهِ فِي الكَلِمَة",
+    "modality": "INTERACTIVE",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 5,
+    "activityType": "DRAG",
+    "isActive": true,
+    "configJson": "{\"dragType\":\"LETTER_TO_WORD\"}",
+    "contentIds": [
+      "letter_tha",
+      "letter_sad",
+      "letter_dad",
+      "letter_tah",
+      "letter_ghain"
+    ]
+  },
+  {
+    "id": "speech_animals_d5",
+    "title": "قُل اسْم الحَيَوَان",
+    "description": "انْظُر إِلَى الصُّورَة وَقُل اسْمَهَا",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 5,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "animal_snake",
+      "animal_falcon",
+      "animal_frog",
+      "animal_peacock",
+      "animal_gazelle"
+    ]
+  },
+  {
+    "id": "speech_letters_sounds_d5",
+    "title": "قُل صَوْت الحَرْف",
+    "description": "انْظُر إِلَى الحَرْف وَقُل صَوْتَهُ",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 5,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "letter_tha_s",
+      "letter_sad_s",
+      "letter_dad_s",
+      "letter_tah_s",
+      "letter_ghain_s"
+    ]
+  },
+  {
+    "id": "speech_letters_d5",
+    "title": "قُل اسْم الحَرْف",
+    "description": "انْظُر إِلَى الحَرْف وَقُل اسْمَهُ",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 5,
+    "activityType": "SPEECH",
+    "isActive": true,
+    "configJson": "{}",
+    "contentIds": [
+      "letter_tha",
+      "letter_sad",
+      "letter_dad",
+      "letter_tah",
+      "letter_ghain"
+    ]
   }
-
 ]

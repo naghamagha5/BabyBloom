@@ -60,6 +60,7 @@ private fun resolveAvatarResId(avatar: String): Int = when (avatar) {
 fun ChildProfileScreen(
     onNavigateToHome          : () -> Unit = {},
     onNavigateToWelcomeLearning: (childId: Long) -> Unit = {},
+    onNavigateToAssessment    : (childId: Long) -> Unit = {},
     initialTab                  : ChildProfileTab = ChildProfileTab.ANALYTICS,  // ← add this
     viewModel: ChildProfileViewModel = hiltViewModel()
 ) {
@@ -94,9 +95,16 @@ fun ChildProfileScreen(
                     child                      = uiState.child,
                     sessionCount               = uiState.sessionCount,
                     progressPercent            = uiState.progressPercent,
+                    assessmentCompleted        = uiState.childProfile?.assessmentCompleted == true,
                     onBackClick                = onNavigateToHome,
                     onStartLearningClick       = {
-                        uiState.child?.id?.let { onNavigateToWelcomeLearning(it) }
+                        uiState.child?.id?.let { childId ->
+                            if (uiState.childProfile?.assessmentCompleted == true) {
+                                onNavigateToWelcomeLearning(childId)
+                            } else {
+                                onNavigateToAssessment(childId)
+                            }
+                        }
                     }
                 )
                 when (selectedTab) {
@@ -137,6 +145,7 @@ internal fun ChildProfileHeader(
     child                  : Child?,
     sessionCount           : Int,
     progressPercent        : Int,
+    assessmentCompleted    : Boolean,
     onBackClick            : () -> Unit,
     onStartLearningClick   : () -> Unit
 ) {
@@ -364,7 +373,7 @@ internal fun ChildProfileHeader(
                                 modifier           = Modifier.size(35.dp)
                             )
                             Text(
-                                text  = stringResource(R.string.btn_start_learning),
+                                text  = if (assessmentCompleted) "ابدأ الجلسة" else "ابدأ التقييم",
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     color      = White,

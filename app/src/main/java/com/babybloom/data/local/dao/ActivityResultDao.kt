@@ -118,4 +118,7 @@ interface ActivityResultDao {
         childId: Long,
         limit: Int = 20
     ): List<ActivityResultEntity>
+
+    @Query("SELECT * FROM activity_results WHERE sessionId = :sessionId")
+    suspend fun getForSession(sessionId: Long): List<ActivityResultEntity>
 }

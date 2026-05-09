@@ -13,26 +13,41 @@ class AiInsightRepositoryImpl @Inject constructor(
 ) : AiInsightRepository {
 
     override fun getLatestInsight(childId: Long): Flow<AiInsight?> =
-        dao.getLatestInsight(childId).map { it?.toDomain() }
+        dao.observeLatestForChild(childId).map { it?.toDomain() }
 
-    override suspend fun saveInsight(insight: AiInsight) =
-        dao.insertInsight(insight.toEntity())
+    override suspend fun saveInsight(insight: AiInsight) {
+        dao.insert(insight.toEntity())
+    }
 
-    override suspend fun deleteInsightsForChild(childId: Long) =
-        dao.deleteInsightsForChild(childId)
+    override suspend fun deleteInsightsForChild(childId: Long) {
+        dao.deleteByChildId(childId)
+    }
 
-    // ── Mappers ────────────────────────────────────────────────────────
-    private fun AiInsightEntity.toDomain() = AiInsight(
-        id          = id,
-        childId     = childId,
-        insightText = insightText,
-        generatedAt = generatedAt
-    )
+    override suspend fun save(insight: AiInsight): Long =
+        dao.insert(insight.toEntity())
 
-    private fun AiInsight.toEntity() = AiInsightEntity(
-        id          = id,
-        childId     = childId,
-        insightText = insightText,
-        generatedAt = generatedAt
-    )
+    override suspend fun getLatestForChild(childId: Long): AiInsight? =
+        dao.getLatestForChild(childId)?.toDomain()
+
+    override suspend fun getAllForChild(childId: Long): List<AiInsight> =
+        dao.getAllForChild(childId).map { it.toDomain() }
+
+    override suspend fun deleteOldForChild(childId: Long, keepLatest: Int) =
+        dao.deleteOldForChild(childId, keepLatest)
 }
+
+// ── Mappers ───────────────────────────────────────────────────────────────────
+
+private fun AiInsight.toEntity() = AiInsightEntity(
+    id          = id,
+    childId     = childId,
+    insightText = insightText,
+    generatedAt = generatedAt
+)
+
+private fun AiInsightEntity.toDomain() = AiInsight(
+    id          = id,
+    childId     = childId,
+    insightText = insightText,
+    generatedAt = generatedAt
+)

@@ -72,6 +72,9 @@ class ActivityResultRepositoryImpl @Inject constructor(
     ): List<ActivityResult> =
         activityResultDao.getResultsWithTouch(childId, limit).map { it.toDomain() }
 
+    override suspend fun getForSession(sessionId: Long): List<ActivityResult> =
+        activityResultDao.getForSession(sessionId).map { it.toDomain() }
+
     // ── Time formatting ───────────────────────────────────────────────────────
 
     private fun formatTimeAgo(timestamp: Long): String {
