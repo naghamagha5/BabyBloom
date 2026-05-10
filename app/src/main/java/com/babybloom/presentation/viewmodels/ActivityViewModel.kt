@@ -1,5 +1,7 @@
 package com.babybloom.presentation.viewmodels
 
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageProxy
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babybloom.di.AppSoundSettings
@@ -329,6 +331,11 @@ class ActivityViewModel @Inject constructor(
             }
         }
     }
+
+    @androidx.annotation.OptIn(ExperimentalGetImage::class)
+    suspend fun analyzeAttention(imageProxy: ImageProxy): AttentionSample? =
+        attentionDetector.analyze(imageProxy)
+
     fun saveTraceInteractionEvent(
         contentId: String,
         touchComplexity: Float,

@@ -21,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.babybloom.domain.model.ActivityLaunchStep
 import com.babybloom.domain.model.SessionDecision
 import com.babybloom.R
+import com.babybloom.presentation.components.AttentionCameraOverlay
 import com.babybloom.presentation.viewmodels.ActivityUiState
 import com.babybloom.presentation.viewmodels.ActivityViewModel
 import com.babybloom.ui.theme.LocalGameColorScheme
@@ -113,6 +114,10 @@ fun ActivityShellScreen(
             CompositionLocalProvider(LocalGameColorScheme provides gameColors) {
 
                 Box(modifier = Modifier.fillMaxSize()) {
+                    AttentionCameraOverlay(
+                        onSample = viewModel::onAttentionSample,
+                        analyzeImage = viewModel::analyzeAttention
+                    )
 
                     // ── Full-screen background ────────────────────────────
                     Image(
