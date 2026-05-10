@@ -54,8 +54,8 @@ fun RegisterScreen(
 
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
     ) {
         onCreateAccount()
     }
@@ -67,11 +67,19 @@ fun RegisterScreen(
                 context,
                 Manifest.permission.CAMERA
             ) == PackageManager.PERMISSION_GRANTED
+            val hasMicPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+            val permissionsToRequest = buildList {
+                if (hasFrontCamera && !hasCameraPermission) add(Manifest.permission.CAMERA)
+                if (!hasMicPermission) add(Manifest.permission.RECORD_AUDIO)
+            }
 
-            if (!hasFrontCamera || hasCameraPermission) {
+            if (permissionsToRequest.isEmpty()) {
                 onCreateAccount()
             } else {
-                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                permissionLauncher.launch(permissionsToRequest.toTypedArray())
             }
         }
     }
