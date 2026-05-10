@@ -90,17 +90,16 @@ fun MatchScreen(
 ) {
     val colors = LocalGameColorScheme.current
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(
+        configJson,
+        isCalmMode,
+        contentItems.joinToString("|") { it.contentId }
+    ) {
         viewModel.loadActivity(contentItems, isCalmMode, configJson, onCardResult, onComplete)
     }
 
     val cardState  by viewModel.cardState.collectAsStateWithLifecycle()
     val wiggleTick by viewModel.wiggleTick.collectAsStateWithLifecycle()
-
-    LaunchedEffect(cardState) {
-        val done = cardState as? MatchCardState.Done ?: return@LaunchedEffect
-        onComplete(done.elapsedMs, done.correctCount)
-    }
 
     val showCelebration = when (val s = cardState) {
         is MatchCardState.AnimalHabitatCard -> s.showCelebration

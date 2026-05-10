@@ -113,7 +113,6 @@ sealed class MatchCardState {
         val questionIndex: Int = 0,
         val totalQuestions: Int = QUESTIONS_PER_ROUND,
         val lastWrongId: String? = null,
-        // ── unified celebration popup ──────────────────────────────────────
         val showCelebration: Boolean = false
     ) : MatchCardState()
 
@@ -128,7 +127,6 @@ sealed class MatchCardState {
         val questionIndex: Int = 0,
         val totalQuestions: Int = QUESTIONS_PER_ROUND,
         val lastWrongId: String? = null,
-        // ── unified celebration popup ──────────────────────────────────────
         val showCelebration: Boolean = false
     ) : MatchCardState()
 }
@@ -140,11 +138,6 @@ enum class AnswerState { Idle, Correct, Wrong, Revealed }
 class MatchViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val learningContentDao: LearningContentDao,
-    // ── Sound settings — same pattern as TraceViewModel ───────────────────────
-    // SFX (TAP / CORRECT / WRONG / COMPLETE) are routed through AppSoundSettings
-    // so the parent's sound-effects toggle is respected.
-    // Voice audio (letter name, animal name, instruction) still uses its own
-    // MediaPlayer because it plays content audio, not SFX.
     private val appSoundSettings: AppSoundSettings
 ) : ViewModel() {
 
@@ -156,6 +149,8 @@ class MatchViewModel @Inject constructor(
 
     private var voicePlayer: MediaPlayer? = null
     private var hintJob:     Job?         = null
+    private var questionJob: Job?         = null
+    private var answerJob:   Job?         = null
 
     private var items:          List<ActivityContent> = emptyList()
     private var matchType       = "ANIMAL_TO_HABITAT"
@@ -169,6 +164,7 @@ class MatchViewModel @Inject constructor(
     private var onCardResult:   ((String, Boolean, Int, Int, Int) -> Unit)? = null
     private var startTime       = 0L
     private var isLoaded        = false
+    private var loadedSignature = ""
 
     private var currentContentId:       String  = ""
     private var currentLetterPath:      String? = null
@@ -184,8 +180,15 @@ class MatchViewModel @Inject constructor(
         onCardResult: (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int) -> Unit,
         onComplete: (elapsedMs: Long, correctCount: Int) -> Unit
     ) {
-        if (isLoaded) return
+        val signature = listOf(
+            configJson,
+            isCalmMode.toString(),
+            contentItems.joinToString("|") { it.contentId }
+        ).joinToString("#")
+        if (isLoaded && loadedSignature == signature) return
         isLoaded = true
+        loadedSignature = signature
+        cancelRuntime()
         this.items          = contentItems.shuffled().take(QUESTIONS_PER_ROUND)
         this.isCalmMode     = isCalmMode
         this.onComplete     = onComplete
@@ -203,6 +206,15 @@ class MatchViewModel @Inject constructor(
         showQuestion(0)
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // onAnswerSelected
+    //
+    // FIX: onCardResult is now invoked INSIDE answerJob, after all celebration
+    // or reveal delays have finished.  Previously it was called synchronously
+    // before the job launched, which caused ActivityUiState.Completed to be
+    // set immediately and the assessment to advance — cancelling the answerJob
+    // (and its audio/animation) mid-play.
+    // ─────────────────────────────────────────────────────────────────────────
     fun onAnswerSelected(selectedId: String) {
         val state = _cardState.value
         if (currentAnswerState() !in listOf(AnswerState.Idle, AnswerState.Wrong)) return
@@ -214,7 +226,6 @@ class MatchViewModel @Inject constructor(
         }
 
         cancelHints()
-        // TAP SFX — routed through AppSoundSettings
         appSoundSettings.playSoundEffect(SoundEffect.TAP)
 
         if (isCorrect) {
@@ -222,29 +233,32 @@ class MatchViewModel @Inject constructor(
             cardCorrect++
             cardAttempts++
             updateAnswerState(AnswerState.Correct)
-            onCardResult?.invoke(currentContentId, true, cardCorrect, cardIncorrect, cardAttempts)
+            // onCardResult is NOT called here — it is called at the end of
+            // answerJob below, after the celebration has fully played out.
 
-            viewModelScope.launch {
+            answerJob?.cancel()
+            answerJob = viewModelScope.launch {
                 delay(250)
-                // CORRECT SFX — routed through AppSoundSettings
                 appSoundSettings.playSoundEffect(SoundEffect.CORRECT)
                 delay(400)
 
-                // Show GoodJobPopup + COMPLETE SFX — then play voice content
                 appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
                 setCelebration(true)
 
-                // Play voice content (content audio, not SFX — stays on own player)
                 when (matchType) {
                     "LETTER_TO_ANIMAL"  -> currentLetterPath?.let { playVoiceAndWait(it) }
                     "ANIMAL_TO_HABITAT" -> currentAnimalPath?.let { playVoiceAndWait(it) }
                 }
 
-                delay(1_800)       // let popup show for a moment after voice finishes
+                delay(1_800)
                 setCelebration(false)
                 delay(300)
+
+                // ── Single source of truth: report after celebration ───────
+                onCardResult?.invoke(currentContentId, true, cardCorrect, cardIncorrect, cardAttempts)
                 advanceQuestion()
             }
+
         } else {
             cardIncorrect++
             cardAttempts++
@@ -254,13 +268,14 @@ class MatchViewModel @Inject constructor(
                 else -> 0
             }
 
-            viewModelScope.launch {
+            answerJob?.cancel()
+            answerJob = viewModelScope.launch {
                 delay(250)
-                // WRONG SFX — routed through AppSoundSettings
                 appSoundSettings.playSoundEffect(SoundEffect.WRONG)
 
                 if (attemptsLeft <= 0) {
-                    onCardResult?.invoke(currentContentId, false, cardCorrect, cardIncorrect, cardAttempts)
+                    // onCardResult is NOT called here — it is called after the
+                    // reveal animation and audio have fully played out below.
                     revealCorrect()
                     delay(300)
                     _wiggleTick.value++
@@ -274,7 +289,11 @@ class MatchViewModel @Inject constructor(
                         "ANIMAL_TO_HABITAT" -> currentAnimalPath?.let { playVoiceAndWait(it) }
                     }
                     delay(1_200)
+
+                    // ── Single source of truth: report after reveal ────────
+                    onCardResult?.invoke(currentContentId, false, cardCorrect, cardIncorrect, cardAttempts)
                     advanceQuestion()
+
                 } else {
                     decrementAttempts(attemptsLeft, selectedId)
                     when (matchType) {
@@ -300,8 +319,8 @@ class MatchViewModel @Inject constructor(
         cardAttempts  = 0
 
         val item = items.getOrNull(index) ?: run {
-            viewModelScope.launch {
-                // COMPLETE SFX when the whole round finishes — through AppSoundSettings
+            questionJob?.cancel()
+            questionJob = viewModelScope.launch {
                 appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
                 delay(1_500)
                 val elapsed = System.currentTimeMillis() - startTime
@@ -311,7 +330,8 @@ class MatchViewModel @Inject constructor(
             return
         }
         _cardState.value = MatchCardState.Loading
-        viewModelScope.launch {
+        questionJob?.cancel()
+        questionJob = viewModelScope.launch {
             when (matchType) {
                 "LETTER_TO_ANIMAL" -> buildLetterAnimalCard(item, index)
                 else               -> buildAnimalHabitatCard(item, index)
@@ -343,13 +363,24 @@ class MatchViewModel @Inject constructor(
         playVoice(currentAnimalPath!!)
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // buildLetterAnimalCard
+    //
+    // FIX: when no matching animal is found in the DB, the previous code
+    // called advanceQuestion() without ever calling onCardResult.  The
+    // ActivityViewModel's currentIndex never advanced and the assessment
+    // step hung indefinitely.  Now we report a failure result first so the
+    // step always completes cleanly even when data is missing.
+    // ─────────────────────────────────────────────────────────────────────────
     private suspend fun buildLetterAnimalCard(item: ActivityContent, index: Int) {
         val animal = learningContentDao.getByLearningOrderAndCategory(
             item.learningOrder, "ANIMAL"
         )
 
         if (animal == null) {
-            Log.w("MatchVM", "No animal for learningOrder=${item.learningOrder}, skipping")
+            Log.w("MatchVM", "No animal for learningOrder=${item.learningOrder} — reporting failure and advancing")
+            // Signal a completed-but-failed result so the activity can advance.
+            onCardResult?.invoke(item.contentId, false, 0, 1, 1)
             advanceQuestion()
             return
         }
@@ -373,12 +404,12 @@ class MatchViewModel @Inject constructor(
         currentAnimalPath      = animalAudioPath(animal.id)
 
         _cardState.value = MatchCardState.LetterAnimalCard(
-            letter          = item,
+            letter           = item,
             letterImageAsset = AssetPathResolver.imageAssetFor(item.contentId, item.category, isCalmMode),
-            options         = options,
-            correctAnimalId = animal.id,
-            questionIndex   = index,
-            totalQuestions  = items.size
+            options          = options,
+            correctAnimalId  = animal.id,
+            questionIndex    = index,
+            totalQuestions   = items.size
         )
 
         playVoiceAndWait(INSTRUCTION_LETTERS)
@@ -435,6 +466,16 @@ class MatchViewModel @Inject constructor(
         setWiggle(false)
     }
 
+    private fun cancelRuntime() {
+        hintJob?.cancel(); hintJob = null
+        questionJob?.cancel(); questionJob = null
+        answerJob?.cancel(); answerJob = null
+        _wiggleTick.value = 0
+        runCatching { voicePlayer?.stop() }
+        voicePlayer?.release()
+        voicePlayer = null
+    }
+
     // ── State helpers ─────────────────────────────────────────────────────────
 
     private fun setCelebration(show: Boolean) {
@@ -483,7 +524,7 @@ class MatchViewModel @Inject constructor(
         else -> AnswerState.Idle
     }
 
-    // ── Voice audio — own MediaPlayer (content audio, not SFX) ───────────────
+    // ── Voice audio ───────────────────────────────────────────────────────────
 
     private fun playVoice(path: String) {
         try {
@@ -509,7 +550,6 @@ class MatchViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        cancelHints()
-        voicePlayer?.stop(); voicePlayer?.release(); voicePlayer = null
+        cancelRuntime()
     }
 }

@@ -64,6 +64,9 @@ sealed class ActivityUiState {
         val score: Int,
         val total: Int,
         val sessionId: Long,
+        val activityId: String = "",
+        val contentId: String? = null,
+        val stepIndex: Int = 0,
         val decision: SessionDecision? = null
     ) : ActivityUiState()
     data class Error(val message: String) : ActivityUiState()
@@ -108,8 +111,8 @@ class ActivityViewModel @Inject constructor(
         stepIndex: Int = 0,
         isAssessment: Boolean = false
     ) {
+        _uiState.value = ActivityUiState.Loading
         viewModelScope.launch {
-            _uiState.value = ActivityUiState.Loading
             lastAlgorithmOutput = null
             currentStepIndex = stepIndex
             currentStep = ActivityLaunchStep(activityId = activityId, contentId = contentId)
@@ -206,6 +209,11 @@ class ActivityViewModel @Inject constructor(
                     current.score,
                     current.activityWithContent.contentItems.size,
                     sessionId = this@ActivityViewModel.sessionId,
+                    activityId = current.activityWithContent.activity.id,
+                    contentId = current.activityWithContent.contentItems
+                        .getOrNull(current.currentIndex)
+                        ?.contentId,
+                    stepIndex = currentStepIndex,
                     lastAlgorithmOutput?.let { resolveDecision(it) }
                 )
             }
@@ -224,10 +232,18 @@ class ActivityViewModel @Inject constructor(
         scoreOverride: Float? = null
     ) {
         val current = _uiState.value as? ActivityUiState.Playing ?: return
+        val expectedContentId = current.activityWithContent.contentItems
+            .getOrNull(current.currentIndex)
+            ?.contentId
+            ?: return
+        if (contentId != expectedContentId) return
+
         val attentionScore = attentionTracker.computeScore().takeIf { it > 0f }
 
-        if (isCorrect) appSoundSettings.playSoundEffect(SoundEffect.CORRECT)
-        else appSoundSettings.playSoundEffect(SoundEffect.WRONG)
+        if (!current.sessionSettings.isAssessment) {
+            if (isCorrect) appSoundSettings.playSoundEffect(SoundEffect.CORRECT)
+            else appSoundSettings.playSoundEffect(SoundEffect.WRONG)
+        }
 
         // Calculate metrics based on total attempts
         val finalCorrectCount = if (isCorrect) 1 else 0
@@ -256,35 +272,37 @@ class ActivityViewModel @Inject constructor(
                 )
             )
 
-            val activity = activityRepository.getById(activityId) ?: return@launch
-            val signal = ActivitySignal(
-                childId = current.sessionSettings.childId,
-                activityId = activityId,
-                skillArea = activity.skillArea,
-                modality = activity.modality,
-                activityType = activity.activityType,
-                difficultyLevel = activity.difficultyLevel,
-                correctCount = finalCorrectCount,
-                incorrectCount = finalIncorrectCount,
-                attempts = attempts,
-                attentionScore = attentionScore,
-                touchComplexity = touchComplexity,
-                speechConfidence = speechConfidence,
-                durationMs = responseTimeMs,
-                expectedDurationMs = 60_000L
-            )
-            val profile = childProfileRepository.getByChildId(current.sessionSettings.childId)
-            if (profile != null) {
-                val output = algorithmEngine.processActivityResult(signal, profile)
-                childProfileRepository.upsert(output.updatedProfile)
-                lastAlgorithmOutput = output
+            if (!current.sessionSettings.isAssessment) {
+                val activity = activityRepository.getById(activityId) ?: return@launch
+                val signal = ActivitySignal(
+                    childId = current.sessionSettings.childId,
+                    activityId = activityId,
+                    skillArea = activity.skillArea,
+                    modality = activity.modality,
+                    activityType = activity.activityType,
+                    difficultyLevel = activity.difficultyLevel,
+                    correctCount = finalCorrectCount,
+                    incorrectCount = finalIncorrectCount,
+                    attempts = attempts,
+                    attentionScore = attentionScore,
+                    touchComplexity = touchComplexity,
+                    speechConfidence = speechConfidence,
+                    durationMs = responseTimeMs,
+                    expectedDurationMs = 60_000L
+                )
+                val profile = childProfileRepository.getByChildId(current.sessionSettings.childId)
+                if (profile != null) {
+                    val output = algorithmEngine.processActivityResult(signal, profile)
+                    childProfileRepository.upsert(output.updatedProfile)
+                    lastAlgorithmOutput = output
 
-                if (algorithmEngine.computeItemScore(signal) >= AlgorithmWeights.LEVEL_UP_THRESHOLD) {
-                    levelMasteryRepository.incrementMastered(
-                        childId = current.sessionSettings.childId,
-                        skillArea = activity.skillArea,
-                        level = activity.difficultyLevel
-                    )
+                    if (algorithmEngine.computeItemScore(signal) >= AlgorithmWeights.LEVEL_UP_THRESHOLD) {
+                        levelMasteryRepository.incrementMastered(
+                            childId = current.sessionSettings.childId,
+                            skillArea = activity.skillArea,
+                            level = activity.difficultyLevel
+                        )
+                    }
                 }
             }
 
@@ -294,11 +312,18 @@ class ActivityViewModel @Inject constructor(
             val nextIndex = current.currentIndex + 1
 
             if (nextIndex >= current.activityWithContent.contentItems.size) {
-                appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
+                if (!current.sessionSettings.isAssessment) {
+                    appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
+                }
                 _uiState.value = ActivityUiState.Completed(
                     newScore,
                     current.activityWithContent.contentItems.size,
                     sessionId = this@ActivityViewModel.sessionId,
+                    activityId = current.activityWithContent.activity.id,
+                    contentId = current.activityWithContent.contentItems
+                        .getOrNull(current.currentIndex)
+                        ?.contentId,
+                    stepIndex = currentStepIndex,
                     lastAlgorithmOutput?.let { resolveDecision(it) }
                 )
             } else {

@@ -97,6 +97,7 @@ class TraceViewModel @Inject constructor(
     private var handAnimJob:     Job? = null
     private var hintRestoreJob:  Job? = null
     private var postResultJob:   Job? = null
+    private var instructionStartJob: Job? = null
 
     private var nameAudioPlayer:    MediaPlayer? = null
     private var soundAudioPlayer:   MediaPlayer? = null
@@ -156,7 +157,7 @@ class TraceViewModel @Inject constructor(
             )
         )
 
-        viewModelScope.launch {
+        instructionStartJob = viewModelScope.launch {
             delay(400L)
             playInstructionAudio(item.contentId)
         }
@@ -343,7 +344,7 @@ class TraceViewModel @Inject constructor(
                 startTimeMs    = System.currentTimeMillis()
             )
         )
-        viewModelScope.launch {
+        instructionStartJob = viewModelScope.launch {
             delay(400L)
             playInstructionAudio(prev.item.contentId)
         }
@@ -506,6 +507,7 @@ class TraceViewModel @Inject constructor(
         handAnimJob?.cancel()
         hintRestoreJob?.cancel()
         postResultJob?.cancel()
+        instructionStartJob?.cancel()
     }
 
     private fun releaseAudioPlayers() {
