@@ -1,83 +1,117 @@
 package com.babybloom.domain.algorithm
 
-import com.babybloom.domain.model.Activity
-import com.babybloom.domain.model.ActivityLaunchStep
 import com.babybloom.domain.repository.ActivityRepository
 import javax.inject.Inject
 import javax.inject.Singleton
+
+enum class AssessmentCategory {
+    COLORS,
+    SHAPES,
+    NUMBERS,
+    LETTERS,
+    ANIMALS
+}
+
+data class AssessmentLaunchStep(
+    val activityId: String,
+    val contentId: String?,
+    val category: AssessmentCategory?,
+    val level: Int,
+    val isWarmUp: Boolean = false
+)
 
 @Singleton
 class AssessmentPlannerService @Inject constructor(
     private val activityRepository: ActivityRepository
 ) {
-    private val assessmentActivityIds = listOf(
-        "trace_letters_d1",
-        "speech_letters_d1",
-        "drag_letters_d1",
-        "count_numbers_d1"
-    )
+    suspend fun buildWarmUpSequence(): List<AssessmentLaunchStep> =
+        listOfNotNull(
+            warmUpStep("drag_numbers_d1", "number_1"),
+            warmUpStep("trace_letters_d1", "letter_alef"),
+            warmUpStep("speech_colors_d1", "color_red")
+        )
 
-    /**
-     * Returns a balanced set of assessment activities:
-     * 2 per skill area (1 visual + 1 interactive) × 3 areas = 6 total.
-     * All at ASSESSMENT_START_DIFFICULTY.
-     */
-    suspend fun buildAssessmentPlan(childAge: Int): List<Activity> {
-        val plan = mutableListOf<Activity>()
-        val difficulty = AlgorithmWeights.ASSESSMENT_START_DIFFICULTY
+    suspend fun nextProbe(
+        category: AssessmentCategory,
+        level: Int,
+        probeIndex: Int
+    ): AssessmentLaunchStep? {
+        val candidates = activityIdsFor(category, level)
+            .mapNotNull { activityId -> activityRepository.getActivityWithContent(activityId) }
+            .filter { it.activity.activityType != "STORY" && it.activity.isActive }
 
-        for (skill in listOf("LANGUAGE", "NUMERACY", "MOTOR")) {
-            val allForSkill = activityRepository.getActivitiesForPlanning(
-                skillArea       = skill,
-                difficultyLevel = difficulty
+        val candidate = candidates.getOrNull(probeIndex % candidates.size.coerceAtLeast(1))
+            ?: return fallbackProbe(category, level, probeIndex)
+
+        val contentItems = candidate.contentItems.ifEmpty { return null }
+        val content = contentItems[probeIndex % contentItems.size]
+
+        return AssessmentLaunchStep(
+            activityId = candidate.activity.id,
+            contentId = content.contentId,
+            category = category,
+            level = candidate.activity.difficultyLevel,
+            isWarmUp = false
+        )
+    }
+
+    private suspend fun fallbackProbe(
+        category: AssessmentCategory,
+        requestedLevel: Int,
+        probeIndex: Int
+    ): AssessmentLaunchStep? {
+        for (level in requestedLevel downTo 1) {
+            val candidates = activityIdsFor(category, level)
+                .mapNotNull { activityId -> activityRepository.getActivityWithContent(activityId) }
+                .filter { it.activity.activityType != "STORY" && it.activity.isActive }
+
+            if (candidates.isNotEmpty()) {
+                val candidate = candidates[probeIndex % candidates.size]
+                val content = candidate.contentItems.getOrNull(probeIndex % candidate.contentItems.size.coerceAtLeast(1))
+                    ?: return null
+                return AssessmentLaunchStep(
+                    activityId = candidate.activity.id,
+                    contentId = content.contentId,
+                    category = category,
+                    level = candidate.activity.difficultyLevel,
+                    isWarmUp = false
+                )
+            }
+        }
+        return null
+    }
+
+    private suspend fun warmUpStep(activityId: String, preferredContentId: String): AssessmentLaunchStep? {
+        val activity = activityRepository.getActivityWithContent(activityId) ?: return null
+        val contentId = activity.contentItems.firstOrNull { it.contentId == preferredContentId }?.contentId
+            ?: activity.contentItems.firstOrNull()?.contentId
+            ?: return null
+
+        return AssessmentLaunchStep(
+            activityId = activityId,
+            contentId = contentId,
+            category = null,
+            level = activity.activity.difficultyLevel,
+            isWarmUp = true
+        )
+    }
+
+    private fun activityIdsFor(category: AssessmentCategory, level: Int): List<String> =
+        when (category) {
+            AssessmentCategory.COLORS -> listOf("drag_colors_d$level")
+            AssessmentCategory.SHAPES -> listOf("trace_shapes_d$level")
+            AssessmentCategory.NUMBERS -> listOf(
+                "count_animals_d$level",
+                "drag_numbers_d$level",
+                "count_shapes_d$level"
             )
-
-            // Pick 1 visual + 1 interactive (or any 2 if modalities not available)
-            val visual      = allForSkill.firstOrNull { it.modality == "VISUAL"      }
-            val interactive = allForSkill.firstOrNull { it.modality == "INTERACTIVE" }
-            val audio       = allForSkill.firstOrNull { it.modality == "AUDIO"       }
-
-            val selected = listOfNotNull(visual, interactive, audio)
-                .distinctBy { it.id }
-                .take(AlgorithmWeights.ASSESSMENT_ACTIVITIES_PER_SKILL)
-
-            // Fallback: take any if still not enough
-            if (selected.size < AlgorithmWeights.ASSESSMENT_ACTIVITIES_PER_SKILL) {
-                val fallback = allForSkill
-                    .filter { a -> selected.none { it.id == a.id } }
-                    .take(AlgorithmWeights.ASSESSMENT_ACTIVITIES_PER_SKILL - selected.size)
-                plan.addAll(selected + fallback)
-            } else {
-                plan.addAll(selected)
-            }
+            AssessmentCategory.LETTERS -> listOf(
+                "speech_letters_d$level",
+                "match_letters_d$level",
+                "trace_letters_d$level"
+            )
+            AssessmentCategory.ANIMALS -> listOf(
+                "speech_animals_d$level"
+            )
         }
-
-        return plan.shuffled()
-    }
-
-    suspend fun buildAssessmentSequence(childAge: Int): List<ActivityLaunchStep> {
-        val activities = assessmentActivityIds.mapNotNull { activityId ->
-            activityRepository.getActivityWithContent(activityId)
-        }
-
-        if (activities.isEmpty()) return emptyList()
-
-        val groupedByContent = linkedMapOf<String, MutableList<ActivityLaunchStep>>()
-
-        activities.forEach { activityWithContent ->
-            activityWithContent.contentItems.forEach { item ->
-                val normalizedContentId = item.contentId.removeSuffix("_s")
-                groupedByContent
-                    .getOrPut(normalizedContentId) { mutableListOf() }
-                    .add(
-                        ActivityLaunchStep(
-                            activityId = activityWithContent.activity.id,
-                            contentId = item.contentId
-                        )
-                    )
-            }
-        }
-
-        return groupedByContent.values.flatten()
-    }
 }

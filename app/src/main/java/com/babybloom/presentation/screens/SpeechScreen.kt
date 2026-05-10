@@ -2,8 +2,6 @@ package com.babybloom.presentation.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -59,25 +57,10 @@ fun SpeechScreen(
     val context = LocalContext.current
     val colors  = LocalGameColorScheme.current
 
-    var hasPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context, Manifest.permission.RECORD_AUDIO
-            ) == PackageManager.PERMISSION_GRANTED
-        )
-    }
-    var permissionDenied by remember { mutableStateOf(false) }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        hasPermission = granted
-        permissionDenied = !granted
-    }
-
-    LaunchedEffect(Unit) {
-        if (!hasPermission) permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-    }
+    val hasPermission = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.RECORD_AUDIO
+    ) == PackageManager.PERMISSION_GRANTED
 
     LaunchedEffect(currentItem.contentId, hasPermission) {
         if (hasPermission) viewModel.loadCard(currentItem, isCalmMode, onComplete)
@@ -87,8 +70,7 @@ fun SpeechScreen(
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when {
-            permissionDenied -> PermissionDeniedBlock()
-            !hasPermission   -> CircularProgressIndicator(color = colors.accent)
+            !hasPermission   -> PermissionDeniedBlock()
             else -> when (val state = cardState) {
                 is SpeechCardState.Loading -> CircularProgressIndicator(color = colors.accent)
                 is SpeechCardState.Offline -> OfflineBlock()

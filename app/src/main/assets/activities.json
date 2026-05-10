@@ -165,7 +165,10 @@
     "contentIds": [
       "letter_alef",
       "letter_ba",
-      "letter_meem"
+      "letter_meem",
+      "letter_ha",
+      "letter_jeem",
+      "letter_dal"
     ]
   },
   {
@@ -297,7 +300,9 @@
       "letter_alef",
       "letter_ba",
       "letter_meem",
-      "letter_ha"
+      "letter_ha",
+      "letter_jeem",
+      "letter_dal"
     ]
   },
   {

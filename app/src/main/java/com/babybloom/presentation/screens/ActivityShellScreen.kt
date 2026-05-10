@@ -21,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.babybloom.domain.model.ActivityLaunchStep
 import com.babybloom.domain.model.SessionDecision
 import com.babybloom.R
+import com.babybloom.presentation.components.AttentionCameraOverlay
 import com.babybloom.presentation.viewmodels.ActivityUiState
 import com.babybloom.presentation.viewmodels.ActivityViewModel
 import com.babybloom.ui.theme.LocalGameColorScheme
@@ -71,10 +72,16 @@ fun ActivityShellScreen(
 
         // ── Completed ─────────────────────────────────────────────────────────
         is ActivityUiState.Completed -> {
-            GoodJobScreen(
-                score      = state.score,
-                total      = state.total,
-                onFinished = {
+            val isCurrentCompletion = state.activityId == activityId &&
+                    state.contentId == contentId &&
+                    state.stepIndex == stepIndex
+            if (!isCurrentCompletion) {
+                ActivityLoadingScreen()
+                return
+            }
+
+            if (isAssessment) {
+                LaunchedEffect(state.sessionId, state.activityId, state.contentId, state.stepIndex) {
                     onActivityComplete(
                         state.score,
                         state.total,
@@ -82,7 +89,21 @@ fun ActivityShellScreen(
                         state.decision
                     )
                 }
-            )
+                ActivityLoadingScreen()
+            } else {
+                GoodJobScreen(
+                    score      = state.score,
+                    total      = state.total,
+                    onFinished = {
+                        onActivityComplete(
+                            state.score,
+                            state.total,
+                            state.sessionId,
+                            state.decision
+                        )
+                    }
+                )
+            }
         }
 
         // ── Playing ───────────────────────────────────────────────────────────
@@ -91,6 +112,13 @@ fun ActivityShellScreen(
             val activity    = state.activityWithContent.activity
             val currentItem = state.activityWithContent.contentItems
                 .getOrNull(state.currentIndex) ?: return
+
+            val isCurrentActivity = activity.id == activityId &&
+                    (contentId == null || currentItem.contentId == contentId)
+            if (!isCurrentActivity) {
+                ActivityLoadingScreen()
+                return
+            }
 
             val progress = if (state.activityWithContent.contentItems.isEmpty()) 0f
             else state.currentIndex.toFloat() / state.activityWithContent.contentItems.size
@@ -113,6 +141,10 @@ fun ActivityShellScreen(
             CompositionLocalProvider(LocalGameColorScheme provides gameColors) {
 
                 Box(modifier = Modifier.fillMaxSize()) {
+                    AttentionCameraOverlay(
+                        onSample = viewModel::onAttentionSample,
+                        analyzeImage = viewModel::analyzeAttention
+                    )
 
                     // ── Full-screen background ────────────────────────────
                     Image(
