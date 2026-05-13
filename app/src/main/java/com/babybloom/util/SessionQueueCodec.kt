@@ -8,7 +8,11 @@ object SessionQueueCodec {
 
     fun encode(queue: List<ActivityLaunchStep>): String =
         queue.joinToString(STEP_SEPARATOR) { step ->
-            listOf(step.activityId, step.contentId.orEmpty()).joinToString(PART_SEPARATOR)
+            listOf(
+                step.activityId,
+                step.contentId.orEmpty(),
+                step.isTest.toString()
+            ).joinToString(PART_SEPARATOR)
         }
 
     fun decode(raw: String?): List<ActivityLaunchStep> {
@@ -17,10 +21,11 @@ object SessionQueueCodec {
         return raw.split(STEP_SEPARATOR)
             .filter { it.isNotBlank() }
             .mapNotNull { token ->
-                val parts = token.split(PART_SEPARATOR, limit = 2)
+                val parts = token.split(PART_SEPARATOR, limit = 3)
                 val activityId = parts.getOrNull(0)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
                 val contentId = parts.getOrNull(1)?.takeIf { it.isNotBlank() }
-                ActivityLaunchStep(activityId = activityId, contentId = contentId)
+                val isTest = parts.getOrNull(2)?.toBooleanStrictOrNull() ?: false
+                ActivityLaunchStep(activityId = activityId, contentId = contentId, isTest = isTest)
             }
     }
 }

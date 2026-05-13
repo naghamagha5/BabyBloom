@@ -1558,5 +1558,61 @@
       "letter_tah",
       "letter_ghain"
     ]
+  },
+  {
+    "id": "drag_shapes_d1",
+    "title": "صَاحِب الشَّكْل بِظِلِّهِ",
+    "description": "اسْحَب الشَّكْل إِلَى مَكَانِهِ الصَّحِيح",
+    "modality": "INTERACTIVE",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 1,
+    "activityType": "DRAG",
+    "isActive": true,
+    "configJson": "{\"dragType\":\"SHAPE_TO_OUTLINE\"}",
+    "contentIds": [
+      "shape_circle"
+    ]
+  },
+  {
+    "id": "drag_shapes_d2",
+    "title": "صَاحِب الشَّكْل بِظِلِّهِ",
+    "description": "اسْحَب الشَّكْل إِلَى مَكَانِهِ الصَّحِيح",
+    "modality": "INTERACTIVE",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 2,
+    "activityType": "DRAG",
+    "isActive": true,
+    "configJson": "{\"dragType\":\"SHAPE_TO_OUTLINE\"}",
+    "contentIds": [
+      "shape_square"
+    ]
+  },
+  {
+    "id": "drag_shapes_d3",
+    "title": "صَاحِب الشَّكْل بِظِلِّهِ",
+    "description": "اسْحَب الشَّكْل إِلَى مَكَانِهِ الصَّحِيح",
+    "modality": "INTERACTIVE",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 3,
+    "activityType": "DRAG",
+    "isActive": true,
+    "configJson": "{\"dragType\":\"SHAPE_TO_OUTLINE\"}",
+    "contentIds": [
+      "shape_triangle"
+    ]
+  },
+  {
+    "id": "drag_shapes_d4",
+    "title": "صَاحِب الشَّكْل بِظِلِّهِ",
+    "description": "اسْحَب الشَّكْل إِلَى مَكَانِهِ الصَّحِيح",
+    "modality": "INTERACTIVE",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 4,
+    "activityType": "DRAG",
+    "isActive": true,
+    "configJson": "{\"dragType\":\"SHAPE_TO_OUTLINE\"}",
+    "contentIds": [
+      "shape_rectangle"
+    ]
   }
 ]

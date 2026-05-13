@@ -170,6 +170,22 @@ const val DragColorGreenHex  : Long = 0xFF43A047L
 const val DragColorGrayHex   : Long = 0xFF333333L
 const val DragColorMidGrayHex: Long = 0xFF9E9E9EL
 
+val DragLearningColorFallback = Color(DragColorMidGrayHex)
+
+fun dragColorForContentId(colorId: String): Color = when (colorId) {
+    "color_red"    -> Color(0xFFE53935)
+    "color_blue"   -> Color(0xFF1E88E5)
+    "color_yellow" -> Color(0xFFFDD835)
+    "color_green"  -> Color(0xFF43A047)
+    "color_black"  -> Color(0xFF212121)
+    "color_white"  -> Color(0xFFF5F5F5)
+    "color_orange" -> Color(0xFFFF8A65)
+    "color_purple" -> Color(0xFF9C27B0)
+    "color_pink"   -> Color(0xFFF48FB1)
+    "color_brown"  -> Color(0xFF6D4C41)
+    else           -> DragLearningColorFallback
+}
+
 // ── Trace Game ────────────────────────────────────────────────────────────────
 val TraceCardBackground     = Color(0xFFFFF8E7)   // warm cream card background
 val TraceSvgGray            = Color(0xFFC8C8C8)   // uniform gray tint for trace SVG

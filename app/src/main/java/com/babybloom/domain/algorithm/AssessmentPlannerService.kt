@@ -15,6 +15,7 @@ enum class AssessmentCategory {
 data class AssessmentLaunchStep(
     val activityId: String,
     val contentId: String?,
+    val isTest: Boolean = false,
     val category: AssessmentCategory?,
     val level: Int,
     val isWarmUp: Boolean = false
@@ -49,6 +50,7 @@ class AssessmentPlannerService @Inject constructor(
         return AssessmentLaunchStep(
             activityId = candidate.activity.id,
             contentId = content.contentId,
+            isTest = true,
             category = category,
             level = candidate.activity.difficultyLevel,
             isWarmUp = false
@@ -72,6 +74,7 @@ class AssessmentPlannerService @Inject constructor(
                 return AssessmentLaunchStep(
                     activityId = candidate.activity.id,
                     contentId = content.contentId,
+                    isTest = true,
                     category = category,
                     level = candidate.activity.difficultyLevel,
                     isWarmUp = false
@@ -90,6 +93,7 @@ class AssessmentPlannerService @Inject constructor(
         return AssessmentLaunchStep(
             activityId = activityId,
             contentId = contentId,
+            isTest = false,
             category = null,
             level = activity.activity.difficultyLevel,
             isWarmUp = true

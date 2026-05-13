@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,6 +40,7 @@ fun ActivityShellScreen(
     queue             : List<ActivityLaunchStep> = emptyList(),
     stepIndex         : Int = 0,
     isAssessment      : Boolean = false,
+    isTest            : Boolean = false,
     assessmentCurrent : Int = 0,
     assessmentTotal   : Int = 0,
     onActivityComplete: (score: Int, total: Int, sessionId: Long, decision: SessionDecision?) -> Unit,
@@ -54,7 +55,8 @@ fun ActivityShellScreen(
             contentId = contentId,
             queue = queue,
             stepIndex = stepIndex,
-            isAssessment = isAssessment
+            isAssessment = isAssessment,
+            isTest = isTest
         )
     }
     BackHandler { viewModel.requestExit() }
@@ -174,7 +176,7 @@ fun ActivityShellScreen(
                                     .background(gameColors.background)
                             ) {
                                 Icon(
-                                    imageVector        = Icons.Default.ArrowBack,
+                                    imageVector        = Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "خروج",
                                     tint               = MaterialTheme.colorScheme.onSurface
                                 )
@@ -326,17 +328,19 @@ fun ActivityShellScreen(
                                 )
 
                                 "DRAG" -> DragGameScreen(
-                                    currentItem = currentItem,
-                                    isCalmMode  = settings.isCalmMode,
-                                    onComplete  = { isCorrect, encodedMs ->
+                                    currentItem  = currentItem,
+                                    isCalmMode   = settings.isCalmMode,
+                                    isTest       = settings.isTest,
+                                    onComplete   = { isCorrect, encodedMs, touchComplexity ->
                                         val attempts     = (encodedMs / 100_000L).toInt()
                                             .coerceAtLeast(1)
                                         val responseTime = encodedMs % 100_000L
                                         viewModel.onAnswerSubmitted(
-                                            isCorrect      = isCorrect,
-                                            contentId      = currentItem.contentId,
-                                            responseTimeMs = responseTime,
-                                            attempts       = attempts
+                                            isCorrect       = isCorrect,
+                                            contentId       = currentItem.contentId,
+                                            responseTimeMs  = responseTime,
+                                            attempts        = attempts,
+                                            touchComplexity = touchComplexity
                                         )
                                     }
                                 )

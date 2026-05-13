@@ -45,7 +45,8 @@ data class ActivitySessionSettings(
     val childId: Long,
     val userId: Long,
     val hasParentPin: Boolean,
-    val isAssessment: Boolean
+    val isAssessment: Boolean,
+    val isTest: Boolean
 )
 
 sealed class ActivityUiState {
@@ -109,13 +110,43 @@ class ActivityViewModel @Inject constructor(
         contentId: String? = null,
         queue: List<ActivityLaunchStep> = emptyList(),
         stepIndex: Int = 0,
-        isAssessment: Boolean = false
+        isAssessment: Boolean = false,
+        isTest: Boolean = false
     ) {
         _uiState.value = ActivityUiState.Loading
         viewModelScope.launch {
             lastAlgorithmOutput = null
             currentStepIndex = stepIndex
-            currentStep = ActivityLaunchStep(activityId = activityId, contentId = contentId)
+
+            // ── isTest resolution ─────────────────────────────────────────────
+            //
+            // Priority order:
+            //   1. The ActivityLaunchStep at [stepIndex] in the queue is always
+            //      authoritative — it carries the flag set by AssessmentPlannerService
+            //      or SessionPlannerService (warm-up → false, probe → true).
+            //   2. If no queue was provided (direct single-activity launch), fall
+            //      back to the raw isTest parameter passed by the caller.
+            //
+            // This ensures that within an assessment session:
+            //   • Warm-up steps  (isWarmUp=true)  → isTest=false → learning layout
+            //   • Probe steps    (isWarmUp=false)  → isTest=true  → assessment layout
+            //
+            // When isAssessment=false (normal session):
+            //   • All steps are built with isTest=false by SessionPlannerService.
+            //   • In future, the algorithm can flip isTest=true on individual steps
+            //     inside SessionPlannerService without touching this view model.
+            val stepInQueue = queue.getOrNull(stepIndex)
+            val effectiveIsTest = when {
+                stepInQueue != null -> stepInQueue.isTest   // queue step is always authoritative
+                queue.isNotEmpty()  -> isTest               // step missing (shouldn't happen); safe fallback
+                else                -> isTest               // no queue — direct single-activity launch
+            }
+
+            currentStep = ActivityLaunchStep(
+                activityId = activityId,
+                contentId  = contentId,
+                isTest     = effectiveIsTest
+            )
             sessionQueue = if (queue.isEmpty()) listOfNotNull(currentStep) else queue
 
             val child = childRepository.getById(childId) ?: run {
@@ -132,10 +163,10 @@ class ActivityViewModel @Inject constructor(
             val realSessionId = if (sessionId == 0L) {
                 sessionRepository.startSession(
                     Session(
-                        userId = child.userId,
-                        childId = childId,
-                        startTime = System.currentTimeMillis(),
-                        endTime = null,
+                        userId       = child.userId,
+                        childId      = childId,
+                        startTime    = System.currentTimeMillis(),
+                        endTime      = null,
                         isAssessment = isAssessment,
                         attentionScore = 0f
                     )
@@ -160,19 +191,20 @@ class ActivityViewModel @Inject constructor(
             }
 
             val settings = ActivitySessionSettings(
-                isCalmMode = child.uiTheme,
-                soundEffectsEnabled = child.soundEffectEnabled,
+                isCalmMode             = child.uiTheme,
+                soundEffectsEnabled    = child.soundEffectEnabled,
                 backgroundMusicEnabled = child.backgroundMusicEnabled,
-                sessionDurationMs = child.sessionDurationMinutes * 60_000L,
-                childId = child.id,
-                userId = child.userId,
-                hasParentPin = user.parentLockPin != null,
-                isAssessment = isAssessment
+                sessionDurationMs      = child.sessionDurationMinutes * 60_000L,
+                childId                = child.id,
+                userId                 = child.userId,
+                hasParentPin           = user.parentLockPin != null,
+                isAssessment           = isAssessment,
+                isTest                 = effectiveIsTest   // resolved above
             )
 
             appSoundSettings.startSession(
                 backgroundMusicEnabled = settings.backgroundMusicEnabled,
-                soundEffectsEnabled = settings.soundEffectsEnabled
+                soundEffectsEnabled    = settings.soundEffectsEnabled
             )
 
             activityStartMs = System.currentTimeMillis()
@@ -180,8 +212,8 @@ class ActivityViewModel @Inject constructor(
 
             _uiState.value = ActivityUiState.Playing(
                 activityWithContent = data,
-                sessionSettings = settings,
-                sessionRemainingMs = settings.sessionDurationMs
+                sessionSettings     = settings,
+                sessionRemainingMs  = settings.sessionDurationMs
             )
             if (isAssessment) {
                 timerJob?.cancel()
@@ -208,12 +240,12 @@ class ActivityViewModel @Inject constructor(
                 _uiState.value = ActivityUiState.Completed(
                     current.score,
                     current.activityWithContent.contentItems.size,
-                    sessionId = this@ActivityViewModel.sessionId,
+                    sessionId  = this@ActivityViewModel.sessionId,
                     activityId = current.activityWithContent.activity.id,
-                    contentId = current.activityWithContent.contentItems
+                    contentId  = current.activityWithContent.contentItems
                         .getOrNull(current.currentIndex)
                         ?.contentId,
-                    stepIndex = currentStepIndex,
+                    stepIndex  = currentStepIndex,
                     lastAlgorithmOutput?.let { resolveDecision(it) }
                 )
             }
@@ -245,10 +277,9 @@ class ActivityViewModel @Inject constructor(
             else appSoundSettings.playSoundEffect(SoundEffect.WRONG)
         }
 
-        // Calculate metrics based on total attempts
-        val finalCorrectCount = if (isCorrect) 1 else 0
+        val finalCorrectCount   = if (isCorrect) 1 else 0
         val finalIncorrectCount = (attempts - finalCorrectCount).coerceAtLeast(0)
-        val calculatedScore = if (attempts > 0) {
+        val calculatedScore     = if (attempts > 0) {
             finalCorrectCount.toFloat() / attempts.toFloat()
         } else 0f
 
@@ -275,19 +306,19 @@ class ActivityViewModel @Inject constructor(
             if (!current.sessionSettings.isAssessment) {
                 val activity = activityRepository.getById(activityId) ?: return@launch
                 val signal = ActivitySignal(
-                    childId = current.sessionSettings.childId,
-                    activityId = activityId,
-                    skillArea = activity.skillArea,
-                    modality = activity.modality,
-                    activityType = activity.activityType,
-                    difficultyLevel = activity.difficultyLevel,
-                    correctCount = finalCorrectCount,
-                    incorrectCount = finalIncorrectCount,
-                    attempts = attempts,
-                    attentionScore = attentionScore,
-                    touchComplexity = touchComplexity,
-                    speechConfidence = speechConfidence,
-                    durationMs = responseTimeMs,
+                    childId            = current.sessionSettings.childId,
+                    activityId         = activityId,
+                    skillArea          = activity.skillArea,
+                    modality           = activity.modality,
+                    activityType       = activity.activityType,
+                    difficultyLevel    = activity.difficultyLevel,
+                    correctCount       = finalCorrectCount,
+                    incorrectCount     = finalIncorrectCount,
+                    attempts           = attempts,
+                    attentionScore     = attentionScore,
+                    touchComplexity    = touchComplexity,
+                    speechConfidence   = speechConfidence,
+                    durationMs         = responseTimeMs,
                     expectedDurationMs = 60_000L
                 )
                 val profile = childProfileRepository.getByChildId(current.sessionSettings.childId)
@@ -298,16 +329,14 @@ class ActivityViewModel @Inject constructor(
 
                     if (algorithmEngine.computeItemScore(signal) >= AlgorithmWeights.LEVEL_UP_THRESHOLD) {
                         levelMasteryRepository.incrementMastered(
-                            childId = current.sessionSettings.childId,
+                            childId   = current.sessionSettings.childId,
                             skillArea = activity.skillArea,
-                            level = activity.difficultyLevel
+                            level     = activity.difficultyLevel
                         )
                     }
                 }
             }
 
-            // For the UI score, keep incrementing by 1 if the child eventually got it right,
-            // while the DB row keeps the normalized item score.
             val newScore  = if (isCorrect) current.score + 1 else current.score
             val nextIndex = current.currentIndex + 1
 
@@ -318,12 +347,12 @@ class ActivityViewModel @Inject constructor(
                 _uiState.value = ActivityUiState.Completed(
                     newScore,
                     current.activityWithContent.contentItems.size,
-                    sessionId = this@ActivityViewModel.sessionId,
+                    sessionId  = this@ActivityViewModel.sessionId,
                     activityId = current.activityWithContent.activity.id,
-                    contentId = current.activityWithContent.contentItems
+                    contentId  = current.activityWithContent.contentItems
                         .getOrNull(current.currentIndex)
                         ?.contentId,
-                    stepIndex = currentStepIndex,
+                    stepIndex  = currentStepIndex,
                     lastAlgorithmOutput?.let { resolveDecision(it) }
                 )
             } else {
@@ -378,6 +407,7 @@ class ActivityViewModel @Inject constructor(
             ))
         }
     }
+
     // ── Parent Lock ───────────────────────────────────────────────────────────
 
     fun requestExit() {
@@ -446,9 +476,9 @@ class ActivityViewModel @Inject constructor(
     private fun resolveDecision(output: AlgorithmOutput): SessionDecision? {
         val step = currentStep ?: return null
         return algorithmEngine.resolveSessionDecision(
-            output = output,
-            currentStep = step,
-            queue = sessionQueue,
+            output       = output,
+            currentStep  = step,
+            queue        = sessionQueue,
             currentIndex = currentStepIndex
         )
     }

@@ -176,6 +176,7 @@ private fun AssessmentPlayingContent(
         childId = childId,
         contentId = state.currentContentId,
         isAssessment = true,
+        isTest = state.isTest,
         assessmentCurrent = state.currentIndex + 1,
         assessmentTotal = state.totalCount,
         onActivityComplete = { score, total, _, _ -> onComplete(score, total) },

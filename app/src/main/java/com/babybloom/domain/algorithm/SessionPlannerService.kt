@@ -114,7 +114,8 @@ class SessionPlannerService @Inject constructor(
                     .add(
                         ActivityLaunchStep(
                             activityId = activityWithContent.activity.id,
-                            contentId = item.contentId
+                            contentId = item.contentId,
+                            isTest = false
                         )
                     )
             }
@@ -136,7 +137,8 @@ class SessionPlannerService @Inject constructor(
 
                     ActivityLaunchStep(
                         activityId = storyActivity.id,
-                        contentId = matchingItem.contentId
+                        contentId = matchingItem.contentId,
+                        isTest = false
                     )
                 }
 

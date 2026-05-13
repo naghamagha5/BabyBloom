@@ -36,7 +36,8 @@ sealed class AssessmentUiState {
         val currentContentId: String?,
         val sessionId: Long,
         val currentIndex: Int,
-        val totalCount: Int
+        val totalCount: Int,
+        val isTest: Boolean
     ) : AssessmentUiState()
     object Bootstrapping : AssessmentUiState()
     object Complete : AssessmentUiState()
@@ -231,7 +232,8 @@ class AssessmentViewModel @Inject constructor(
             currentContentId = step.contentId,
             sessionId = sessionId,
             currentIndex = displayIndex,
-            totalCount = ASSESSMENT_TOTAL_DISPLAY
+            totalCount = ASSESSMENT_TOTAL_DISPLAY,
+            isTest = step.isTest
         )
     }
 
