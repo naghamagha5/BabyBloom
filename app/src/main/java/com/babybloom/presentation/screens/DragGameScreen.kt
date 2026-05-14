@@ -37,6 +37,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -67,6 +68,8 @@ import com.babybloom.ui.theme.GameCalmSwatch3
 import com.babybloom.ui.theme.GameCalmSwatch4
 import com.babybloom.ui.theme.GameCalmSwatch5
 import com.babybloom.ui.theme.LocalGameColorScheme
+import com.babybloom.ui.theme.TraceBadgeBorder
+import com.babybloom.ui.theme.TraceBadgeText
 import com.babybloom.ui.theme.WarmPeach
 import com.babybloom.ui.theme.dragColorForContentId
 import com.babybloom.util.AssetPathResolver
@@ -77,9 +80,10 @@ import kotlin.math.roundToInt
 // ── Layout constants ──────────────────────────────────────────────────────────
 private val DROP_RADIUS_DP              = 90.dp
 private val CAGE_DROP_RADIUS_FACTOR     = 1.8f
-private val COLOR_GAME_SHAPE_SIZE              = 180.dp
+private val COLOR_GAME_SHAPE_SIZE              = 220.dp
 private val COLOR_GAME_PEN_BOX_H               = 110.dp
 private val COLOR_GAME_SWATCH_H                = 96.dp
+private val COLOR_GAME_SWATCH_H_TEST           = 114.dp
 private val COLOR_GAME_LEARNING_SWATCH_H       = 132.dp
 private const val COLOR_GAME_INSTRUCTION_SIZE_SP     = 18
 private val COLOR_SWATCH_TILE_RADIUS           = 18.dp
@@ -95,16 +99,16 @@ private val CAGE_ANIMAL_SIZE               = 280.dp
 private val CAGE_IMG_PADDING               = 0.dp
 private val CAGE_INTERIOR_HORPAD_FRACTION  = 0.22f
 private val CAGE_INTERIOR_Y_OFFSET_FRACTION= 0.08f
-private val CAGE_PROGRESS_DOT_SIZE         = 18.dp
 private val CAGE_IN_CAGE_IMG_MAX           = 120.dp
 private val CAGE_IN_CAGE_IMG_MIN           = 50.dp
 private val CAGE_INSTRUCTION_SIZE_SP       = 18
 private val CAGE_X_CENTER_ADJUST           = (-18).dp
 private val ATTEMPT_DOT_SIZE               = 12.dp
-// Shape game — bigger tiles, no borders
-private val SHAPE_TILE_SIZE                = 130.dp   // was 96.dp
-private val SHAPE_OUTLINE_SLOT_SIZE        = 130.dp   // was 110.dp
-private val SHAPE_DROP_RADIUS_DP           = 90.dp    // slightly larger to match bigger tiles
+
+// Shape game — bigger tiles
+private val SHAPE_TILE_SIZE                = 180.dp
+private val SHAPE_OUTLINE_SLOT_SIZE        = 190.dp
+private val SHAPE_DROP_RADIUS_DP           = 115.dp
 private val SHAPE_INSTRUCTION_SIZE_SP      = 18
 
 // ── Drag/animation constants ──────────────────────────────────────────────────
@@ -119,37 +123,94 @@ private const val HINT_WOBBLE_PAUSE_MS     = 300L
 private const val REJECT_ANIM_DURATION_MS  = 350
 private const val SHAKE_ANIM_DURATION_MS   = 500
 
-// ── Shape-game color palettes (mode-driven, never hardcoded per shape) ────────
+// Hand hint animation constants
+private const val HAND_HINT_CYCLE_MS       = 2600
+private const val HAND_HINT_PAUSE_MS       = 1_000L
+
+// ── Pen tip offset (from center to tip in local space, at -25deg rotation) ──
+private const val PEN_TIP_X_FRACTION = -0.36f
+private const val PEN_TIP_Y_FRACTION =  0.40f
+
+// ── Shape-game color palettes ─────────────────────────────────────────────────
 private val calmShapeSwatches = listOf(
-    GameCalmSwatch1,
-    GameCalmSwatch2,
-    GameCalmSwatch3,
-    GameCalmSwatch4,
-    GameCalmSwatch5
+    GameCalmSwatch1, GameCalmSwatch2, GameCalmSwatch3, GameCalmSwatch4, GameCalmSwatch5
 )
 private val activeShapeSwatches = listOf(
-    GameActiveSwatch1,
-    GameActiveSwatch2,
-    GameActiveSwatch3,
-    GameActiveSwatch4,
-    GameActiveSwatch5
+    GameActiveSwatch1, GameActiveSwatch2, GameActiveSwatch3, GameActiveSwatch4, GameActiveSwatch5
 )
 
-/**
- * Returns a stable color for [index] based on the current game mode.
- * Colors cycle through the mode-appropriate swatch list.
- * [isCalmMode] is derived from the GameColorScheme accent — callers pass it
- * from [DragGameState.isCalmMode] or detect it via the LocalGameColorScheme.
- */
 private fun shapeColorForIndex(index: Int, isCalmMode: Boolean): Color {
     val swatches = if (isCalmMode) calmShapeSwatches else activeShapeSwatches
     return swatches[index % swatches.size]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Instruction badge
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun DragInstructionBadge(text: String, accentColor: Color = TraceBadgeText) {
+    Box(
+        modifier = Modifier
+            .border(1.5.dp, TraceBadgeBorder, RoundedCornerShape(50))
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text       = text,
+                fontSize   = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color      = accentColor,
+                maxLines   = 1,
+                style      = LocalTextStyle.current.copy(textDirection = TextDirection.Rtl)
+            )
+            Spacer(Modifier.width(8.dp))
+            Image(
+                painter            = painterResource(R.drawable.front_hand),
+                contentDescription = null,
+                modifier           = Modifier.size(26.dp)
+            )
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Color name badge for test layout
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun ColorNameBadge(label: String, colorId: String) {
+    val displayColor = dragColorForContentId(colorId)
+    val isNearWhite  = displayColor.red   > 0.92f &&
+            displayColor.green > 0.92f &&
+            displayColor.blue  > 0.92f
+    val badgeBg   = if (isNearWhite) Color(0xFF2C2C2E) else Color.White
+    val textColor = if (isNearWhite) Color.White       else displayColor
+
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(badgeBg)
+            .border(2.dp, displayColor.copy(alpha = 0.55f), RoundedCornerShape(50))
+            .padding(horizontal = 28.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text       = label,
+            fontSize   = 28.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color      = textColor,
+            textAlign  = TextAlign.Center,
+            style      = LocalTextStyle.current.copy(textDirection = TextDirection.Rtl)
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Entry point
 // ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun DragGameScreen(
     currentItem : ActivityContent,
@@ -187,7 +248,6 @@ fun DragGameScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             RoundIndicator(state)
-            // Game content — fills the available space; AttemptsRow sits at the bottom
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -200,7 +260,6 @@ fun DragGameScreen(
                     DragType.SHAPE_TO_OUTLINE -> ShapeToOutlineGame(state, viewModel, isCalmMode)
                 }
             }
-            // ── Attempts row — now at the BOTTOM, dots fill as attempts are used ──
             AttemptsRow(state)
         }
         if (state.showCelebration) {
@@ -240,7 +299,7 @@ private fun RoundIndicator(state: DragGameState) {
     }
 }
 
-// ── Attempts row — BOTTOM, empty → fill as attempts are used ─────────────────
+// ── Attempts row ──────────────────────────────────────────────────────────────
 @Composable
 private fun AttemptsRow(state: DragGameState) {
     val colors = LocalGameColorScheme.current
@@ -280,18 +339,23 @@ private fun ColorToPaintGame(
     viewModel: DragGameViewModel
 ) {
     val colors    = LocalGameColorScheme.current
+    val density   = LocalDensity.current
     val resetKey  = "${state.correctId}_${state.resetTrigger}"
     val strokeKey = "${resetKey}_${state.attemptsUsed}"
 
     var shapeCenterPx   by remember { mutableStateOf(Offset.Zero) }
     var shapeHalfSizePx by remember { mutableFloatStateOf(0f) }
     var boxTopLeftPx    by remember { mutableStateOf(Offset.Zero) }
-    val penStrokePts    = remember(strokeKey) { mutableStateListOf<Offset>() }
+
+    val penStrokePts = remember(strokeKey) { mutableStateListOf<Offset>() }
 
     val localPenColorIdState   = remember(strokeKey) { mutableStateOf<String?>(null) }
     val lastPickedColorIdState = remember(strokeKey) { mutableStateOf<String?>(null) }
     var localPenColorId   by localPenColorIdState
     var lastPickedColorId by lastPickedColorIdState
+
+    // Pen must touch the color box before it can paint the shape
+    val penHasVisitedColorBox = remember(strokeKey) { mutableStateOf(false) }
 
     val shakeAnim = remember { Animatable(0f) }
     LaunchedEffect(state.attemptsUsed) {
@@ -299,7 +363,7 @@ private fun ColorToPaintGame(
             shakeAnim.snapTo(0f)
             shakeAnim.animateTo(0f, animationSpec = keyframes {
                 durationMillis = SHAKE_ANIM_DURATION_MS
-                -22f at 60; 22f at 120; -16f at 200; 16f at 280; -8f at 360; 0f at SHAKE_ANIM_DURATION_MS
+                (-22f) at 60; 22f at 120; (-16f) at 200; 16f at 280; (-8f) at 360; 0f at SHAKE_ANIM_DURATION_MS
             })
         }
     }
@@ -310,7 +374,7 @@ private fun ColorToPaintGame(
             while (true) {
                 hintAnim.animateTo(0f, animationSpec = keyframes {
                     durationMillis = HINT_WOBBLE_DURATION_MS
-                    -6f at 100; 6f at 250; -4f at 380; 4f at 490; -2f at 580; 0f at HINT_WOBBLE_DURATION_MS
+                    (-6f) at 100; 6f at 250; (-4f) at 380; 4f at 490; (-2f) at 580; 0f at HINT_WOBBLE_DURATION_MS
                 })
                 delay(HINT_WOBBLE_PAUSE_MS)
             }
@@ -324,269 +388,455 @@ private fun ColorToPaintGame(
         state.colorOptions.find { it.colorId == id }
     }?.let { option -> dragColorForContentId(option.colorId) }
 
-    Column(
-        modifier            = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text      = stringResource(R.string.drag_color_instruction),
-            style     = MaterialTheme.typography.bodyLarge.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize   = COLOR_GAME_INSTRUCTION_SIZE_SP.sp
-            ),
-            textAlign = TextAlign.Center,
-            modifier  = Modifier.padding(bottom = 8.dp)
-        )
-
-        val correctDisplayColor = dragColorForContentId(state.correctId)
-        Text(
-            text  = state.currentLabel,
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold,
-                color      = correctDisplayColor
-            ),
-            textAlign = TextAlign.Center,
-            modifier  = Modifier.padding(bottom = 12.dp)
-        )
-
-        Box(
-            modifier = Modifier
-                .size(COLOR_GAME_SHAPE_SIZE)
-                .graphicsLayer { translationX = shakeAnim.value }
-                .onGloballyPositioned { coords ->
-                    val pos         = coords.positionInRoot()
-                    val sz          = coords.size
-                    boxTopLeftPx    = pos
-                    shapeCenterPx   = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
-                    shapeHalfSizePx = sz.width / 2f
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
-                val path = buildShapePath(size, state.colorShapeId)
-                val base = when {
-                    state.isCorrect                      -> activeColor ?: colors.background
-                    state.isAnswered && !state.isCorrect -> colors.wrong.copy(alpha = 0.25f)
-                    else                                 -> colors.background
-                }
-                drawPath(path = path, color = base)
-                if (penStrokePts.size >= 2 && activeColor != null) {
-                    clipPath(path) {
-                        val strokePath = Path()
-                        strokePath.moveTo(penStrokePts[0].x, penStrokePts[0].y)
-                        penStrokePts.drop(1).forEach { strokePath.lineTo(it.x, it.y) }
-                        drawPath(
-                            path  = strokePath,
-                            color = activeColor,
-                            style = Stroke(
-                                width = 40.dp.toPx(),
-                                cap   = StrokeCap.Round,
-                                join  = StrokeJoin.Round
-                            )
-                        )
-                    }
-                }
-                drawPath(
-                    path  = path,
-                    color = when {
-                        state.isCorrect                      -> colors.correct
-                        state.isAnswered && !state.isCorrect -> colors.wrong
-                        else                                 -> colors.accent
-                    },
-                    style = Stroke(width = 10f)
-                )
+    if (state.isTest) {
+        TestColorLayoutV2(
+            state                  = state,
+            strokeKey              = strokeKey,
+            shapeSize              = COLOR_GAME_SHAPE_SIZE,
+            penStrokePts           = penStrokePts,
+            activeColor            = activeColor,
+            hintAnim               = hintAnim,
+            shakeAnim              = shakeAnim,
+            viewModel              = viewModel,
+            lastPickedColorIdState = lastPickedColorIdState,
+            onLocalColorId         = { newId ->
+                localPenColorId = newId
+                if (newId != null) lastPickedColorId = newId
             }
-            when {
-                state.isCorrect ->
-                    Text(
-                        stringResource(R.string.drag_checkmark),
-                        fontSize   = 60.sp,
-                        color      = Color.White,
-                        fontWeight = FontWeight.Bold
+        )
+    } else {
+        // ── Learning layout ──────────────────────────────────────────────────
+        // Pen rests centered on the shape.
+        // Hand hint animates from the pen resting position → color swatch center.
+
+        var penRestCenter      by remember { mutableStateOf(Offset.Zero) }
+        var swatchCenter       by remember { mutableStateOf(Offset.Zero) }
+        var hintFromCenter     by remember { mutableStateOf(Offset.Zero) }
+        var hintToCenter       by remember { mutableStateOf(Offset.Zero) }
+        val handProgress       = remember { Animatable(0f) }
+        var isColorPenDragging by remember { mutableStateOf(false) }
+        // Track the outer Box's root origin so we can convert shapeCenterPx
+        // (which is in root coords) into an offset local to this Box.
+        var outerBoxOriginPx   by remember { mutableStateOf(Offset.Zero) }
+
+        // ── Hand hint: pen resting pos → color swatch center ────────────────
+        // Keys: hintColorId (starts/restarts the hint) + isAnswered (cancels it).
+        // Loops until the question is answered or the user starts dragging.
+        // The overlay itself is suppressed via !isColorPenDragging so it never
+        // flickers while the user is actively holding the pen.
+        LaunchedEffect(state.hintColorId, state.isAnswered) {
+            if (state.hintColorId != null && !state.isAnswered) {
+                // Wait for both anchor points to be measured by the layout pass.
+                while (penRestCenter == Offset.Zero || swatchCenter == Offset.Zero) {
+                    delay(16L)
+                }
+                while (true) {
+                    // Snapshot anchors each cycle so the hint follows layout changes
+                    // (e.g. first render offset settling).
+                    hintFromCenter = penRestCenter
+                    hintToCenter   = swatchCenter
+                    handProgress.snapTo(0f)
+                    handProgress.animateTo(
+                        targetValue   = 1f,
+                        animationSpec = tween(
+                            durationMillis = HAND_HINT_CYCLE_MS,
+                            easing         = EaseInOutCubic
+                        )
                     )
-                state.isAnswered && !state.isCorrect ->
-                    Text(
-                        stringResource(R.string.drag_crossmark),
-                        fontSize   = 60.sp,
-                        color      = colors.wrong,
-                        fontWeight = FontWeight.Bold
-                    )
-                penStrokePts.isEmpty() ->
-                    Text(
-                        stringResource(R.string.drag_color_shape_placeholder),
-                        fontSize   = 60.sp,
-                        fontWeight = FontWeight.Bold,
-                        color      = colors.accent
-                    )
+                    delay(HAND_HINT_PAUSE_MS)
+                }
+            } else {
+                // Cancels any in-flight animation immediately when the question
+                // is answered or the hint is cleared by the ViewModel.
+                handProgress.snapTo(0f)
             }
         }
 
-        BoxWithConstraints(
-            modifier         = Modifier.fillMaxWidth().weight(1f),
-            contentAlignment = Alignment.Center
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .onGloballyPositioned { coords ->
+                    outerBoxOriginPx = coords.positionInRoot()
+                }
         ) {
-            if (state.isTest) {
-                TestColorLayout(
-                    state                  = state,
-                    strokeKey              = strokeKey,
-                    shapeCenterPxState     = remember { derivedStateOf { shapeCenterPx } },
-                    shapeHalfSizePxState   = remember { derivedStateOf { shapeHalfSizePx } },
-                    boxTopLeftPxState      = remember { derivedStateOf { boxTopLeftPx } },
-                    penStrokePts           = penStrokePts,
-                    activeColor            = activeColor,
-                    hintAnim               = hintAnim,
-                    viewModel              = viewModel,
-                    lastPickedColorIdState = lastPickedColorIdState,
-                    onLocalColorId         = { newId ->
-                        localPenColorId = newId
-                        if (newId != null) lastPickedColorId = newId
-                    }
-                )
-            } else {
-                state.colorOptions.firstOrNull()?.let { option ->
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+
+            Column(
+                modifier            = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Instruction badge — pinned at top
+                DragInstructionBadge(text = stringResource(R.string.drag_color_instruction))
+
+                Spacer(Modifier.weight(0.55f))
+
+                // Shape canvas
+                Box(
+                    modifier = Modifier
+                        .size(COLOR_GAME_SHAPE_SIZE)
+                        .graphicsLayer { translationX = shakeAnim.value }
+                        .onGloballyPositioned { coords ->
+                            val pos         = coords.positionInRoot()
+                            val sz          = coords.size
+                            boxTopLeftPx    = pos
+                            shapeCenterPx   = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
+                            shapeHalfSizePx = sz.width / 2f
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    ColorShapeCanvas(
+                        state        = state,
+                        penStrokePts = penStrokePts,
+                        activeColor  = if (penHasVisitedColorBox.value) activeColor else null,
+                        colors       = colors
+                    )
+                }
+
+                Spacer(Modifier.height(28.dp))
+
+                val option = state.colorOptions.firstOrNull()
+                if (option != null) {
+                    // Color swatch tile — capture its center for the hand hint end-point
+                    Box(
+                        modifier = Modifier.onGloballyPositioned { coords ->
+                            val pos = coords.positionInRoot()
+                            val sz  = coords.size
+                            swatchCenter = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
+                        },
+                        contentAlignment = Alignment.Center
                     ) {
-                        DraggablePen(
-                            colorOption    = option,
-                            penBoxDp       = COLOR_GAME_PEN_BOX_H,
-                            isAnswered     = state.isAnswered,
-                            resetKey       = strokeKey,
-                            fillColor      = activeColor,
-                            hintRotation   = 0f,
-                            onDragStarted  = { viewModel.onColorPickedUp(option.colorId) },
-                            onDragFinished = { viewModel.onPenDragReleased() },
-                            onPenMove      = { fingerPx, drag ->
-                                viewModel.onTouchPoint(fingerPx)
-                                if (!state.isAnswered && state.fillProgress < 1f &&
-                                    (fingerPx - shapeCenterPx).getDistance() < shapeHalfSizePx * 1.4f
-                                ) {
-                                    penStrokePts.add(fingerPx - boxTopLeftPx)
-                                    viewModel.onPenMovedOverShape(drag.getDistance(), option.colorId)
-                                }
-                            }
-                        )
-                        Spacer(Modifier.height(8.dp))
                         ColorSwatchTile(
                             option     = option,
                             size       = COLOR_GAME_LEARNING_SWATCH_H,
                             isAnswered = state.isAnswered
                         )
                     }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    ColorNameBadge(
+                        label   = state.currentLabel,
+                        colorId = option.colorId
+                    )
                 }
+
+                Spacer(Modifier.weight(1.45f))
+            }
+
+            // ── Pen overlay ──────────────────────────────────────────────────
+            // Anchored to TopStart and offset so the pen box is centered on the
+            // shape. The pen's rest center is captured here for the hand hint
+            // start-point (only while not dragging so it stays at the idle pos).
+            val option = state.colorOptions.firstOrNull()
+            if (option != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .onGloballyPositioned { coords ->
+                            // Only update the rest-center while the pen is idle so the
+                            // hand hint always starts from the visual resting position.
+                            if (!isColorPenDragging) {
+                                val pos = coords.positionInRoot()
+                                val sz  = coords.size
+                                penRestCenter = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
+                            }
+                        }
+                        .offset {
+                            val penBoxPx = COLOR_GAME_PEN_BOX_H.toPx()
+                            IntOffset(
+                                x = (shapeCenterPx.x - outerBoxOriginPx.x - penBoxPx / 2f).roundToInt(),
+                                y = (shapeCenterPx.y - outerBoxOriginPx.y - penBoxPx / 2f).roundToInt(),
+                            )
+                        }
+                ) {
+                    DraggablePen(
+                        colorOption    = option,
+                        penBoxDp       = COLOR_GAME_PEN_BOX_H,
+                        isAnswered     = state.isAnswered,
+                        resetKey       = strokeKey,
+                        fillColor      = if (penHasVisitedColorBox.value) activeColor else null,
+                        // Wobble is suppressed while the user is dragging so the
+                        // rotation doesn't fight with the finger position.
+                        hintRotation   = if (state.hintColorId != null && !isColorPenDragging)
+                            hintAnim.value else 0f,
+                        onDragStarted  = {
+                            isColorPenDragging = true
+                            viewModel.onColorPickedUp(option.colorId)
+                        },
+                        onDragFinished = {
+                            isColorPenDragging = false
+                            viewModel.onPenDragReleased()
+                        },
+                        onPenMove      = { fingerPx, drag ->
+                            viewModel.onTouchPoint(fingerPx)
+
+                            if (!penHasVisitedColorBox.value && swatchCenter != Offset.Zero) {
+                                val swatchRadiusPx = with(density) {
+                                    (COLOR_GAME_LEARNING_SWATCH_H / 2f).toPx() * 1.3f
+                                }
+                                if ((fingerPx - swatchCenter).getDistance() < swatchRadiusPx) {
+                                    penHasVisitedColorBox.value = true
+                                    viewModel.onColorPickedUp(option.colorId)
+                                }
+                            }
+
+                            if (penHasVisitedColorBox.value &&
+                                !state.isAnswered && state.fillProgress < 1f &&
+                                shapeCenterPx != Offset.Zero &&
+                                (fingerPx - shapeCenterPx).getDistance() < shapeHalfSizePx * 1.4f
+                            ) {
+                                penStrokePts.add(fingerPx - boxTopLeftPx)
+                                viewModel.onPenMovedOverShape(drag.getDistance(), option.colorId)
+                            }
+                        }
+                    )
+                }
+            }
+
+            // ── Hand hint overlay ────────────────────────────────────────────
+            // Rendered above everything (zIndex = 5 inside HandHintOverlay).
+            // Conditions:
+            //   • hintColorId set by the ViewModel (hint requested)
+            //   • question still open
+            //   • both anchor points measured (non-Zero)
+            //   • user is NOT currently dragging (avoids overlay fighting the finger)
+            if (state.hintColorId != null && !state.isAnswered &&
+                hintFromCenter != Offset.Zero && hintToCenter != Offset.Zero &&
+                !isColorPenDragging
+            ) {
+                HandHintOverlay(
+                    progress    = handProgress.value,
+                    startOffset = hintFromCenter,
+                    endOffset   = hintToCenter
+                )
             }
         }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test colour layout — 4 swatches in corners, pen in center
+// Color shape canvas (shared between learning and test layouts)
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun BoxWithConstraintsScope.TestColorLayout(
+private fun ColorShapeCanvas(
+    state       : DragGameState,
+    penStrokePts: List<Offset>,
+    activeColor : Color?,
+    colors      : com.babybloom.ui.theme.GameColorScheme
+) {
+    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+        val path = buildShapePath(size, state.colorShapeId)
+        val base = when {
+            state.isCorrect                      -> activeColor ?: colors.background
+            state.isAnswered && !state.isCorrect -> colors.wrong.copy(alpha = 0.25f)
+            else                                 -> colors.background
+        }
+        drawPath(path = path, color = base)
+        if (penStrokePts.size >= 2 && activeColor != null) {
+            clipPath(path) {
+                val strokePath = Path()
+                strokePath.moveTo(penStrokePts[0].x, penStrokePts[0].y)
+                penStrokePts.drop(1).forEach { strokePath.lineTo(it.x, it.y) }
+                drawPath(
+                    path  = strokePath,
+                    color = activeColor,
+                    style = Stroke(
+                        width = 40.dp.toPx(),
+                        cap   = StrokeCap.Round,
+                        join  = StrokeJoin.Round
+                    )
+                )
+            }
+        }
+        drawPath(
+            path  = path,
+            color = when {
+                state.isCorrect                      -> colors.correct
+                state.isAnswered && !state.isCorrect -> colors.wrong
+                else                                 -> colors.accent
+            },
+            style = Stroke(width = 10f)
+        )
+    }
+    when {
+        state.isCorrect ->
+            Text(
+                stringResource(R.string.drag_checkmark),
+                fontSize   = 60.sp,
+                color      = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        state.isAnswered && !state.isCorrect ->
+            Text(
+                stringResource(R.string.drag_crossmark),
+                fontSize   = 60.sp,
+                color      = colors.wrong,
+                fontWeight = FontWeight.Bold
+            )
+        penStrokePts.isEmpty() ->
+            Text(
+                stringResource(R.string.drag_color_shape_placeholder),
+                fontSize   = 60.sp,
+                fontWeight = FontWeight.Bold,
+                color      = colors.accent
+            )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test colour layout V2
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun TestColorLayoutV2(
     state                  : DragGameState,
     strokeKey              : Any,
-    shapeCenterPxState     : State<Offset>,
-    shapeHalfSizePxState   : State<Float>,
-    boxTopLeftPxState      : State<Offset>,
+    shapeSize              : Dp,
     penStrokePts           : androidx.compose.runtime.snapshots.SnapshotStateList<Offset>,
     activeColor            : Color?,
     hintAnim               : Animatable<Float, AnimationVector1D>,
+    shakeAnim              : Animatable<Float, AnimationVector1D>,
     viewModel              : DragGameViewModel,
     lastPickedColorIdState : MutableState<String?>,
     onLocalColorId         : (String?) -> Unit
 ) {
+    val colors       = LocalGameColorScheme.current
+    val density      = LocalDensity.current
+    val pickRadiusPx = with(density) { COLOR_PICK_RADIUS_DP.toPx() }
+
     val swatchCenters = remember(strokeKey) { mutableStateMapOf<String, Offset>() }
-    val pickRadiusPx  = with(LocalDensity.current) { COLOR_PICK_RADIUS_DP.toPx() }
+    var shapeCenterPx   by remember(strokeKey) { mutableStateOf(Offset.Zero) }
+    var shapeHalfSizePx by remember(strokeKey) { mutableFloatStateOf(0f) }
+    var boxTopLeftPx    by remember(strokeKey) { mutableStateOf(Offset.Zero) }
 
-    val horzEdgePad   = 15.dp
-    val topEdgePad    = 90.dp
-    val bottomEdgePad = 90.dp
+    Column(
+        modifier            = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        DragInstructionBadge(text = stringResource(R.string.drag_color_instruction))
+        Spacer(Modifier.height(6.dp))
 
-    val cornerAlignments = listOf(
-        Alignment.TopStart,
-        Alignment.TopEnd,
-        Alignment.BottomStart,
-        Alignment.BottomEnd
-    )
+        ColorNameBadge(
+            label   = state.currentLabel,
+            colorId = state.correctId
+        )
+        Spacer(Modifier.height(4.dp))
 
-    state.colorOptions.take(4).forEachIndexed { idx, option ->
-        val alignment = cornerAlignments[idx]
         Box(
-            modifier = Modifier
-                .align(alignment)
-                .padding(
-                    start  = if (alignment == Alignment.TopStart    || alignment == Alignment.BottomStart) horzEdgePad   else 0.dp,
-                    end    = if (alignment == Alignment.TopEnd      || alignment == Alignment.BottomEnd)   horzEdgePad   else 0.dp,
-                    top    = if (alignment == Alignment.TopStart    || alignment == Alignment.TopEnd)      topEdgePad    else 0.dp,
-                    bottom = if (alignment == Alignment.BottomStart || alignment == Alignment.BottomEnd)   bottomEdgePad else 0.dp,
-                )
-                .onGloballyPositioned { coords ->
-                    val pos = coords.positionInRoot()
-                    val sz  = coords.size
-                    swatchCenters[option.colorId] = Offset(
-                        pos.x + sz.width  / 2f,
-                        pos.y + sz.height / 2f
+            modifier         = Modifier.fillMaxWidth().weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            val swatchSize = COLOR_GAME_SWATCH_H_TEST
+            val edgePad    = 8.dp
+            val vertInset  = 38.dp
+
+            val cornerAlignments = listOf(
+                Alignment.TopStart,
+                Alignment.TopEnd,
+                Alignment.BottomStart,
+                Alignment.BottomEnd
+            )
+
+            for ((idx, option) in state.colorOptions.take(4).withIndex()) {
+                val alignment = cornerAlignments[idx]
+                val isTop    = alignment == Alignment.TopStart    || alignment == Alignment.TopEnd
+                val isBottom = alignment == Alignment.BottomStart || alignment == Alignment.BottomEnd
+                val isLeft   = alignment == Alignment.TopStart    || alignment == Alignment.BottomStart
+                val isRight  = alignment == Alignment.TopEnd      || alignment == Alignment.BottomEnd
+
+                Box(
+                    modifier = Modifier
+                        .align(alignment)
+                        .padding(
+                            start  = if (isLeft)   edgePad   else 0.dp,
+                            end    = if (isRight)  edgePad   else 0.dp,
+                            top    = if (isTop)    vertInset else 0.dp,
+                            bottom = if (isBottom) vertInset else 0.dp,
+                        )
+                        .onGloballyPositioned { coords ->
+                            val pos = coords.positionInRoot()
+                            val sz  = coords.size
+                            swatchCenters[option.colorId] = Offset(
+                                pos.x + sz.width  / 2f,
+                                pos.y + sz.height / 2f
+                            )
+                        }
+                ) {
+                    ColorSwatchTile(
+                        option     = option,
+                        size       = swatchSize,
+                        isAnswered = state.isAnswered
                     )
                 }
-        ) {
-            ColorSwatchTile(
-                option     = option,
-                size       = COLOR_GAME_SWATCH_H,
-                isAnswered = state.isAnswered
-            )
-        }
-    }
-
-    val representativeOption = state.colorOptions.firstOrNull() ?: return
-
-    Box(modifier = Modifier.align(Alignment.Center)) {
-        DraggablePen(
-            colorOption    = representativeOption,
-            penBoxDp       = COLOR_GAME_PEN_BOX_H,
-            isAnswered     = state.isAnswered,
-            resetKey       = strokeKey,
-            fillColor      = activeColor,
-            hintRotation   = if (state.hintColorId != null) hintAnim.value else 0f,
-            onDragStarted  = {
-                val last = lastPickedColorIdState.value
-                onLocalColorId(last)
-                viewModel.onColorPickedUp(last ?: "")
-            },
-            onDragFinished = { viewModel.onPenDragReleased() },
-            onPenMove      = { fingerPx, drag ->
-                viewModel.onTouchPoint(fingerPx)
-
-                val shapeCenter   = shapeCenterPxState.value
-                val shapeHalfSize = shapeHalfSizePxState.value
-                val boxTopLeft    = boxTopLeftPxState.value
-
-                val nearest = swatchCenters
-                    .minByOrNull { (_, centre) -> (fingerPx - centre).getDistance() }
-                    ?.takeIf   { (_, centre) -> (fingerPx - centre).getDistance() < pickRadiusPx }
-
-                if (nearest != null) {
-                    onLocalColorId(nearest.key)
-                    viewModel.onPenTouchedColor(nearest.key)
-                }
-
-                val resolvedColorId: String? =
-                    nearest?.key
-                        ?: lastPickedColorIdState.value
-                        ?: state.activeColorId
-
-                if (resolvedColorId != null &&
-                    !state.isAnswered &&
-                    state.fillProgress < 1f &&
-                    shapeCenter != Offset.Zero &&
-                    (fingerPx - shapeCenter).getDistance() < shapeHalfSize * 1.4f
-                ) {
-                    penStrokePts.add(fingerPx - boxTopLeft)
-                    viewModel.onPenMovedOverShape(drag.getDistance(), resolvedColorId)
-                }
             }
-        )
+
+            // Shape in the center
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(shapeSize)
+                    .graphicsLayer { translationX = shakeAnim.value }
+                    .onGloballyPositioned { coords ->
+                        val pos = coords.positionInRoot()
+                        val sz  = coords.size
+                        shapeCenterPx   = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
+                        shapeHalfSizePx = sz.width / 2f
+                        boxTopLeftPx    = pos
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                ColorShapeCanvas(
+                    state        = state,
+                    penStrokePts = penStrokePts,
+                    activeColor  = activeColor,
+                    colors       = colors
+                )
+            }
+
+            val representativeOption = state.colorOptions.firstOrNull() ?: return@Box
+
+            Box(modifier = Modifier.align(Alignment.Center)) {
+                DraggablePen(
+                    colorOption    = representativeOption,
+                    penBoxDp       = COLOR_GAME_PEN_BOX_H,
+                    isAnswered     = state.isAnswered,
+                    resetKey       = strokeKey,
+                    fillColor      = activeColor,
+                    hintRotation   = if (state.hintColorId != null) hintAnim.value else 0f,
+                    onDragStarted  = {
+                        val last = lastPickedColorIdState.value
+                        onLocalColorId(last)
+                        viewModel.onColorPickedUp(last ?: "")
+                    },
+                    onDragFinished = { viewModel.onPenDragReleased() },
+                    onPenMove      = { fingerPx, drag ->
+                        viewModel.onTouchPoint(fingerPx)
+
+                        val nearest = swatchCenters
+                            .minByOrNull { (_, centre) -> (fingerPx - centre).getDistance() }
+                            ?.takeIf   { (_, centre) -> (fingerPx - centre).getDistance() < pickRadiusPx }
+
+                        if (nearest != null) {
+                            onLocalColorId(nearest.key)
+                            viewModel.onPenTouchedColor(nearest.key)
+                        }
+
+                        val resolvedColorId: String? =
+                            nearest?.key
+                                ?: lastPickedColorIdState.value
+                                ?: state.activeColorId
+
+                        if (resolvedColorId != null && !state.isAnswered && state.fillProgress < 1f &&
+                            shapeCenterPx != Offset.Zero &&
+                            (fingerPx - shapeCenterPx).getDistance() < shapeHalfSizePx * 1.4f
+                        ) {
+                            penStrokePts.add(fingerPx - boxTopLeftPx)
+                            viewModel.onPenMovedOverShape(drag.getDistance(), resolvedColorId)
+                        }
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -605,17 +855,28 @@ private fun DraggablePen(
     onDragFinished: ()      -> Unit = {},
     onPenMove     : (fingerPx: Offset, dragDelta: Offset) -> Unit
 ) {
-    var offsetX        by remember(resetKey) { mutableStateOf(0f) }
-    var offsetY        by remember(resetKey) { mutableStateOf(0f) }
-    var isDragging     by remember(resetKey) { mutableStateOf(false) }
-    var rootPos        by remember { mutableStateOf(Offset.Zero) }
-    var dragStartLocal by remember(resetKey) { mutableStateOf(Offset.Zero) }
+    var offsetX    by remember(resetKey) { mutableStateOf(0f) }
+    var offsetY    by remember(resetKey) { mutableStateOf(0f) }
+    var isDragging by remember(resetKey) { mutableStateOf(false) }
+    var rootPos    by remember { mutableStateOf(Offset.Zero) }
 
-    val scale by animateFloatAsState(
-        targetValue   = if (isDragging) PEN_DRAG_SCALE else PEN_DRAG_SCALE_DEFAULT,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label         = "penScale"
-    )
+    val density = LocalDensity.current
+
+    val scale = if (isDragging) PEN_DRAG_SCALE else PEN_DRAG_SCALE_DEFAULT
+
+    fun tipOffsetPx(penBoxPx: Float): Offset =
+        Offset(
+            PEN_TIP_X_FRACTION * penBoxPx * PEN_DRAG_SCALE,
+            PEN_TIP_Y_FRACTION * penBoxPx * PEN_DRAG_SCALE
+        )
+
+    fun offsetForPointer(localPointer: Offset, penBoxPx: Float): Offset {
+        val tipOffset = tipOffsetPx(penBoxPx)
+        return Offset(
+            x = localPointer.x - penBoxPx / 2f - tipOffset.x,
+            y = localPointer.y - penBoxPx / 2f - tipOffset.y
+        )
+    }
 
     Box(
         modifier = Modifier
@@ -633,18 +894,26 @@ private fun DraggablePen(
             .pointerInput(isAnswered, resetKey) {
                 if (isAnswered) return@pointerInput
                 detectDragGestures(
-                    onDragStart  = { localOffset ->
-                        dragStartLocal = localOffset
+                    onDragStart  = { localPointer ->
                         onDragStarted()
                         isDragging = true
+                        val penBoxPx = with(density) { penBoxDp.toPx() }
+                        val anchoredOffset = offsetForPointer(localPointer, penBoxPx)
+                        offsetX = anchoredOffset.x
+                        offsetY = anchoredOffset.y
                     },
                     onDrag       = { change, drag ->
                         change.consume()
+                        val penBoxPx = with(density) { penBoxDp.toPx() }
                         offsetX += drag.x
                         offsetY += drag.y
-                        val fingerX = rootPos.x + dragStartLocal.x + offsetX
-                        val fingerY = rootPos.y + dragStartLocal.y + offsetY
-                        onPenMove(Offset(fingerX, fingerY), drag)
+
+                        val tipOffset = tipOffsetPx(penBoxPx)
+                        val tipRootPx = Offset(
+                            x = rootPos.x + penBoxPx / 2f + tipOffset.x + offsetX,
+                            y = rootPos.y + penBoxPx / 2f + tipOffset.y + offsetY
+                        )
+                        onPenMove(tipRootPx, drag)
                     },
                     onDragEnd    = {
                         onDragFinished()
@@ -731,7 +1000,7 @@ private fun LetterToWordGame(
             shakeAnim.snapTo(0f)
             shakeAnim.animateTo(0f, animationSpec = keyframes {
                 durationMillis = SHAKE_ANIM_DURATION_MS
-                -22f at 60; 22f at 120; -16f at 200; 16f at 280; 0f at SHAKE_ANIM_DURATION_MS
+                (-22f) at 60; 22f at 120; (-16f) at 200; 16f at 280; 0f at SHAKE_ANIM_DURATION_MS
             })
         }
     }
@@ -739,133 +1008,201 @@ private fun LetterToWordGame(
     val hintAnim = remember { Animatable(0f) }
     LaunchedEffect(state.hintLetterId, state.isAnswered) {
         if (state.hintLetterId != null && !state.isAnswered) {
-            while (true) {
+            if (state.isTest) {
                 hintAnim.animateTo(0f, animationSpec = keyframes {
-                    durationMillis = HINT_WOBBLE_DURATION_MS
-                    -6f at 100; 6f at 250; -4f at 380; 4f at 490; -2f at 580; 0f at HINT_WOBBLE_DURATION_MS
+                    durationMillis = 4_000
+                    (-6f)  at  300;  6f  at  700
+                    (-5f)  at 1_100;  5f  at 1_500
+                    (-4f)  at 1_900;  4f  at 2_300
+                    (-3f)  at 2_700;  3f  at 3_100
+                    (-2f)  at 3_400;  2f  at 3_700
+                    0f    at 4_000
                 })
-                delay(HINT_WOBBLE_PAUSE_MS)
+            } else {
+                while (true) {
+                    hintAnim.animateTo(0f, animationSpec = keyframes {
+                        durationMillis = HINT_WOBBLE_DURATION_MS
+                        (-6f) at 100; 6f at 250; (-4f) at 380; 4f at 490; (-2f) at 580; 0f at HINT_WOBBLE_DURATION_MS
+                    })
+                    delay(HINT_WOBBLE_PAUSE_MS)
+                }
             }
         } else {
             hintAnim.snapTo(0f)
         }
     }
 
-    Column(
-        modifier            = Modifier.fillMaxSize().padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            text      = stringResource(R.string.drag_letter_instruction),
-            style     = MaterialTheme.typography.bodyLarge.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize   = LETTER_INSTRUCTION_SIZE_SP.sp
-            ),
-            textAlign = TextAlign.Center
-        )
+    var tileCenter     by remember { mutableStateOf(Offset.Zero) }
+    var hintFromCenter by remember { mutableStateOf(Offset.Zero) }
+    var hintToCenter   by remember { mutableStateOf(Offset.Zero) }
+    val handProgress   = remember { Animatable(0f) }
+    var isLetterDragging by remember { mutableStateOf(false) }
 
-        Box(
-            modifier = Modifier
-                .size(LETTER_ANIMAL_IMG_SIZE)
-                .shadow(4.dp, RoundedCornerShape(20.dp))
-                .clip(RoundedCornerShape(20.dp))
-                .background(colors.background)
-                .border(3.dp, colors.accent, RoundedCornerShape(20.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            val animalPath = state.animalQuestionImage
-            if (animalPath != null) {
-                val ctx = LocalContext.current
-                AsyncImage(
-                    model              = ImageRequest.Builder(ctx)
-                        .data(AssetPathResolver.androidAssetUri(animalPath))
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = state.currentLabel,
-                    modifier           = Modifier.fillMaxSize().padding(8.dp),
-                    contentScale       = ContentScale.Fit
-                )
+    LaunchedEffect(state.hintLetterId, state.isAnswered) {
+        if (!state.isTest && state.hintLetterId != null && !state.isAnswered) {
+            while (tileCenter == Offset.Zero || gapCenterPx == Offset.Zero) {
+                delay(16L)
             }
-        }
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 18.dp, horizontal = 16.dp)
-                .graphicsLayer { translationX = shakeAnim.value },
-            contentAlignment = Alignment.Center
-        ) {
-            if (state.isCorrect) {
-                Text(
-                    text  = state.wordFullText,
-                    style = MaterialTheme.typography.displayMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize   = LETTER_PUZZLE_FONT_SP.sp,
-                        color      = MaterialTheme.colorScheme.onSurface
-                    )
+            while (true) {
+                hintFromCenter = tileCenter
+                hintToCenter   = gapCenterPx
+                handProgress.snapTo(0f)
+                handProgress.animateTo(
+                    1f,
+                    animationSpec = tween(durationMillis = HAND_HINT_CYCLE_MS, easing = EaseInOutCubic)
                 )
-            } else {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                    verticalAlignment     = Alignment.CenterVertically
-                ) {
-                    if (state.wordPuzzleText.isNotEmpty()) {
-                        Text(
-                            text  = state.wordPuzzleText,
-                            style = MaterialTheme.typography.displayMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize   = LETTER_PUZZLE_FONT_SP.sp,
-                                color      = MaterialTheme.colorScheme.onSurface
+                delay(HAND_HINT_PAUSE_MS)
+            }
+        } else {
+            handProgress.snapTo(0f)
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+
+        Column(
+            modifier            = Modifier.fillMaxSize().padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            DragInstructionBadge(text = stringResource(R.string.drag_letter_instruction))
+
+            Box(
+                modifier = Modifier
+                    .size(LETTER_ANIMAL_IMG_SIZE)
+                    .shadow(4.dp, RoundedCornerShape(20.dp))
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(colors.background)
+                    .border(3.dp, colors.accent, RoundedCornerShape(20.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                val animalPath = state.animalQuestionImage
+                if (animalPath != null) {
+                    val ctx = LocalContext.current
+                    AsyncImage(
+                        model              = ImageRequest.Builder(ctx)
+                            .data(AssetPathResolver.androidAssetUri(animalPath))
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = state.currentLabel,
+                        modifier           = Modifier.fillMaxSize().padding(8.dp),
+                        contentScale       = ContentScale.Fit
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 18.dp, horizontal = 16.dp)
+                    .graphicsLayer { translationX = shakeAnim.value },
+                contentAlignment = Alignment.Center
+            ) {
+                if (state.isCorrect) {
+                    Text(
+                        text  = state.wordFullText,
+                        style = MaterialTheme.typography.displayMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize   = LETTER_PUZZLE_FONT_SP.sp,
+                            color      = MaterialTheme.colorScheme.onSurface
+                        )
+                    )
+                } else {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                        verticalAlignment     = Alignment.CenterVertically
+                    ) {
+                        if (state.wordPuzzleText.isNotEmpty()) {
+                            Text(
+                                text  = state.wordPuzzleText,
+                                style = MaterialTheme.typography.displayMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize   = LETTER_PUZZLE_FONT_SP.sp,
+                                    color      = MaterialTheme.colorScheme.onSurface
+                                )
                             )
+                        }
+                        LetterGapSlot(
+                            droppedLetter = state.droppedLetterId?.let { id ->
+                                state.letterOptions.find { it.letterId == id }
+                            },
+                            isCorrect  = state.isCorrect,
+                            isAnswered = state.isAnswered,
+                            modifier   = Modifier.onGloballyPositioned { coords ->
+                                val pos = coords.positionInRoot()
+                                val sz  = coords.size
+                                gapCenterPx = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
+                            }
                         )
                     }
-                    LetterGapSlot(
-                        droppedLetter = state.droppedLetterId?.let { id ->
-                            state.letterOptions.find { it.letterId == id }
-                        },
-                        isCorrect  = state.isCorrect,
-                        isAnswered = state.isAnswered,
-                        modifier   = Modifier.onGloballyPositioned { coords ->
-                            val pos = coords.positionInRoot()
-                            val sz  = coords.size
-                            gapCenterPx = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
-                        }
-                    )
                 }
             }
+
+            Spacer(Modifier.weight(1f))
+
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                val tileSize  = if (state.isTest) LETTER_TILE_SIZE_ASSESSMENT else LETTER_TILE_SIZE_LEARNING
+                val touchSize = tileSize + 12.dp
+
+                val correctOption = if (!state.isTest)
+                    state.letterOptions.firstOrNull { it.isCorrect } ?: state.letterOptions.firstOrNull()
+                else null
+
+                for (letterOption in state.letterOptions) {
+                    val isCorrectTile = !state.isTest && letterOption == correctOption
+                    Box(
+                        modifier = Modifier
+                            .size(touchSize)
+                            .then(
+                                if (isCorrectTile) Modifier.onGloballyPositioned { coords ->
+                                    val pos = coords.positionInRoot()
+                                    val sz  = coords.size
+                                    tileCenter = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
+                                } else Modifier
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        DraggableLetterTile(
+                            option         = letterOption,
+                            isAnswered     = state.isAnswered,
+                            tileSize       = tileSize,
+                            resetKey       = resetKey,
+                            hintRotation   = if (letterOption.letterId == state.hintLetterId) hintAnim.value else 0f,
+                            onDragStarted  = {
+                                isLetterDragging = true
+                                viewModel.onLetterTileDragStarted(letterOption.letterId)
+                            },
+                            onDragFinished = {
+                                isLetterDragging = false
+                                viewModel.onLetterTileDragReleased()
+                            },
+                            onDragMove     = { pos -> viewModel.onTouchPoint(pos) },
+                            onDropped      = { letterId, dropPx ->
+                                if ((dropPx - gapCenterPx).getDistance() < dropRadiusPx)
+                                    viewModel.onLetterDroppedToSlot(letterId)
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
         }
 
-        Spacer(Modifier.weight(1f))
-
-        Row(
-            modifier              = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment     = Alignment.CenterVertically
+        if (!state.isTest && state.hintLetterId != null && !state.isAnswered &&
+            hintFromCenter != Offset.Zero && hintToCenter != Offset.Zero &&
+            !isLetterDragging
         ) {
-            val tileSize  = if (state.isTest) LETTER_TILE_SIZE_ASSESSMENT else LETTER_TILE_SIZE_LEARNING
-            val touchSize = tileSize + 12.dp
-            state.letterOptions.forEach { letterOption ->
-                Box(modifier = Modifier.size(touchSize), contentAlignment = Alignment.Center) {
-                    DraggableLetterTile(
-                        option         = letterOption,
-                        isAnswered     = state.isAnswered,
-                        tileSize       = tileSize,
-                        resetKey       = resetKey,
-                        hintRotation   = if (letterOption.letterId == state.hintLetterId) hintAnim.value else 0f,
-                        onDragStarted  = { viewModel.onLetterTileDragStarted(letterOption.letterId) },
-                        onDragFinished = { viewModel.onLetterTileDragReleased() },
-                        onDragMove     = { pos -> viewModel.onTouchPoint(pos) },
-                        onDropped      = { letterId, dropPx ->
-                            if ((dropPx - gapCenterPx).getDistance() < dropRadiusPx)
-                                viewModel.onLetterDroppedToSlot(letterId)
-                        }
-                    )
-                }
-            }
+            HandHintOverlay(
+                progress    = handProgress.value,
+                startOffset = hintFromCenter,
+                endOffset   = hintToCenter
+            )
         }
-
-        Spacer(Modifier.height(12.dp))
     }
 }
 
@@ -1011,12 +1348,10 @@ private fun AnimalsToCageGame(
     state    : DragGameState,
     viewModel: DragGameViewModel
 ) {
-    val colors       = LocalGameColorScheme.current
     val density      = LocalDensity.current
     val dropRadiusPx = with(density) { DROP_RADIUS_DP.toPx() * CAGE_DROP_RADIUS_FACTOR }
 
     val cageCenterPx = remember { mutableStateOf(Offset.Zero) }
-    val inCageCount  = state.inCageSet.size
 
     val shakeAnim = remember { Animatable(0f) }
     LaunchedEffect(state.rejectIdx) {
@@ -1024,128 +1359,188 @@ private fun AnimalsToCageGame(
             shakeAnim.snapTo(0f)
             shakeAnim.animateTo(0f, animationSpec = keyframes {
                 durationMillis = REJECT_ANIM_DURATION_MS
-                -18f at 50; 18f at 110; -12f at 180; 12f at 250; 0f at REJECT_ANIM_DURATION_MS
+                (-18f) at 50; 18f at 110; (-12f) at 180; 12f at 250; 0f at REJECT_ANIM_DURATION_MS
             })
         }
     }
 
-    Column(
-        modifier            = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text      = state.instructionText,
-            style     = MaterialTheme.typography.bodyLarge.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize   = CAGE_INSTRUCTION_SIZE_SP.sp
-            ),
-            textAlign = TextAlign.Center,
-            modifier  = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp)
-        )
+    var firstAnimalCenter by remember { mutableStateOf(Offset.Zero) }
+    var hintFromCenter    by remember { mutableStateOf(Offset.Zero) }
+    var hintToCenter      by remember { mutableStateOf(Offset.Zero) }
+    val handProgress      = remember { Animatable(0f) }
+    var isAnimalDragging  by remember { mutableStateOf(false) }
 
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(0.52f)
-                .padding(horizontal = 0.dp, vertical = 2.dp)
+    val showCageHint = !state.isTest && !state.isAnswered && state.inCageSet.isEmpty()
+
+    LaunchedEffect(showCageHint) {
+        if (showCageHint) {
+            while (firstAnimalCenter == Offset.Zero || cageCenterPx.value == Offset.Zero) {
+                delay(16L)
+            }
+            delay(5_000L)
+            while (!state.isAnswered && state.inCageSet.isEmpty()) {
+                hintFromCenter = firstAnimalCenter
+                hintToCenter   = cageCenterPx.value
+                handProgress.snapTo(0f)
+                handProgress.animateTo(
+                    1f,
+                    animationSpec = tween(durationMillis = HAND_HINT_CYCLE_MS, easing = EaseInOutCubic)
+                )
+                delay(HAND_HINT_PAUSE_MS)
+            }
+        } else {
+            handProgress.snapTo(0f)
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+
+        Column(
+            modifier            = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val rows     = state.cagePool.withIndex().chunked(4)
-            val rowCount = rows.size.coerceAtLeast(1)
-            val spacing  = (-20).dp
-            val animalSz = minOf(
-                (maxWidth + 60.dp) / 4f,
-                (maxHeight - 8.dp) / rowCount.toFloat()
-            ).coerceIn(CAGE_IN_CAGE_IMG_MIN, CAGE_ANIMAL_SIZE)
-
-            Column(
-                modifier            = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+            Box(
+                modifier         = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp, bottom = 2.dp),
+                contentAlignment = Alignment.Center
             ) {
-                rows.forEach { row ->
-                    Row(
-                        modifier              = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(spacing, Alignment.CenterHorizontally),
-                        verticalAlignment     = Alignment.CenterVertically
-                    ) {
-                        row.forEach { (idx, animal) ->
-                            DraggablePoolAnimal(
-                                animal        = animal,
-                                isInCage      = idx in state.inCageSet,
-                                isRejecting   = idx == state.rejectIdx,
-                                isAnswered    = state.isAnswered,
-                                animalSize    = animalSz,
-                                onDragStarted = { viewModel.onCageAnimalDragStarted(idx) },
-                                onDragMove    = { pos -> viewModel.onTouchPoint(pos) },
-                                onDropped     = { dropPx ->
-                                    if ((dropPx - cageCenterPx.value).getDistance() < dropRadiusPx)
-                                        viewModel.onAnimalDroppedToCage(idx)
-                                },
-                                onRejectDone  = { viewModel.onRejectAnimationDone(idx) }
-                            )
+                DragInstructionBadge(text = state.instructionText)
+            }
+
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.52f)
+                    .padding(horizontal = 0.dp, vertical = 2.dp)
+            ) {
+                val rows     = state.cagePool.withIndex().chunked(4)
+                val rowCount = rows.size.coerceAtLeast(1)
+                val spacing  = (-20).dp
+                val animalSz = minOf(
+                    (maxWidth + 60.dp) / 4f,
+                    (maxHeight - 8.dp) / rowCount.toFloat()
+                ).coerceIn(CAGE_IN_CAGE_IMG_MIN, CAGE_ANIMAL_SIZE)
+
+                Column(
+                    modifier            = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    for (row in rows) {
+                        Row(
+                            modifier              = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(spacing, Alignment.CenterHorizontally),
+                            verticalAlignment     = Alignment.CenterVertically
+                        ) {
+                            for ((idx, animal) in row) {
+                                val isFirstAnimal = !state.isTest && idx == 0
+
+                                Box(
+                                    modifier = if (isFirstAnimal) {
+                                        Modifier.onGloballyPositioned { coords ->
+                                            val pos = coords.positionInRoot()
+                                            val sz  = coords.size
+                                            firstAnimalCenter = Offset(
+                                                pos.x + sz.width / 2f,
+                                                pos.y + sz.height / 2f
+                                            )
+                                        }
+                                    } else Modifier
+                                ) {
+                                    DraggablePoolAnimal(
+                                        animal        = animal,
+                                        isInCage      = idx in state.inCageSet,
+                                        isRejecting   = idx == state.rejectIdx,
+                                        isAnswered    = state.isAnswered,
+                                        animalSize    = animalSz,
+                                        onDragStarted = {
+                                            isAnimalDragging = true
+                                            viewModel.onCageAnimalDragStarted(idx)
+                                        },
+                                        onDragMove    = { pos -> viewModel.onTouchPoint(pos) },
+                                        onDropped     = { dropPx ->
+                                            isAnimalDragging = false
+                                            if ((dropPx - cageCenterPx.value).getDistance() < dropRadiusPx)
+                                                viewModel.onAnimalDroppedToCage(idx)
+                                        },
+                                        onRejectDone  = { viewModel.onRejectAnimationDone(idx) }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
-        }
 
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(0.48f)
-                .offset(x = CAGE_X_CENTER_ADJUST)
-                .graphicsLayer { translationX = shakeAnim.value }
-                .onGloballyPositioned { coords ->
-                    val pos = coords.positionInRoot()
-                    val sz  = coords.size
-                    cageCenterPx.value = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter            = painterResource(R.drawable.ic_cage),
-                contentDescription = null,
-                modifier           = Modifier
-                    .fillMaxSize()
-                    .padding(CAGE_IMG_PADDING)
-                    .graphicsLayer { alpha = 0.25f },
-                contentScale       = ContentScale.Fit
-            )
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.48f)
+                    .offset(x = CAGE_X_CENTER_ADJUST)
+                    .graphicsLayer { translationX = shakeAnim.value }
+                    .onGloballyPositioned { coords ->
+                        val pos = coords.positionInRoot()
+                        val sz  = coords.size
+                        cageCenterPx.value = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter            = painterResource(R.drawable.ic_cage),
+                    contentDescription = null,
+                    modifier           = Modifier
+                        .fillMaxSize()
+                        .padding(CAGE_IMG_PADDING)
+                        .graphicsLayer { alpha = 0.25f },
+                    contentScale       = ContentScale.Fit
+                )
 
-            val cageAnimals = state.cagePool.filterIndexed { idx, _ -> idx in state.inCageSet }
-            if (cageAnimals.isNotEmpty()) {
-                val n      = cageAnimals.size.coerceAtLeast(1)
-                val horPad = maxWidth * CAGE_INTERIOR_HORPAD_FRACTION
-                val availW = maxWidth - horPad * 2f - 4.dp * (n - 1).toFloat()
-                val imgSz  = (availW / n.toFloat()).coerceIn(CAGE_IN_CAGE_IMG_MIN, CAGE_IN_CAGE_IMG_MAX)
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(horizontal = horPad, vertical = 4.dp)
-                        .offset(y = (maxHeight * CAGE_INTERIOR_Y_OFFSET_FRACTION)),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-                    verticalAlignment     = Alignment.CenterVertically
-                ) {
-                    cageAnimals.forEach { animal ->
-                        val ctx = LocalContext.current
-                        AsyncImage(
-                            model              = ImageRequest.Builder(ctx)
-                                .data(AssetPathResolver.androidAssetUri(animal.assetPath))
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = animal.animalId,
-                            modifier           = Modifier.size(imgSz),
-                            contentScale       = ContentScale.Fit
-                        )
+                val cageAnimals = state.cagePool.filterIndexed { idx, _ -> idx in state.inCageSet }
+                if (cageAnimals.isNotEmpty()) {
+                    val n      = cageAnimals.size.coerceAtLeast(1)
+                    val horPad = maxWidth * CAGE_INTERIOR_HORPAD_FRACTION
+                    val availW = maxWidth - horPad * 2f - 4.dp * (n - 1).toFloat()
+                    val imgSz  = (availW / n.toFloat()).coerceIn(CAGE_IN_CAGE_IMG_MIN, CAGE_IN_CAGE_IMG_MAX)
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(horizontal = horPad, vertical = 4.dp)
+                            .offset(y = (maxHeight * CAGE_INTERIOR_Y_OFFSET_FRACTION)),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+                        verticalAlignment     = Alignment.CenterVertically
+                    ) {
+                        for (animal in cageAnimals) {
+                            val ctx = LocalContext.current
+                            AsyncImage(
+                                model              = ImageRequest.Builder(ctx)
+                                    .data(AssetPathResolver.androidAssetUri(animal.assetPath))
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = animal.animalId,
+                                modifier           = Modifier.size(imgSz),
+                                contentScale       = ContentScale.Fit
+                            )
+                        }
                     }
                 }
-            }
 
-            Image(
-                painter            = painterResource(R.drawable.ic_cage),
-                contentDescription = stringResource(R.string.cd_cage),
-                modifier           = Modifier.fillMaxSize().padding(CAGE_IMG_PADDING),
-                contentScale       = ContentScale.Fit
+                Image(
+                    painter            = painterResource(R.drawable.ic_cage),
+                    contentDescription = stringResource(R.string.cd_cage),
+                    modifier           = Modifier.fillMaxSize().padding(CAGE_IMG_PADDING),
+                    contentScale       = ContentScale.Fit
+                )
+            }
+        }
+
+        if (showCageHint && !isAnimalDragging &&
+            hintFromCenter != Offset.Zero && hintToCenter != Offset.Zero
+        ) {
+            HandHintOverlay(
+                progress    = handProgress.value,
+                startOffset = hintFromCenter,
+                endOffset   = hintToCenter
             )
         }
     }
@@ -1177,7 +1572,7 @@ private fun DraggablePoolAnimal(
             rejectAnim.snapTo(0f)
             rejectAnim.animateTo(0f, animationSpec = keyframes {
                 durationMillis = REJECT_ANIM_DURATION_MS
-                -15f at 50; 15f at 110; -10f at 170; 10f at 230; 0f at REJECT_ANIM_DURATION_MS
+                (-15f) at 50; 15f at 110; (-10f) at 170; 10f at 230; 0f at REJECT_ANIM_DURATION_MS
             })
             onRejectDone()
         }
@@ -1250,13 +1645,6 @@ private fun DraggablePoolAnimal(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GAME 4 — SHAPE_TO_OUTLINE
-//
-// Layout (both learning & testing):
-//   TOP    → colored filled shape tiles arranged in a 2-column grid (draggable)
-//   BOTTOM → outline/ghost drop slots arranged in a 2-column grid
-//
-// Colors are driven entirely by the mode swatch lists — no hardcoding.
-// Borders are removed from both tiles and slots.
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun ShapeToOutlineGame(
@@ -1268,16 +1656,15 @@ private fun ShapeToOutlineGame(
     val dropRadiusPx = with(density) { SHAPE_DROP_RADIUS_DP.toPx() }
     val resetKey     = "${state.correctId}_${state.resetTrigger}_${state.attemptsUsed}"
 
-    // Map from slotShapeId → centre position in screen space
     val slotCenters = remember(resetKey) { mutableStateMapOf<String, Offset>() }
 
-    // Build a stable index→color map so each shape always gets the same color
-    // within a round, keyed by the shape's position in shapeOptions list.
     val shapeColorMap = remember(state.shapeOptions, isCalmMode) {
         state.shapeOptions.mapIndexed { idx, option ->
             option.shapeId to shapeColorForIndex(idx, isCalmMode)
         }.toMap()
     }
+
+    var isShapeDragging by remember { mutableStateOf(false) }
 
     val shakeAnim = remember { Animatable(0f) }
     LaunchedEffect(state.attemptsUsed) {
@@ -1285,7 +1672,7 @@ private fun ShapeToOutlineGame(
             shakeAnim.snapTo(0f)
             shakeAnim.animateTo(0f, animationSpec = keyframes {
                 durationMillis = SHAKE_ANIM_DURATION_MS
-                -22f at 60; 22f at 120; -16f at 200; 16f at 280; 0f at SHAKE_ANIM_DURATION_MS
+                (-22f) at 60; 22f at 120; (-16f) at 200; 16f at 280; 0f at SHAKE_ANIM_DURATION_MS
             })
         }
     }
@@ -1296,7 +1683,7 @@ private fun ShapeToOutlineGame(
             while (true) {
                 hintAnim.animateTo(0f, animationSpec = keyframes {
                     durationMillis = HINT_WOBBLE_DURATION_MS
-                    -6f at 100; 6f at 250; -4f at 380; 4f at 490; -2f at 580; 0f at HINT_WOBBLE_DURATION_MS
+                    (-6f) at 100; 6f at 250; (-4f) at 380; 4f at 490; (-2f) at 580; 0f at HINT_WOBBLE_DURATION_MS
                 })
                 delay(HINT_WOBBLE_PAUSE_MS)
             }
@@ -1305,167 +1692,149 @@ private fun ShapeToOutlineGame(
         }
     }
 
-    Column(
-        modifier            = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .graphicsLayer { translationX = shakeAnim.value },
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text      = stringResource(R.string.drag_shape_instruction),
-            style     = MaterialTheme.typography.bodyLarge.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize   = SHAPE_INSTRUCTION_SIZE_SP.sp
-            ),
-            textAlign = TextAlign.Center,
-            modifier  = Modifier.fillMaxWidth()
-        )
+    val handProgress = remember { Animatable(0f) }
+    var tileCenter by remember { mutableStateOf(Offset.Zero) }
+    var slotCenter by remember { mutableStateOf(Offset.Zero) }
+    var hintFromCenter by remember { mutableStateOf(Offset.Zero) }
+    var hintToCenter   by remember { mutableStateOf(Offset.Zero) }
 
-        if (!state.isTest) {
-            // ── Learning: 1 colored tile on top, 1 outline slot below ─────────
-            val targetSlotId = state.outlineSlots.firstOrNull() ?: return@Column
-            val tileOption   = state.shapeOptions.firstOrNull() ?: return@Column
-            val tileColor    = shapeColorMap[tileOption.shapeId] ?: shapeColorForIndex(0, isCalmMode)
-
-            // Colored draggable tile — TOP
-            DraggableShapeTile(
-                option         = tileOption,
-                isAnswered     = state.isAnswered,
-                tileSize       = SHAPE_TILE_SIZE,
-                resetKey       = resetKey,
-                fillColor      = tileColor,
-                hintRotation   = if (tileOption.shapeId == state.hintShapeId) hintAnim.value else 0f,
-                onDragMove     = { viewModel.onTouchPoint(it) },
-                onDropped      = { shapeId, dropPx ->
-                    val nearest = slotCenters
-                        .minByOrNull { (_, c) -> (dropPx - c).getDistance() }
-                        ?.takeIf { (_, c) -> (dropPx - c).getDistance() < dropRadiusPx }
-                    if (nearest != null) {
-                        viewModel.onShapeDroppedToOutline(shapeId, nearest.key)
-                    }
-                }
-            )
-
-            Spacer(Modifier.weight(1f))
-
-            // Outline drop slot — BOTTOM
-            ShapeOutlineSlot(
-                slotShapeId    = targetSlotId,
-                droppedShapeId = state.droppedShapes[targetSlotId],
-                isCorrect      = state.isCorrect,
-                isWrong        = state.wrongDropSlotId == targetSlotId,
-                isAnswered     = state.isAnswered,
-                shapeOptions   = state.shapeOptions,
-                shapeColorMap  = shapeColorMap,
-                modifier       = Modifier.onGloballyPositioned { coords ->
-                    val pos = coords.positionInRoot()
-                    val sz  = coords.size
-                    slotCenters[targetSlotId] = Offset(
-                        pos.x + sz.width  / 2f,
-                        pos.y + sz.height / 2f
-                    )
-                }
-            )
-
+    LaunchedEffect(state.hintShapeId, state.isAnswered) {
+        if (!state.isTest && state.hintShapeId != null && !state.isAnswered) {
+            while (tileCenter == Offset.Zero || slotCenters.isEmpty()) {
+                delay(16L)
+            }
+            while (true) {
+                hintFromCenter = tileCenter
+                hintToCenter   = slotCenters.values.firstOrNull() ?: slotCenter
+                handProgress.snapTo(0f)
+                handProgress.animateTo(
+                    1f,
+                    animationSpec = tween(durationMillis = HAND_HINT_CYCLE_MS, easing = EaseInOutCubic)
+                )
+                delay(HAND_HINT_PAUSE_MS)
+            }
         } else {
-            // ── Testing: 2×2 grid of colored tiles on top,
-            //             2×2 grid of outline slots on bottom ─────────────────
-
-            // Colored draggable tiles — TOP (2-column grid)
-            ShapeTilesGrid(
-                shapeOptions  = state.shapeOptions,
-                isAnswered    = state.isAnswered,
-                droppedShapes = state.droppedShapes,
-                shapeColorMap = shapeColorMap,
-                hintShapeId   = state.hintShapeId,
-                hintRotation  = hintAnim.value,
-                resetKey      = resetKey,
-                slotCenters   = slotCenters,
-                dropRadiusPx  = dropRadiusPx,
-                viewModel     = viewModel
-            )
-
-            Spacer(Modifier.weight(1f))
-
-            // Outline drop slots — BOTTOM (2-column grid)
-            ShapeOutlineSlotsGrid(
-                outlineSlots   = state.outlineSlots,
-                droppedShapes  = state.droppedShapes,
-                isCorrect      = state.isCorrect,
-                wrongDropSlotId = state.wrongDropSlotId,
-                isAnswered     = state.isAnswered,
-                shapeOptions   = state.shapeOptions,
-                shapeColorMap  = shapeColorMap,
-                slotCenters    = slotCenters
-            )
+            handProgress.snapTo(0f)
         }
     }
-}
 
-// ── 2-column grid of colored draggable shape tiles ────────────────────────────
-@Composable
-private fun ShapeTilesGrid(
-    shapeOptions  : List<ShapeOption>,
-    isAnswered    : Boolean,
-    droppedShapes : Map<String, String?>,
-    shapeColorMap : Map<String, Color>,
-    hintShapeId   : String?,
-    hintRotation  : Float,
-    resetKey      : Any,
-    slotCenters   : MutableMap<String, Offset>,
-    dropRadiusPx  : Float,
-    viewModel     : DragGameViewModel
-) {
-    // Chunk into rows of 2 for a 2-column layout
-    val rows = shapeOptions.chunked(2)
-    Column(
-        modifier            = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .graphicsLayer { translationX = shakeAnim.value }
     ) {
-        rows.forEach { rowOptions ->
-            Row(
-                modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                verticalAlignment     = Alignment.CenterVertically
-            ) {
-                rowOptions.forEach { option ->
-                    val isPlaced = droppedShapes.any { (slotId, dropped) ->
-                        slotId == option.shapeId && dropped == option.shapeId
-                    }
-                    val tileColor = shapeColorMap[option.shapeId] ?: Color.Gray
+        Column(
+            modifier            = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            DragInstructionBadge(text = stringResource(R.string.drag_shape_instruction))
+
+            if (!state.isTest) {
+                val targetSlotId = state.outlineSlots.firstOrNull() ?: return@Column
+                val tileOption   = state.shapeOptions.firstOrNull() ?: return@Column
+                val tileColor    = shapeColorMap[tileOption.shapeId] ?: shapeColorForIndex(0, isCalmMode)
+
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     DraggableShapeTile(
-                        option         = option,
-                        isAnswered     = isAnswered || isPlaced,
+                        option         = tileOption,
+                        isAnswered     = state.isAnswered,
                         tileSize       = SHAPE_TILE_SIZE,
                         resetKey       = resetKey,
                         fillColor      = tileColor,
-                        hintRotation   = if (option.shapeId == hintShapeId) hintRotation else 0f,
+                        hintRotation   = if (tileOption.shapeId == state.hintShapeId) hintAnim.value else 0f,
                         onDragMove     = { viewModel.onTouchPoint(it) },
+                        onDragStarted  = { isShapeDragging = true },
+                        onDragEnded    = { isShapeDragging = false },
+                        onPositioned   = { center -> tileCenter = center },
                         onDropped      = { shapeId, dropPx ->
                             val nearest = slotCenters
                                 .minByOrNull { (_, c) -> (dropPx - c).getDistance() }
                                 ?.takeIf { (_, c) -> (dropPx - c).getDistance() < dropRadiusPx }
-                            if (nearest != null) {
-                                viewModel.onShapeDroppedToOutline(shapeId, nearest.key)
-                            }
+                            if (nearest != null) viewModel.onShapeDroppedToOutline(shapeId, nearest.key)
                         }
                     )
                 }
-                // If the row has only 1 item, add a spacer to keep alignment
-                if (rowOptions.size < 2) {
-                    Spacer(modifier = Modifier.size(SHAPE_TILE_SIZE))
+
+                Spacer(Modifier.weight(1f))
+
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    ShapeOutlineSlot(
+                        slotShapeId    = targetSlotId,
+                        droppedShapeId = state.droppedShapes[targetSlotId],
+                        isCorrect      = state.isCorrect,
+                        isWrong        = state.wrongDropSlotId == targetSlotId,
+                        isAnswered     = state.isAnswered,
+                        shapeOptions   = state.shapeOptions,
+                        shapeColorMap  = shapeColorMap,
+                        modifier       = Modifier.onGloballyPositioned { coords ->
+                            val pos = coords.positionInRoot()
+                            val sz  = coords.size
+                            val center = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
+                            slotCenters[targetSlotId] = center
+                            slotCenter = center
+                        }
+                    )
                 }
+
+            } else {
+                val tileOption = state.shapeOptions.firstOrNull() ?: return@Column
+                val tileColor  = shapeColorMap[tileOption.shapeId] ?: shapeColorForIndex(0, isCalmMode)
+
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    DraggableShapeTile(
+                        option       = tileOption,
+                        isAnswered   = state.isAnswered,
+                        tileSize     = SHAPE_TILE_SIZE,
+                        resetKey     = resetKey,
+                        fillColor    = tileColor,
+                        hintRotation = if (tileOption.shapeId == state.hintShapeId) hintAnim.value else 0f,
+                        onDragMove   = { viewModel.onTouchPoint(it) },
+                        onDragStarted = { isShapeDragging = true },
+                        onDragEnded   = { isShapeDragging = false },
+                        onDropped    = { shapeId, dropPx ->
+                            val nearest = slotCenters
+                                .minByOrNull { (_, c) -> (dropPx - c).getDistance() }
+                                ?.takeIf { (_, c) -> (dropPx - c).getDistance() < dropRadiusPx }
+                            if (nearest != null) viewModel.onShapeDroppedToOutline(shapeId, nearest.key)
+                        }
+                    )
+                }
+
+                Spacer(Modifier.weight(1f))
+
+                ShapeOutlineSlotsTriangle(
+                    outlineSlots    = state.outlineSlots,
+                    droppedShapes   = state.droppedShapes,
+                    isCorrect       = state.isCorrect,
+                    wrongDropSlotId = state.wrongDropSlotId,
+                    isAnswered      = state.isAnswered,
+                    shapeOptions    = state.shapeOptions,
+                    shapeColorMap   = shapeColorMap,
+                    slotCenters     = slotCenters
+                )
             }
+        }
+
+        if (!state.isTest && state.hintShapeId != null && !state.isAnswered &&
+            hintFromCenter != Offset.Zero && hintToCenter != Offset.Zero &&
+            !isShapeDragging
+        ) {
+            HandHintOverlay(
+                progress    = handProgress.value,
+                startOffset = hintFromCenter,
+                endOffset   = hintToCenter
+            )
         }
     }
 }
 
-// ── 2-column grid of outline drop slots ──────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// 3-slot triangle layout for test shape game
+// ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun ShapeOutlineSlotsGrid(
+private fun ShapeOutlineSlotsTriangle(
     outlineSlots    : List<String>,
     droppedShapes   : Map<String, String?>,
     isCorrect       : Boolean,
@@ -1475,19 +1844,37 @@ private fun ShapeOutlineSlotsGrid(
     shapeColorMap   : Map<String, Color>,
     slotCenters     : MutableMap<String, Offset>
 ) {
-    val rows = outlineSlots.chunked(2)
+    val slots = outlineSlots.take(3)
     Column(
         modifier            = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        rows.forEach { rowSlots ->
+        if (slots.isNotEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                ShapeOutlineSlot(
+                    slotShapeId    = slots[0],
+                    droppedShapeId = droppedShapes[slots[0]],
+                    isCorrect      = isCorrect,
+                    isWrong        = wrongDropSlotId == slots[0],
+                    isAnswered     = isAnswered,
+                    shapeOptions   = shapeOptions,
+                    shapeColorMap  = shapeColorMap,
+                    modifier       = Modifier.onGloballyPositioned { coords ->
+                        val pos = coords.positionInRoot()
+                        val sz  = coords.size
+                        slotCenters[slots[0]] = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
+                    }
+                )
+            }
+        }
+        if (slots.size > 1) {
             Row(
                 modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                 verticalAlignment     = Alignment.CenterVertically
             ) {
-                rowSlots.forEach { slotId ->
+                for (slotId in slots.drop(1)) {
                     ShapeOutlineSlot(
                         slotShapeId    = slotId,
                         droppedShapeId = droppedShapes[slotId],
@@ -1499,28 +1886,56 @@ private fun ShapeOutlineSlotsGrid(
                         modifier       = Modifier.onGloballyPositioned { coords ->
                             val pos = coords.positionInRoot()
                             val sz  = coords.size
-                            slotCenters[slotId] = Offset(
-                                pos.x + sz.width  / 2f,
-                                pos.y + sz.height / 2f
-                            )
+                            slotCenters[slotId] = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
                         }
                     )
-                }
-                // Pad the last row if odd count
-                if (rowSlots.size < 2) {
-                    Spacer(modifier = Modifier.size(SHAPE_OUTLINE_SLOT_SIZE))
                 }
             }
         }
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Animated hand hint overlay — shared by all four learning layouts
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun HandHintOverlay(
+    progress   : Float,
+    startOffset: Offset,
+    endOffset  : Offset
+) {
+    val density = LocalDensity.current
+    val handX = startOffset.x + (endOffset.x - startOffset.x) * progress
+    val handY = startOffset.y + (endOffset.y - startOffset.y) * progress
+    val halfHandPx = with(density) { 24.dp.toPx() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(5f)
+    ) {
+        Box(
+            modifier = Modifier
+                .offset {
+                    IntOffset(
+                        (handX - halfHandPx).roundToInt(),
+                        (handY - halfHandPx).roundToInt()
+                    )
+                }
+                .size(48.dp)
+                .graphicsLayer { alpha = 0.85f - progress * 0.3f }
+        ) {
+            Image(
+                painter            = painterResource(R.drawable.ic_pointing_finger),
+                contentDescription = null,
+                modifier           = Modifier.fillMaxSize(),
+                contentScale       = ContentScale.Fit
+            )
+        }
+    }
+}
+
 // ── Shape outline drop slot ───────────────────────────────────────────────────
-/**
- * Renders the outline (ghost/low-alpha) of [slotShapeId] as a drop target.
- * When a shape has been dropped, it shows the filled colored shape image inside.
- * No border is drawn — state is communicated via background tint only.
- */
 @Composable
 private fun ShapeOutlineSlot(
     slotShapeId    : String,
@@ -1543,41 +1958,29 @@ private fun ShapeOutlineSlot(
         modifier = modifier
             .size(SHAPE_OUTLINE_SLOT_SIZE)
             .clip(RoundedCornerShape(20.dp))
-            .background(bgColor)
-            // No border — deliberately removed
+            .background(
+                if (bgColor == Color.Transparent) colors.background.copy(alpha = 0.72f) else bgColor
+            )
+            .border(3.dp, colors.accent.copy(alpha = 0.7f), RoundedCornerShape(20.dp))
             .padding(10.dp),
         contentAlignment = Alignment.Center
     ) {
         if (droppedShapeId != null) {
-            // Show the colored filled shape that was dropped
             val droppedOption = shapeOptions.find { it.shapeId == droppedShapeId }
             val droppedColor  = shapeColorMap[droppedShapeId]
             if (droppedOption != null) {
-                ColoredShapeImage(
-                    option    = droppedOption,
-                    fillColor = droppedColor,
-                    alpha     = 1f
-                )
+                ColoredShapeImage(option = droppedOption, fillColor = droppedColor, alpha = 1f)
             }
         } else {
-            // Show the ghost/outline of the target shape (low alpha)
             val targetOption = shapeOptions.find { it.shapeId == slotShapeId }
             if (targetOption != null) {
-                ColoredShapeImage(
-                    option    = targetOption,
-                    fillColor = null,   // no tint → renders as-is at low alpha
-                    alpha     = 0.22f
-                )
+                ColoredShapeImage(option = targetOption, fillColor = null, alpha = 0.22f)
             }
         }
     }
 }
 
 // ── Draggable shape tile ──────────────────────────────────────────────────────
-/**
- * A draggable tile that renders the shape image tinted with [fillColor].
- * No border is drawn.
- */
 @Composable
 private fun DraggableShapeTile(
     option        : ShapeOption,
@@ -1587,6 +1990,9 @@ private fun DraggableShapeTile(
     fillColor     : Color? = null,
     hintRotation  : Float = 0f,
     onDragMove    : ((Offset) -> Unit)? = null,
+    onDragStarted : () -> Unit = {},
+    onDragEnded   : () -> Unit = {},
+    onPositioned  : ((Offset) -> Unit)? = null,
     onDropped     : (shapeId: String, dropPx: Offset) -> Unit
 ) {
     var offsetX    by remember(resetKey) { mutableFloatStateOf(0f) }
@@ -1612,20 +2018,22 @@ private fun DraggableShapeTile(
                 alpha     = if (isAnswered) 0.4f else 1f
                 rotationZ = hintRotation
             }
-            .shadow(if (isDragging) 10.dp else 3.dp, RoundedCornerShape(20.dp))
-            .clip(RoundedCornerShape(20.dp))
-            // No border — background is the fill color itself for a clean look
-            .background(fillColor?.copy(alpha = 0.18f) ?: Color.Transparent)
             .onGloballyPositioned { coords ->
                 if (!isDragging) {
                     rootPos = coords.positionInRoot()
                     sizePx  = Offset(coords.size.width.toFloat(), coords.size.height.toFloat())
+                    onPositioned?.invoke(
+                        Offset(rootPos.x + sizePx.x / 2f, rootPos.y + sizePx.y / 2f)
+                    )
                 }
             }
             .pointerInput(isAnswered, resetKey) {
                 if (isAnswered) return@pointerInput
                 detectDragGestures(
-                    onDragStart  = { isDragging = true },
+                    onDragStart  = {
+                        isDragging = true
+                        onDragStarted()
+                    },
                     onDrag       = { change, drag ->
                         change.consume()
                         offsetX += drag.x
@@ -1643,8 +2051,12 @@ private fun DraggableShapeTile(
                             )
                         )
                         offsetX = 0f; offsetY = 0f; isDragging = false
+                        onDragEnded()
                     },
-                    onDragCancel = { offsetX = 0f; offsetY = 0f; isDragging = false }
+                    onDragCancel = {
+                        offsetX = 0f; offsetY = 0f; isDragging = false
+                        onDragEnded()
+                    }
                 )
             },
         contentAlignment = Alignment.Center
@@ -1653,17 +2065,12 @@ private fun DraggableShapeTile(
             option    = option,
             fillColor = fillColor,
             alpha     = 1f,
-            modifier  = Modifier.fillMaxSize().padding(12.dp)
+            modifier  = Modifier.fillMaxSize().padding(8.dp)
         )
     }
 }
 
 // ── Colored shape image helper ────────────────────────────────────────────────
-/**
- * Renders a shape's [DragImage] with an optional color tint applied via
- * [ColorFilter.tint]. When [fillColor] is null the image renders untinted.
- * [alpha] controls the overall opacity (used for the ghost/outline effect).
- */
 @Composable
 private fun ColoredShapeImage(
     option   : ShapeOption,

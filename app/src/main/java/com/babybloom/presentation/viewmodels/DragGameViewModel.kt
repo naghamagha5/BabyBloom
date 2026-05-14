@@ -439,61 +439,61 @@ class DragGameViewModel @Inject constructor(
      * always stays in sync with new shapes added to LearningContentSeeder.
      */
     private suspend fun loadShapeToOutline(
-        item      : ActivityContent,
+        item: ActivityContent,
         isCalmMode: Boolean,
-        isTest    : Boolean
+        isTest: Boolean
     ) {
         val allShapes = learningContentDao.getByCategory(CATEGORY_SHAPE)
-
-        // Shapes available for this difficulty level (≤ item's difficulty).
-        // For the test we show ALL shapes up to and including the current difficulty;
-        // for learning we show only the single target shape.
         val correctEntity = allShapes.find { it.id == item.contentId }
-            ?: run { Log.e("DragGameVM", "shape entity not found for ${item.contentId}"); return }
-
-        val shapesForLevel = allShapes
-            .filter { it.difficultyLevel <= correctEntity.difficultyLevel }
-            .sortedBy { it.learningOrder }
+            ?: run { Log.e("DragGameVM", "shape entity not found"); return }
 
         fun buildShapeOption(entity: com.babybloom.data.local.entity.LearningContentEntity) =
             ShapeOption(
-                shapeId       = entity.id,
-                labelAr       = entity.labelAr,
-                audioPath     = AssetPathResolver.audioPathFor(entity.id, CATEGORY_SHAPE),
+                shapeId = entity.id,
+                labelAr = entity.labelAr,
+                audioPath = AssetPathResolver.audioPathFor(entity.id, CATEGORY_SHAPE),
                 drawableImage = AssetPathResolver.imageAssetFor(entity.id, CATEGORY_SHAPE, isCalmMode),
-                isCorrect     = entity.id == item.contentId
+                isCorrect = entity.id == item.contentId
             )
 
         val (shapeOptions, outlineSlots) = if (isTest) {
-            // All shapes for this level, shuffled as draggable tiles.
-            // Outline slots keep their natural order so the layout is stable.
-            val tiles = shapesForLevel.map { buildShapeOption(it) }.shuffled()
-            val slots = shapesForLevel.map { it.id }
-            tiles to slots
+            // 1 colored draggable tile (the correct shape)
+            val tile = buildShapeOption(correctEntity)
+
+            // 3 outline slots: 1 correct + 2 random distractors from any difficulty
+            val distractors = allShapes
+                .filter { it.id != item.contentId }
+                .shuffled()
+                .take(2)
+
+            val allForSlots = (listOf(correctEntity) + distractors).shuffled()
+            val slots = allForSlots.map { it.id }
+
+            (listOf(tile) + distractors.map(::buildShapeOption)) to slots
         } else {
-            // Single shape: 1 tile, 1 outline slot
+            // Learning: only 1 tile and 1 slot
             val tile = buildShapeOption(correctEntity)
             listOf(tile) to listOf(correctEntity.id)
         }
 
         _state.value = _state.value.copy(
-            dragType        = DragType.SHAPE_TO_OUTLINE,
-            isLoading       = false,
-            isTest          = isTest,
-            correctId       = item.contentId,
-            currentLabel    = correctEntity.labelAr,
-            shapeOptions    = shapeOptions,
-            outlineSlots    = outlineSlots,
-            droppedShapes   = outlineSlots.associateWith { null },
+            dragType = DragType.SHAPE_TO_OUTLINE,
+            isLoading = false,
+            isTest = isTest,
+            correctId = item.contentId,
+            currentLabel = correctEntity.labelAr,
+            shapeOptions = shapeOptions,
+            outlineSlots = outlineSlots,
+            droppedShapes = outlineSlots.associateWith { null },
             wrongDropSlotId = null,
-            hintShapeId     = null,
-            attemptsLeft    = MAX_ATTEMPTS,
-            attemptsUsed    = 0,
-            isAnswered      = false,
-            isCorrect       = false,
+            hintShapeId = null,
+            attemptsLeft = MAX_ATTEMPTS,
+            attemptsUsed = 0,
+            isAnswered = false,
+            isCorrect = false,
             showCelebration = false,
-            startTimeMs     = System.currentTimeMillis(),
-            resetTrigger    = _state.value.resetTrigger + 1
+            startTimeMs = System.currentTimeMillis(),
+            resetTrigger = _state.value.resetTrigger + 1
         )
 
         touchAnalyzer.onSessionStart()
@@ -744,17 +744,9 @@ class DragGameViewModel @Inject constructor(
                 hintShapeId   = null
             )
 
-            // Check if all slots are correctly filled
-            val allFilled = current.outlineSlots.all { slotId ->
-                newDropped[slotId] == slotId
-            }
-
-            if (allFilled) {
-                val shapeAudio = current.shapeOptions
-                    .find { it.shapeId == droppedShapeId }?.audioPath
-                handleAnswer(true, shapeAudio)
-            }
-            // In learning mode there is only 1 slot, so allFilled triggers immediately.
+            val shapeAudio = current.shapeOptions
+                .find { it.shapeId == droppedShapeId }?.audioPath
+            handleAnswer(true, shapeAudio)
         } else {
             // Wrong drop — flash and count as an attempt
             _state.value = current.copy(wrongDropSlotId = slotShapeId)

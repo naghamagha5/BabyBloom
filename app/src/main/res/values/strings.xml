@@ -431,8 +431,8 @@
     <!-- Content description -->
     <string name="cd_cage">القفص</string>
     <!-- Cage game instruction: %1$s = numeral, %2$s = animal name with article -->
-    <string name="drag_cage_instruction">اسحب %1$s مِني و ضعني في القَفَص</string>
-    <string name="drag_shape_instruction">اسحب الشكل إلى مكانه</string>
+    <string name="drag_cage_instruction">اسْحَب %1$s مِني و ضعني في القَفَص</string>
+    <string name="drag_shape_instruction">اسْحَب الشكل إلى مكانه الصحيح</string>
 
     <!-- Good Job Screen -->
     <string name="good_job_text">أحسنت يا بطل!</string>
