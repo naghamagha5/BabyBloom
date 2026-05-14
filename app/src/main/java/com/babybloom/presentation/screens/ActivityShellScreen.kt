@@ -277,6 +277,8 @@ fun ActivityShellScreen(
                                 "MATCH" -> MatchScreen(
                                     contentItems = state.activityWithContent.contentItems,
                                     isCalmMode   = settings.isCalmMode,
+                                    isTest       = settings.isTest,
+                                    isAssessment = settings.isAssessment,
                                     configJson   = activity.configJson,
                                     onCardResult = { contentId, isCorrect, _, _, attempts ->
                                         viewModel.onAnswerSubmitted(
