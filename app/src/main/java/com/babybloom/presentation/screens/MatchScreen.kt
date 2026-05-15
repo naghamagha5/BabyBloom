@@ -104,6 +104,11 @@ private val SNAP_RADIUS_DP = 80.dp
 // ── Attempt dots (bottom row) ─────────────────────────────────────────────────
 private val ATTEMPT_DOT_SIZE = 12.dp
 
+// ── Letter SVG centering nudge ─────────────────────────────────────────────
+// Positive value → shifts RIGHT, negative → shifts LEFT.
+// Tune until the glyph sits visually centered in the card.
+private val SVG_LETTER_NUDGE_DP = 12.dp   // ★ change this
+
 // ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -667,7 +672,8 @@ private fun LetterContentCard(
         modifier = modifier.fillMaxSize()
             .clip(RoundedCornerShape(20.dp))
             .border(3.dp, borderColor, RoundedCornerShape(20.dp))
-            .background(colors.background),
+            .background(colors.background)
+            .background(colors.accent.copy(alpha = 0.08f)),
         contentAlignment = Alignment.Center
     ) {
         when (letterImageAsset) {
@@ -675,7 +681,8 @@ private fun LetterContentCard(
                 val resId = context.resources.getIdentifier(
                     letterImageAsset.drawableName, "drawable", context.packageName)
                 if (resId != 0) Image(painterResource(resId), letter.labelAr,
-                    Modifier.fillMaxSize().padding(14.dp),
+                    Modifier.fillMaxSize().padding(14.dp).offset(x = SVG_LETTER_NUDGE_DP),
+                    alignment    = Alignment.Center,
                     colorFilter = ColorFilter.tint(colors.accent),
                     contentScale = ContentScale.Fit)
                 else Text(letter.labelAr, fontSize = 52.sp, fontWeight = FontWeight.Black,
