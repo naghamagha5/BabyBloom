@@ -280,7 +280,7 @@ class DragGameViewModel @Inject constructor(
         touchAnalyzer.onSessionStart()
         playSound(AssetPathResolver.dragInstructionColorPath())
         startQuestionTimer()
-        if (isTest) scheduleColorHint(item.contentId)
+        scheduleColorHint(item.contentId)
     }
 
     private suspend fun loadLetterToWord(
