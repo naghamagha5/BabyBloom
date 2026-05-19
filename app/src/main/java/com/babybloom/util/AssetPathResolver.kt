@@ -86,6 +86,11 @@ object AssetPathResolver {
         "LETTER_SOUND" -> "sound of letters"
         else           -> category.lowercase()
     }
+
+    fun countQuestionAudioPath(subjectId: String): String {
+        val token = subjectId.removePrefix("animal_").removePrefix("shape_")
+        return "activities/audio/count/count_$token.ogg"
+    }
 }
 
 // ─── Sound Effect Enum ───────────────────────────────────────────────────────

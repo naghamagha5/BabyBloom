@@ -26,6 +26,7 @@ data class GameColorScheme(
     val background : Color,
     val correct    : Color,
     val wrong      : Color,
+    val hint       : Color,
     val isCalmMode : Boolean
 )
 
@@ -67,6 +68,7 @@ fun gameColorSchemeFor(isCalmMode: Boolean, seed: Int): GameColorScheme {
             background = GameCalmBackground,
             correct    = GameCalmCorrect,
             wrong      = GameCalmWrong,
+            hint       = Color(0xFFDEC068),
             isCalmMode = true
         )
     } else {
@@ -75,6 +77,7 @@ fun gameColorSchemeFor(isCalmMode: Boolean, seed: Int): GameColorScheme {
             background = GameActiveBackground,
             correct    = GameActiveCorrect,
             wrong      = GameActiveWrong,
+            hint       = Color(0xFFFFD700),
             isCalmMode = false
         )
     }

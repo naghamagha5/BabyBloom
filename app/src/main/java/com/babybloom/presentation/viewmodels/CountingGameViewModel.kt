@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babybloom.di.AppSoundSettings
 import com.babybloom.domain.model.ActivityContent
+import com.babybloom.util.AssetPathResolver
 import com.babybloom.util.SoundEffect
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -18,8 +19,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// ── Game type ─────────────────────────────────────────────────────────────────
-
 enum class CountGameType { ANIMAL, SHAPE }
 
 data class ShapeInfo(
@@ -29,39 +28,40 @@ data class ShapeInfo(
     val drawableName : String
 )
 
-// ── UI State ──────────────────────────────────────────────────────────────────
-
 sealed class CountingGameUiState {
     object Loading : CountingGameUiState()
 
     data class Playing(
-        val gameType          : CountGameType,
-        val targetCount       : Int,
-        val subjectId         : String,
-        val subjectLabelAr    : String,
-        val subjectQuestionAr : String,
-        val choices           : List<Int>,
-        val roundIndex        : Int,
+        val gameType             : CountGameType,
+        val targetCount          : Int,
+        val subjectId            : String,
+        val subjectLabelAr       : String,
+        val subjectQuestionAr    : String,
+        val choices              : List<Int>,
+        val roundIndex           : Int,
 
-        // Bounce animation
-        val countingStep      : Int      = -1,
-        val isAnimating       : Boolean  = false,
+        val countingStep         : Int      = -1,
+        val isAnimating          : Boolean  = false,
 
-        // Answer state
-        val selectedAnswer    : Int?     = null,
-        val isCorrect         : Boolean? = null,
-        val wrongAnswerIndex  : Int?     = null,
-        val showCorrectHint   : Boolean  = false,
-        val showCelebration   : Boolean  = false,
-        val autoComplete      : Boolean  = false,
+        val selectedAnswer       : Int?     = null,
+        val isCorrect            : Boolean? = null,
+        val wrongAnswerIndex     : Int?     = null,
+        val showCorrectHint      : Boolean  = false,
+        val showCelebration      : Boolean  = false,
+        val autoComplete         : Boolean  = false,
 
-        val attempts          : Int      = 0,
-        val maxAttempts       : Int      = 3,
-        val startTimeMs       : Long     = System.currentTimeMillis()
+        val attempts             : Int      = 0,
+        val maxAttempts          : Int      = 3,
+        val startTimeMs          : Long     = System.currentTimeMillis(),
+
+        val isTest               : Boolean  = false,
+        // -1 = not started / not relevant, 1..TIMER_SECONDS = counting down, 0 = just expired
+        val timeRemainingSeconds : Int      = -1
     ) : CountingGameUiState()
 }
 
-// ── ViewModel ─────────────────────────────────────────────────────────────────
+private val VALID_NUMBERS  = (1..10).toList()
+private const val TIMER_SECONDS = 15
 
 @HiltViewModel
 class CountingGameViewModel @Inject constructor(
@@ -72,12 +72,14 @@ class CountingGameViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<CountingGameUiState>(CountingGameUiState.Loading)
     val uiState: StateFlow<CountingGameUiState> = _uiState.asStateFlow()
 
-    private var mediaPlayer  : MediaPlayer? = null
-    private var animationJob : Job?         = null
+    private var mediaPlayer         : MediaPlayer? = null
+    private var animationJob        : Job?         = null
+    private var timerJob            : Job?         = null
 
-    private var roundCounts: List<Int> = emptyList()
+    // Stored so the timer expiry path can call it without requiring it as a parameter
+    private var onCompleteCallback  : ((Boolean, Long, Int, Float) -> Unit)? = null
 
-    // ── Animal catalogue ──────────────────────────────────────────────────────
+    // ── Catalogues ────────────────────────────────────────────────────────────
 
     private val animalInfo = mapOf(
         "animal_bear"       to Pair("دُبّ",        "الدِّبَبَة"),
@@ -117,23 +119,29 @@ class CountingGameViewModel @Inject constructor(
         item           : ActivityContent,
         difficultyLevel: Int,
         activityId     : String,
-        roundIndex     : Int
+        roundIndex     : Int,
+        isTest         : Boolean,
+        onComplete     : (isCorrect: Boolean, elapsedMs: Long, attempts: Int, touchComplexity: Float) -> Unit
     ) {
+        // Store callback so timer expiry can reach it without a parameter
+        onCompleteCallback = onComplete
         animationJob?.cancel()
+        timerJob?.cancel()
 
         viewModelScope.launch {
             _uiState.value = CountingGameUiState.Loading
 
-            // Parse target counts from the activity's contentIds so each
-            // difficulty level uses its own numbers instead of always [1,2,3].
-            if (roundIndex == 0 || roundCounts.isEmpty()) {
-                roundCounts = generateRoundCounts(listOf(item.contentId))
+            val targetCount = item.contentId
+                .removePrefix("number_")
+                .toIntOrNull()
+                ?.coerceIn(1, 10)
+                ?: 1
+
+            val gameType = when {
+                activityId.contains("shape",  ignoreCase = true) -> CountGameType.SHAPE
+                activityId.contains("animal", ignoreCase = true) -> CountGameType.ANIMAL
+                else -> listOf(CountGameType.ANIMAL, CountGameType.SHAPE).random()
             }
-
-            val gameType = if (activityId.contains("shape", ignoreCase = true))
-                CountGameType.SHAPE else CountGameType.ANIMAL
-
-            val targetCount = roundCounts.getOrElse(roundIndex) { roundCounts.random() }
 
             val (subjectId, labelAr, pluralAr) = when (gameType) {
                 CountGameType.ANIMAL -> {
@@ -153,9 +161,10 @@ class CountingGameViewModel @Inject constructor(
                 subjectId         = subjectId,
                 subjectLabelAr    = labelAr,
                 subjectQuestionAr = "كم عدد $pluralAr؟",
-                choices           = generateChoices(targetCount, roundCounts),
+                choices           = generateChoices(targetCount),
                 roundIndex        = roundIndex,
                 isAnimating       = true,
+                isTest            = isTest,
                 startTimeMs       = System.currentTimeMillis()
             )
 
@@ -166,7 +175,7 @@ class CountingGameViewModel @Inject constructor(
         }
     }
 
-    // ── Bounce animation ──────────────────────────────────────────────────────
+    // ── Bounce animation — chains into timer when done ────────────────────────
 
     private fun startBounceAnimation(count: Int) {
         animationJob?.cancel()
@@ -178,6 +187,53 @@ class CountingGameViewModel @Inject constructor(
                 delay(1500)
             }
             updatePlaying { it.copy(countingStep = -1, isAnimating = false) }
+            // Timer starts as soon as the counting hint finishes
+            startTimer()
+        }
+    }
+
+    // ── 15-second attempt timer ───────────────────────────────────────────────
+
+    private fun startTimer() {
+        timerJob?.cancel()
+        timerJob = viewModelScope.launch {
+            for (sec in TIMER_SECONDS downTo 1) {
+                updatePlaying { it.copy(timeRemainingSeconds = sec) }
+                delay(1000)
+            }
+            onTimerExpired()
+        }
+    }
+
+    private fun onTimerExpired() {
+        val state = _uiState.value as? CountingGameUiState.Playing ?: return
+        // If the child already answered, ignore the expiry
+        if (state.selectedAnswer != null) return
+
+        val newAttempts = state.attempts + 1
+        val elapsedMs   = System.currentTimeMillis() - state.startTimeMs
+
+        viewModelScope.launch {
+            // Flash the timer at 0 briefly so the child sees it expired
+            updatePlaying { it.copy(attempts = newAttempts, timeRemainingSeconds = 0) }
+            appSoundSettings.playSoundEffect(SoundEffect.WRONG)
+            delay(600)
+
+            if (newAttempts >= state.maxAttempts) {
+                // Same hint flow as three wrong taps
+                updatePlaying { it.copy(showCorrectHint = true, timeRemainingSeconds = -1) }
+                delay(800)
+                playNumberAudio(state.targetCount)
+                delay(3000)
+                updatePlaying { it.copy(showCorrectHint = false) }
+                delay(300)
+                onCompleteCallback?.invoke(false, elapsedMs, newAttempts, computeTouch(newAttempts))
+            } else {
+                // Reset and give the child another attempt with a fresh timer
+                updatePlaying { it.copy(timeRemainingSeconds = -1) }
+                delay(400)
+                startTimer()
+            }
         }
     }
 
@@ -188,7 +244,13 @@ class CountingGameViewModel @Inject constructor(
         onComplete: (isCorrect: Boolean, elapsedMs: Long, attempts: Int, touchComplexity: Float) -> Unit
     ) {
         val state = _uiState.value as? CountingGameUiState.Playing ?: return
-        if (state.selectedAnswer != null || state.isAnimating) return
+        // Only block if an answer is already being processed — animation no longer blocks
+        if (state.selectedAnswer != null) return
+
+        // Stop counting animation and timer immediately
+        animationJob?.cancel()
+        timerJob?.cancel()
+        onCompleteCallback = onComplete
 
         val isCorrect   = selected == state.targetCount
         val newAttempts = state.attempts + 1
@@ -196,6 +258,9 @@ class CountingGameViewModel @Inject constructor(
         val touch       = computeTouch(newAttempts)
 
         viewModelScope.launch {
+            // Clean up any in-progress animation state
+            updatePlaying { it.copy(countingStep = -1, isAnimating = false, timeRemainingSeconds = -1) }
+
             if (isCorrect) {
                 updatePlaying { it.copy(selectedAnswer = selected, isCorrect = true, attempts = newAttempts) }
                 appSoundSettings.playSoundEffect(SoundEffect.CORRECT)
@@ -235,6 +300,8 @@ class CountingGameViewModel @Inject constructor(
                 } else {
                     delay(400)
                     updatePlaying { it.copy(selectedAnswer = null, isCorrect = null) }
+                    // Give the child a fresh timer for the next attempt
+                    startTimer()
                 }
             }
         }
@@ -242,44 +309,13 @@ class CountingGameViewModel @Inject constructor(
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /**
-     * Extracts target counts from the activity's contentIds.
-     * e.g. ["number_4", "number_5", "number_6"] → [4, 5, 6] shuffled.
-     * Falls back to [1, 2, 3] only if no number IDs can be parsed.
-     */
-    private fun generateRoundCounts(contentIds: List<String>): List<Int> {
-        val parsed = contentIds
-            .mapNotNull { it.removePrefix("number_").toIntOrNull() }
-            .distinct()
-        return if (parsed.isNotEmpty()) parsed.shuffled() else listOf(1, 2, 3)
-    }
-
-    /**
-     * Generates 4 answer choices that make sense for the correct count.
-     * Distractors are drawn first from the same difficulty pool (sibling
-     * counts in this activity), then filled with nearby numbers if needed.
-     * This prevents d4 counts (8, 10) from getting tiny wrong answers (1, 2, 3).
-     */
-    private fun generateChoices(correct: Int, allCounts: List<Int>): List<Int> {
-        // Prefer sibling counts from the same pool as distractors
-        val fromPool = allCounts.filter { it != correct }.shuffled()
-
-        // Fill remaining slots with numbers near the correct answer
-        val nearby = ((correct - 3)..(correct + 3))
-            .filter { it > 0 && it != correct && it !in fromPool }
+    private fun generateChoices(correct: Int): List<Int> {
+        val distractors = VALID_NUMBERS
+            .filter { it != correct }
+            .sortedBy { n -> if (n > correct) n - correct else correct - n }
+            .take(3)
             .shuffled()
-
-        val distractors = (fromPool + nearby).distinct().take(3)
-
-        // Last resort: pad with anything > 0 if still short
-        val padded = if (distractors.size < 3) {
-            val extra = (1..15)
-                .filter { it != correct && it !in distractors }
-                .shuffled()
-            (distractors + extra).take(3)
-        } else distractors
-
-        return (listOf(correct) + padded).shuffled()
+        return (listOf(correct) + distractors).shuffled()
     }
 
     private fun computeTouch(attempts: Int): Float =
@@ -290,15 +326,13 @@ class CountingGameViewModel @Inject constructor(
         _uiState.value = block(s)
     }
 
-    // ── Voice audio ───────────────────────────────────────────────────────────
+    // ── Audio ─────────────────────────────────────────────────────────────────
 
     private fun playQuestionAudio(subjectId: String) =
-        playAsset("activities/audio/count/count_${subjectId
-            .removePrefix("animal_")
-            .removePrefix("shape_")}.ogg")
+        playAsset(AssetPathResolver.countQuestionAudioPath(subjectId))
 
     fun playNumberAudio(number: Int) =
-        playAsset("learning_content/audio/numbers/number_$number.ogg")
+        playAsset(AssetPathResolver.audioPathFor("number_$number", "NUMBER"))
 
     private fun playAsset(path: String) {
         try {
@@ -324,7 +358,8 @@ class CountingGameViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         animationJob?.cancel()
+        timerJob?.cancel()
         releasePlayer()
-        roundCounts = emptyList()
+        onCompleteCallback = null
     }
 }

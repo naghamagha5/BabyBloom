@@ -121,36 +121,16 @@
     ]
   },
   {
-    "id": "count_animals_d1",
-    "title": "عُدّ الحيوانات",
-    "description": "عُدّ الحيوانات واختر العدد الصحيح",
+    "id": "count_d1",
+    "title": "عُدّ مع بيبي بلوم",
+    "description": "عُدّ الصور واختر العدد الصحيح",
     "modality": "VISUAL",
     "skillArea": "NUMERACY",
     "difficultyLevel": 1,
     "activityType": "COUNT",
     "isActive": true,
     "configJson": "{\"optionsCount\":4}",
-    "contentIds": [
-      "number_1",
-      "number_2",
-      "number_3"
-    ]
-  },
-  {
-    "id": "count_shapes_d1",
-    "title": "عُدّ الأشكال",
-    "description": "عُدّ الأشكال واختر العدد الصحيح",
-    "modality": "VISUAL",
-    "skillArea": "NUMERACY",
-    "difficultyLevel": 1,
-    "activityType": "COUNT",
-    "isActive": true,
-    "configJson": "{\"optionsCount\":4}",
-    "contentIds": [
-      "number_1",
-      "number_2",
-      "number_3"
-    ]
+    "contentIds": ["number_1", "number_2", "number_3"]
   },
   {
     "id": "trace_letters_d1",
@@ -484,36 +464,16 @@
     ]
   },
   {
-    "id": "count_animals_d2",
-    "title": "عُدّ الحيوانات",
-    "description": "عُدّ الحيوانات واختر العدد الصحيح",
+    "id": "count_d2",
+    "title": "عُدّ مع بيبي بلوم",
+    "description": "عُدّ الصور واختر العدد الصحيح",
     "modality": "VISUAL",
     "skillArea": "NUMERACY",
     "difficultyLevel": 2,
     "activityType": "COUNT",
     "isActive": true,
     "configJson": "{\"optionsCount\":4}",
-    "contentIds": [
-      "number_4",
-      "number_5",
-      "number_6"
-    ]
-  },
-  {
-    "id": "count_shapes_d2",
-    "title": "عُدّ الأشكال",
-    "description": "عُدّ الأشكال واختر العدد الصحيح",
-    "modality": "VISUAL",
-    "skillArea": "NUMERACY",
-    "difficultyLevel": 2,
-    "activityType": "COUNT",
-    "isActive": true,
-    "configJson": "{\"optionsCount\":4}",
-    "contentIds": [
-      "number_4",
-      "number_5",
-      "number_6"
-    ]
+    "contentIds": ["number_4", "number_5", "number_6"]
   },
   {
     "id": "trace_letters_d2",
@@ -851,34 +811,16 @@
     ]
   },
   {
-    "id": "count_animals_d3",
-    "title": "عُدّ الحيوانات",
-    "description": "عُدّ الحيوانات واختر العدد الصحيح",
+    "id": "count_d3",
+    "title": "عُدّ مع بيبي بلوم",
+    "description": "عُدّ الصور واختر العدد الصحيح",
     "modality": "VISUAL",
     "skillArea": "NUMERACY",
     "difficultyLevel": 3,
     "activityType": "COUNT",
     "isActive": true,
     "configJson": "{\"optionsCount\":4}",
-    "contentIds": [
-      "number_7",
-      "number_9"
-    ]
-  },
-  {
-    "id": "count_shapes_d3",
-    "title": "عُدّ الأشكال",
-    "description": "عُدّ الأشكال واختر العدد الصحيح",
-    "modality": "VISUAL",
-    "skillArea": "NUMERACY",
-    "difficultyLevel": 3,
-    "activityType": "COUNT",
-    "isActive": true,
-    "configJson": "{\"optionsCount\":4}",
-    "contentIds": [
-      "number_7",
-      "number_9"
-    ]
+    "contentIds": ["number_7", "number_9"]
   },
   {
     "id": "trace_letters_d3",
@@ -1214,34 +1156,16 @@
     ]
   },
   {
-    "id": "count_animals_d4",
-    "title": "عُدّ الحيوانات",
-    "description": "عُدّ الحيوانات واختر العدد الصحيح",
+    "id": "count_d4",
+    "title": "عُدّ مع بيبي بلوم",
+    "description": "عُدّ الصور واختر العدد الصحيح",
     "modality": "VISUAL",
     "skillArea": "NUMERACY",
     "difficultyLevel": 4,
     "activityType": "COUNT",
     "isActive": true,
     "configJson": "{\"optionsCount\":4}",
-    "contentIds": [
-      "number_8",
-      "number_10"
-    ]
-  },
-  {
-    "id": "count_shapes_d4",
-    "title": "عُدّ الأشكال",
-    "description": "عُدّ الأشكال واختر العدد الصحيح",
-    "modality": "VISUAL",
-    "skillArea": "NUMERACY",
-    "difficultyLevel": 4,
-    "activityType": "COUNT",
-    "isActive": true,
-    "configJson": "{\"optionsCount\":4}",
-    "contentIds": [
-      "number_8",
-      "number_10"
-    ]
+    "contentIds": ["number_8", "number_10"]
   },
   {
     "id": "trace_letters_d4",

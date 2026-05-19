@@ -2,7 +2,6 @@ package com.babybloom.presentation.screens
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,10 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -38,66 +35,34 @@ import com.babybloom.domain.model.ActivityContent
 import com.babybloom.presentation.viewmodels.CountGameType
 import com.babybloom.presentation.viewmodels.CountingGameUiState
 import com.babybloom.presentation.viewmodels.CountingGameViewModel
-import com.babybloom.ui.theme.DragAttemptDotFull
-import com.babybloom.ui.theme.DragProgressIdle
 import com.babybloom.ui.theme.LocalGameColorScheme
-import kotlin.math.cos
-import kotlin.math.sin
+import com.babybloom.util.AssetPathResolver
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CountingGameScreen.kt
-//
-// Card/border/button colors → LocalGameColorScheme (accent / background /
-// correct / wrong), exactly like StoryScreen and the fixed DragGameScreen.
-//
-// Fixed semantic values kept:
-//   • GoldColor    — "show correct hint" highlight (content feedback, not theme)
-//   • CALM/ACTIVE shape colors — the *tint applied to shape SVGs*, which is
-//     intentional content coloring, not a game-round theme color.
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Layout tuning — adjust these to taste ────────────────────────────────────
+private val TITLE_TO_BOX_SPACING    = 50.dp
+private val BOX_TO_CHOICES_SPACING  = 50.dp
+private val CHOICE_ROW_SPACING      = 30.dp
+private val CHOICES_TO_DOTS_SPACING = 50.dp
+private val ANSWER_BUTTON_HEIGHT    = 90.dp
 
-// ── Shape tint palettes (content colors, not theme colors) ───────────────────
-private val ACTIVE_SHAPE_COLORS = listOf(
-    Color(0xFFFF8A65), Color(0xFF9C27B0), Color(0xFF2196F3),
-    Color(0xFF4CAF50), Color(0xFFE91E63), Color(0xFFFFB300)
-)
-private val CALM_SHAPE_COLORS = listOf(
-    Color(0xFF5BB89B), Color(0xFF9575CD), Color(0xFF4FC3F7),
-    Color(0xFF80CBC4), Color(0xFFEF9A9A), Color(0xFFFFCC80)
-)
+// ── Image size scales ─────────────────────────────────────────────────────────
+private const val ANIMAL_SIZE_SCALE = 1.45f
+private const val SHAPE_SIZE_SCALE  = 1.0f
 
-// Gold hint — semantic "here is the answer" color, intentionally fixed
-private val GoldColor = Color(0xFFFFD700)
+// ── Row layout ────────────────────────────────────────────────────────────────
+private fun rowLayout(count: Int): List<List<Int>> =
+    (0 until count.coerceIn(1, 10)).toList().chunked(3)
 
-// ── Row layout lookup ─────────────────────────────────────────────────────────
-private fun rowLayout(count: Int): List<List<Int>> = when (count) {
-    1    -> listOf(listOf(0))
-    2    -> listOf(listOf(0, 1))
-    else -> listOf(listOf(0, 1, 2))
+// ── Card height ───────────────────────────────────────────────────────────────
+private fun cardHeightFor(count: Int): Dp {
+    val rows = (count + 2) / 3
+    return when (rows) {
+        1    -> 120.dp
+        2    -> 205.dp
+        3    -> 270.dp
+        else -> 325.dp
+    }
 }
-
-// ── Fireworks ─────────────────────────────────────────────────────────────────
-
-private data class FireworksBurst(
-    val cxFrac        : Float,
-    val cyFrac        : Float,
-    val color         : Color,
-    val particleCount : Int   = 14,
-    val maxRadius     : Float = 280f
-)
-
-private val BURST_COLORS = listOf(
-    Color(0xFFFFD700), Color(0xFFFF4081), Color(0xFF40C4FF),
-    Color(0xFF69F0AE), Color(0xFFFF6D00), Color(0xFFEA80FC)
-)
-private val BURSTS = listOf(
-    FireworksBurst(0.20f, 0.25f, BURST_COLORS[0]),
-    FireworksBurst(0.80f, 0.22f, BURST_COLORS[1]),
-    FireworksBurst(0.50f, 0.50f, BURST_COLORS[2], maxRadius = 320f),
-    FireworksBurst(0.15f, 0.72f, BURST_COLORS[3]),
-    FireworksBurst(0.82f, 0.70f, BURST_COLORS[4]),
-    FireworksBurst(0.50f, 0.18f, BURST_COLORS[5], particleCount = 10)
-)
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
@@ -108,13 +73,15 @@ fun CountingGameScreen(
     difficultyLevel: Int,
     activityId     : String,
     roundIndex     : Int,
+    isTest         : Boolean = false,
     onComplete     : (isCorrect: Boolean, elapsedMs: Long, attempts: Int, touchComplexity: Float) -> Unit,
     viewModel      : CountingGameViewModel = hiltViewModel()
 ) {
     val colors = LocalGameColorScheme.current
 
+    // Pass onComplete into loadGame so the timer expiry path can also call it
     LaunchedEffect(currentItem.contentId) {
-        viewModel.loadGame(currentItem, difficultyLevel, activityId, roundIndex)
+        viewModel.loadGame(currentItem, difficultyLevel, activityId, roundIndex, isTest, onComplete)
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -122,7 +89,6 @@ fun CountingGameScreen(
         when (val s = uiState) {
             is CountingGameUiState.Loading ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    // Spinner uses scheme accent — consistent with other games
                     CircularProgressIndicator(color = colors.accent)
                 }
             is CountingGameUiState.Playing -> {
@@ -132,12 +98,7 @@ fun CountingGameScreen(
                     viewModel        = viewModel,
                     onAnswerSelected = { viewModel.onAnswerSelected(it, onComplete) }
                 )
-                // ── Unified celebration popup ─────────────────────────────
-                // Replaces the old bespoke FireworksOverlay; GoodJobPopup is
-                // the same confetti+card that TraceScreen uses.
-                if (s.showCelebration) {
-                    GoodJobPopup()
-                }
+                if (s.showCelebration) GoodJobPopup()
             }
         }
     }
@@ -152,15 +113,13 @@ private fun CountingGameContent(
     viewModel       : CountingGameViewModel,
     onAnswerSelected: (Int) -> Unit
 ) {
-    val colors = LocalGameColorScheme.current
-
     Column(
         modifier            = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // ── Title pinned to top — no top spacer ───────────────────────────
         Text(
             text      = state.subjectQuestionAr,
             style     = MaterialTheme.typography.headlineMedium.copy(
@@ -168,48 +127,82 @@ private fun CountingGameContent(
                 fontSize   = 26.sp
             ),
             textAlign = TextAlign.Center,
-            // Accent color for the question text — matches the round's scheme
-            color     = colors.accent
+            color     = LocalGameColorScheme.current.accent
         )
 
-        AttemptsRow(attempts = state.attempts, maxAttempts = state.maxAttempts)
+        Spacer(Modifier.height(TITLE_TO_BOX_SPACING))
 
+        // ── Objects card ──────────────────────────────────────────────────
         ObjectsCard(
             state      = state,
             isCalmMode = isCalmMode,
             viewModel  = viewModel,
             modifier   = Modifier
                 .fillMaxWidth()
-                .weight(1f)
-                .padding(vertical = 6.dp)
+                .height(cardHeightFor(state.targetCount))
         )
 
-        val buttonsEnabled = !state.isAnimating && state.selectedAnswer == null
+        Spacer(Modifier.height(BOX_TO_CHOICES_SPACING))
 
-        Column(
-            modifier            = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            state.choices.chunked(2).forEach { row ->
-                Row(
-                    modifier              = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    row.forEach { choice ->
-                        AnswerButton(
-                            number     = choice,
-                            isSelected = state.selectedAnswer == choice,
-                            isCorrect  = if (state.selectedAnswer == choice) state.isCorrect else null,
-                            isGoldHint = state.showCorrectHint && choice == state.targetCount,
-                            isShaking  = state.wrongAnswerIndex == choice,
-                            isEnabled  = buttonsEnabled,
-                            onClick    = { onAnswerSelected(choice) },
-                            modifier   = Modifier.weight(1f)
-                        )
+        // ── Answer buttons — always tappable, animation no longer blocks ──
+        // ── Answer buttons ────────────────────────────────────────────────────────
+        if (!state.isTest) {
+            // TEST MODE: one big correct-answer button, locked until counting finishes
+            val enabled = !state.isAnimating && state.selectedAnswer == null
+            AnswerButton(
+                number     = state.targetCount,
+                isSelected = state.selectedAnswer == state.targetCount,
+                isCorrect  = if (state.selectedAnswer != null) state.isCorrect else null,
+                isGoldHint = false,
+                isShaking  = false,
+                isEnabled  = enabled,
+                onClick    = { onAnswerSelected(state.targetCount) },
+                modifier   = Modifier
+                    .fillMaxWidth()
+                    .height(ANSWER_BUTTON_HEIGHT * 1.6f)          // visibly larger
+            )
+        } else {
+            // NORMAL MODE: 2-column grid of shuffled choices
+            val buttonsEnabled = state.selectedAnswer == null
+
+            Column(
+                modifier            = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(CHOICE_ROW_SPACING)
+            ) {
+                state.choices.chunked(2).forEach { row ->
+                    Row(
+                        modifier              = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        row.forEach { choice ->
+                            AnswerButton(
+                                number     = choice,
+                                isSelected = state.selectedAnswer == choice,
+                                isCorrect  = if (state.selectedAnswer == choice) state.isCorrect else null,
+                                isGoldHint = state.showCorrectHint && choice == state.targetCount,
+                                isShaking  = state.wrongAnswerIndex == choice,
+                                isEnabled  = buttonsEnabled,
+                                onClick    = { onAnswerSelected(choice) },
+                                modifier   = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
             }
         }
+
+        Spacer(Modifier.height(CHOICES_TO_DOTS_SPACING))
+
+
+        // ── Attempts dots ─────────────────────────────────────────────────
+        AttemptsRow(
+            attempts    = state.attempts,
+            maxAttempts = state.maxAttempts,
+            lastCorrect = state.isCorrect == true
+        )
+
+        // ── Bottom elastic spacer — fills remaining space ─────────────────
+        Spacer(Modifier.weight(1f))
     }
 }
 
@@ -227,22 +220,19 @@ private fun ObjectsCard(
     BoxWithConstraints(
         modifier = modifier
             .clip(RoundedCornerShape(24.dp))
-            // background and accent border from scheme — replaces hardcoded calm/active palette
             .background(colors.background)
+            .background(colors.accent.copy(alpha = 0.08f))
             .border(2.dp, colors.accent, RoundedCornerShape(24.dp))
             .padding(12.dp),
         contentAlignment = Alignment.Center
     ) {
         val rows    = rowLayout(state.targetCount)
         val numRows = rows.size
-        val maxCols = rows.maxOf { it.size }
-        val spacing = 10.dp
+        val spacing = 8.dp
 
-        val availW        = maxWidth  - spacing * (maxCols - 1)
-        val availH        = maxHeight - spacing * (numRows - 1)
-        val widthPerCell  = availW  / maxCols
-        val heightPerCell = availH  / numRows
-        val imageSize: Dp = minOf(widthPerCell, heightPerCell).coerceAtLeast(40.dp)
+        val cellW     = (maxWidth  - spacing * 2) / 3
+        val cellH     = (maxHeight - spacing * (numRows - 1)) / numRows
+        val imageSize = minOf(cellW, cellH).coerceAtLeast(36.dp)
 
         Column(
             modifier            = Modifier.fillMaxSize(),
@@ -252,7 +242,7 @@ private fun ObjectsCard(
             rows.forEach { rowIndices ->
                 Row(
                     modifier              = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    horizontalArrangement = Arrangement.spacedBy(spacing, Alignment.CenterHorizontally),
                     verticalAlignment     = Alignment.CenterVertically
                 ) {
                     rowIndices.forEach { itemIndex ->
@@ -281,31 +271,41 @@ private fun AnimalOrShapeItem(
     viewModel : CountingGameViewModel
 ) {
     val context = LocalContext.current
-    val mood    = if (isCalmMode) "calm" else "active"
+    val colors  = LocalGameColorScheme.current
 
-    val isPulsing = index == state.countingStep
-    val animScale by animateFloatAsState(
-        targetValue   = if (isPulsing) 1.40f else 1f,
+    val isPulsing  = index == state.countingStep
+    val pulseScale by animateFloatAsState(
+        targetValue   = if (isPulsing) 1.35f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness    = Spring.StiffnessLow
         ),
-        label = "scale_$index"
+        label = "pulse_$index"
     )
 
+    val typeScale = when (state.gameType) {
+        CountGameType.ANIMAL -> ANIMAL_SIZE_SCALE
+        CountGameType.SHAPE  -> SHAPE_SIZE_SCALE
+    }
+
     Box(
-        modifier         = Modifier.size(imageSize).scale(animScale),
+        modifier         = Modifier
+            .size(imageSize)
+            .scale(pulseScale * typeScale),
         contentAlignment = Alignment.Center
     ) {
         when (state.gameType) {
-            CountGameType.ANIMAL -> AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data("file:///android_asset/learning_content/visual/$mood/${state.subjectId}.png")
-                    .build(),
-                contentDescription = state.subjectLabelAr,
-                modifier           = Modifier.fillMaxSize(),
-                contentScale       = ContentScale.Fit
-            )
+            CountGameType.ANIMAL -> {
+                val uri = AssetPathResolver.androidAssetUri(
+                    AssetPathResolver.animalImagePathFor(state.subjectId, isCalmMode)
+                )
+                AsyncImage(
+                    model              = ImageRequest.Builder(context).data(uri).build(),
+                    contentDescription = state.subjectLabelAr,
+                    modifier           = Modifier.fillMaxSize(),
+                    contentScale       = ContentScale.Fit
+                )
+            }
             CountGameType.SHAPE -> {
                 val shape = viewModel.getShapeInfo(state.subjectId)
                 if (shape != null) {
@@ -313,18 +313,11 @@ private fun AnimalOrShapeItem(
                         shape.drawableName, "drawable", context.packageName
                     )
                     if (resId != 0) {
-                        // Shape SVG tint colors are content colors (visual distinction
-                        // between shape instances), not game-theme colors — kept as-is.
                         Image(
                             painter            = painterResource(id = resId),
                             contentDescription = shape.labelAr,
                             modifier           = Modifier.fillMaxSize(),
-                            colorFilter        = ColorFilter.tint(
-                                if (isCalmMode)
-                                    CALM_SHAPE_COLORS[index % CALM_SHAPE_COLORS.size]
-                                else
-                                    ACTIVE_SHAPE_COLORS[index % ACTIVE_SHAPE_COLORS.size]
-                            )
+                            colorFilter        = ColorFilter.tint(colors.accent)
                         )
                     }
                 }
@@ -349,14 +342,9 @@ private fun AnswerButton(
     val colors  = LocalGameColorScheme.current
     val context = LocalContext.current
 
-    // Button background:
-    //   gold hint     → GoldColor (semantic "here is the answer")
-    //   correct       → colors.correct (scheme green)
-    //   wrong         → colors.wrong   (scheme red)
-    //   idle          → colors.background with accent border
     val animBg by animateColorAsState(
         targetValue = when {
-            isGoldHint                       -> GoldColor
+            isGoldHint                       -> colors.hint
             isSelected && isCorrect == true  -> colors.correct
             isSelected && isCorrect == false -> colors.wrong
             else                             -> colors.background
@@ -372,7 +360,6 @@ private fun AnswerButton(
         animationSpec = tween(280), label = "border"
     )
 
-    // Icon tint: white on colored states, accent on idle
     val iconTint = when {
         isGoldHint || (isSelected && isCorrect != null) -> Color.White
         else                                            -> colors.accent
@@ -391,7 +378,7 @@ private fun AnswerButton(
         } else shakeAnim.snapTo(0f)
     }
 
-    val scale by animateFloatAsState(
+    val btnScale by animateFloatAsState(
         targetValue   = if ((isSelected && isCorrect == true) || isGoldHint) 1.08f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label         = "btnScale"
@@ -399,8 +386,8 @@ private fun AnswerButton(
 
     Box(
         modifier = modifier
-            .height(72.dp)
-            .graphicsLayer { scaleX = scale; scaleY = scale; translationX = shakeAnim.value }
+            .height(ANSWER_BUTTON_HEIGHT)
+            .graphicsLayer { scaleX = btnScale; scaleY = btnScale; translationX = shakeAnim.value }
             .clip(RoundedCornerShape(18.dp))
             .background(animBg)
             .border(2.dp, animBorder, RoundedCornerShape(18.dp))
@@ -438,25 +425,33 @@ private fun AnswerButton(
         }
     }
 }
-
 // ── Attempts row ──────────────────────────────────────────────────────────────
 
 @Composable
-private fun AttemptsRow(attempts: Int, maxAttempts: Int) {
+private fun AttemptsRow(
+    attempts   : Int,
+    maxAttempts: Int,
+    lastCorrect: Boolean        // true when the last recorded attempt was a correct answer
+) {
     val colors = LocalGameColorScheme.current
     Row(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment     = Alignment.CenterVertically
     ) {
         repeat(maxAttempts) { i ->
-            val used  = i < attempts
-            // Used dots → wrong color (red = attempt spent); idle → faded accent
+            val filled        = i < attempts
+            // Only the dot for the correct attempt is green; all wrong/timeout dots are red
+            val isCorrectDot  = filled && i == attempts - 1 && lastCorrect
             val color by animateColorAsState(
-                targetValue   = if (used) colors.wrong else colors.accent.copy(alpha = 0.25f),
+                targetValue = when {
+                    isCorrectDot -> colors.correct
+                    filled       -> colors.wrong
+                    else         -> colors.accent.copy(alpha = 0.25f)
+                },
                 animationSpec = tween(300),
                 label         = "dot$i"
             )
-            Box(Modifier.size(if (used) 14.dp else 11.dp).background(color, CircleShape))
+            Box(Modifier.size(if (filled) 14.dp else 11.dp).background(color, CircleShape))
         }
     }
 }

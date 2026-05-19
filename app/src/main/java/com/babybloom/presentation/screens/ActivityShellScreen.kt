@@ -316,6 +316,7 @@ fun ActivityShellScreen(
                                     currentItem     = currentItem,
                                     isCalmMode      = settings.isCalmMode,
                                     difficultyLevel = activity.difficultyLevel,
+                                    isTest       = settings.isTest,
                                     activityId      = activity.id,
                                     roundIndex      = state.currentIndex,
                                     onComplete      = { isCorrect, elapsedMs, attempts, touchComplexity ->
