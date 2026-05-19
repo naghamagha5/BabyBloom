@@ -225,6 +225,10 @@ fun DragGameScreen(
         viewModel.loadContent(currentItem, isCalmMode, isTest, onComplete)
     }
 
+    DisposableEffect(currentItem.contentId) {
+        onDispose { viewModel.stopContent(currentItem.contentId) }
+    }
+
     val prevSignal = remember { mutableIntStateOf(0) }
     LaunchedEffect(state.sessionCompleteSignal) {
         if (state.sessionCompleteSignal > prevSignal.intValue) {
@@ -237,7 +241,7 @@ fun DragGameScreen(
         }
     }
 
-    if (state.isLoading) {
+    if (state.isLoading || state.contentId != currentItem.contentId) {
         val colors = LocalGameColorScheme.current
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = colors.accent)

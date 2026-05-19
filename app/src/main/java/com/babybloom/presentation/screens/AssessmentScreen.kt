@@ -1,9 +1,5 @@
 package com.babybloom.presentation.screens
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,31 +46,33 @@ fun AssessmentScreen(
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    AnimatedContent(
-        targetState = state,
-        transitionSpec = { fadeIn() togetherWith fadeOut() },
-        label = "assessment_transition"
-    ) { currentState ->
-        when (currentState) {
-            is AssessmentUiState.Loading -> AssessmentLoadingContent()
-            is AssessmentUiState.Intro -> AssessmentIntroContent(
-                childName = currentState.childName,
-                isCalmMode = currentState.isCalmMode,
-                onStart = viewModel::beginActivities
-            )
-            is AssessmentUiState.Playing -> AssessmentPlayingContent(
-                state = currentState,
-                childId = childId,
-                onComplete = viewModel::onActivityComplete,
-                onExitAssessment = onExitAssessment
-            )
-            is AssessmentUiState.Bootstrapping -> AssessmentBootstrappingContent()
-            is AssessmentUiState.Complete -> {
-                LaunchedEffect(Unit) { onAssessmentComplete() }
-                AssessmentBootstrappingContent()
+    when (val currentState = state) {
+        is AssessmentUiState.Loading -> AssessmentLoadingContent()
+        is AssessmentUiState.Intro -> AssessmentIntroContent(
+            childName = currentState.childName,
+            isCalmMode = currentState.isCalmMode,
+            onStart = viewModel::beginActivities
+        )
+        is AssessmentUiState.Playing -> {
+            androidx.compose.runtime.key(
+                currentState.currentActivityId,
+                currentState.currentContentId,
+                currentState.currentIndex
+            ) {
+                AssessmentPlayingContent(
+                    state = currentState,
+                    childId = childId,
+                    onComplete = viewModel::onActivityComplete,
+                    onExitAssessment = onExitAssessment
+                )
             }
-            is AssessmentUiState.Error -> AssessmentErrorContent(message = currentState.message)
         }
+        is AssessmentUiState.Bootstrapping -> AssessmentBootstrappingContent()
+        is AssessmentUiState.Complete -> {
+            LaunchedEffect(Unit) { onAssessmentComplete() }
+            AssessmentBootstrappingContent()
+        }
+        is AssessmentUiState.Error -> AssessmentErrorContent(message = currentState.message)
     }
 }
 
@@ -175,6 +173,7 @@ private fun AssessmentPlayingContent(
         sessionId = state.sessionId,
         childId = childId,
         contentId = state.currentContentId,
+        stepIndex = state.currentIndex,
         isAssessment = true,
         isTest = state.isTest,
         assessmentCurrent = state.currentIndex + 1,

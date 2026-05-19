@@ -116,6 +116,7 @@ fun ActivityShellScreen(
                 .getOrNull(state.currentIndex) ?: return
 
             val isCurrentActivity = activity.id == activityId &&
+                    state.stepIndex == stepIndex &&
                     (contentId == null || currentItem.contentId == contentId)
             if (!isCurrentActivity) {
                 ActivityLoadingScreen()

@@ -32,6 +32,7 @@ sealed class CountingGameUiState {
     object Loading : CountingGameUiState()
 
     data class Playing(
+        val contentId            : String,
         val gameType             : CountGameType,
         val targetCount          : Int,
         val subjectId            : String,
@@ -73,6 +74,7 @@ class CountingGameViewModel @Inject constructor(
     val uiState: StateFlow<CountingGameUiState> = _uiState.asStateFlow()
 
     private var mediaPlayer         : MediaPlayer? = null
+    private var loadJob             : Job?         = null
     private var animationJob        : Job?         = null
     private var timerJob            : Job?         = null
 
@@ -125,12 +127,13 @@ class CountingGameViewModel @Inject constructor(
     ) {
         // Store callback so timer expiry can reach it without a parameter
         onCompleteCallback = onComplete
+        loadJob?.cancel()
         animationJob?.cancel()
         timerJob?.cancel()
+        releasePlayer()
+        _uiState.value = CountingGameUiState.Loading
 
-        viewModelScope.launch {
-            _uiState.value = CountingGameUiState.Loading
-
+        loadJob = viewModelScope.launch {
             val targetCount = item.contentId
                 .removePrefix("number_")
                 .toIntOrNull()
@@ -156,6 +159,7 @@ class CountingGameViewModel @Inject constructor(
             }
 
             _uiState.value = CountingGameUiState.Playing(
+                contentId         = item.contentId,
                 gameType          = gameType,
                 targetCount       = targetCount,
                 subjectId         = subjectId,
@@ -357,6 +361,7 @@ class CountingGameViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        loadJob?.cancel()
         animationJob?.cancel()
         timerJob?.cancel()
         releasePlayer()

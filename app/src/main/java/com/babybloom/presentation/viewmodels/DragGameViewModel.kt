@@ -68,6 +68,7 @@ data class ScatterPosition(val xFraction: Float, val yFraction: Float)
 
 // ── Unified state ─────────────────────────────────────────────────────────────
 data class DragGameState(
+    val contentId   : String? = null,
     val dragType    : DragType = DragType.COLOR_TO_SHAPE,
     val isLoading   : Boolean  = true,
     val isTest      : Boolean  = false,
@@ -182,6 +183,7 @@ class DragGameViewModel @Inject constructor(
     private var cageTimerJob    : Job? = null
     private var questionTimerJob: Job? = null
     private var hintJob         : Job? = null
+    private var loadJob         : Job? = null
 
     // ── Touch analysis ────────────────────────────────────────────────────────
     private val touchAnalyzer = TouchPatternAnalyzer()
@@ -205,13 +207,21 @@ class DragGameViewModel @Inject constructor(
         onComplete : (isCorrect: Boolean, elapsedMs: Long, touchComplexity: Float) -> Unit
     ) {
         this.onComplete = onComplete
+        loadJob?.cancel()
         cageTimerJob?.cancel()
         questionTimerJob?.cancel()
         hintJob?.cancel()
         releasePlayer()
         releaseLoopPlayer()
+        val previousResetTrigger = _state.value.resetTrigger
+        _state.value = DragGameState(
+            contentId = currentItem.contentId,
+            isLoading = true,
+            isTest = isTest,
+            resetTrigger = previousResetTrigger + 1
+        )
         playSound(AssetPathResolver.soundEffectPath(SoundEffect.TAP))
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             when (parseDragType(currentItem)) {
                 DragType.COLOR_TO_SHAPE  -> loadColorToShape(currentItem, isCalmMode, isTest)
                 DragType.LETTER_TO_WORD  -> loadLetterToWord(currentItem, isCalmMode, isTest)
@@ -219,6 +229,21 @@ class DragGameViewModel @Inject constructor(
                 DragType.SHAPE_TO_OUTLINE -> loadShapeToOutline(currentItem, isCalmMode, isTest)
             }
         }
+    }
+
+    fun stopContent(contentId: String) {
+        if (_state.value.contentId != contentId) return
+        loadJob?.cancel()
+        cageTimerJob?.cancel()
+        questionTimerJob?.cancel()
+        hintJob?.cancel()
+        releasePlayer()
+        releaseLoopPlayer()
+        _state.value = DragGameState(
+            contentId = contentId,
+            isLoading = true,
+            resetTrigger = _state.value.resetTrigger + 1
+        )
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -257,6 +282,7 @@ class DragGameViewModel @Inject constructor(
         }
 
         _state.value = _state.value.copy(
+            contentId       = item.contentId,
             dragType        = DragType.COLOR_TO_SHAPE,
             isLoading       = false,
             isTest          = isTest,
@@ -312,6 +338,7 @@ class DragGameViewModel @Inject constructor(
         }
 
         _state.value = _state.value.copy(
+            contentId           = item.contentId,
             dragType            = DragType.LETTER_TO_WORD,
             isLoading           = false,
             isTest              = isTest,
@@ -398,6 +425,7 @@ class DragGameViewModel @Inject constructor(
         val instruction = context.getString(R.string.drag_cage_instruction, numeral)
 
         _state.value = _state.value.copy(
+            contentId        = item.contentId,
             dragType         = DragType.ANIMALS_TO_CAGE,
             isLoading        = false,
             isTest           = isTest,
@@ -477,6 +505,7 @@ class DragGameViewModel @Inject constructor(
         }
 
         _state.value = _state.value.copy(
+            contentId = item.contentId,
             dragType = DragType.SHAPE_TO_OUTLINE,
             isLoading = false,
             isTest = isTest,

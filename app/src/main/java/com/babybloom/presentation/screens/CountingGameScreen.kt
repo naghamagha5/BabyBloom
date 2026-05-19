@@ -80,7 +80,7 @@ fun CountingGameScreen(
     val colors = LocalGameColorScheme.current
 
     // Pass onComplete into loadGame so the timer expiry path can also call it
-    LaunchedEffect(currentItem.contentId) {
+    LaunchedEffect(currentItem.contentId, activityId, roundIndex, difficultyLevel, isTest) {
         viewModel.loadGame(currentItem, difficultyLevel, activityId, roundIndex, isTest, onComplete)
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -92,13 +92,21 @@ fun CountingGameScreen(
                     CircularProgressIndicator(color = colors.accent)
                 }
             is CountingGameUiState.Playing -> {
-                CountingGameContent(
-                    state            = s,
-                    isCalmMode       = isCalmMode,
-                    viewModel        = viewModel,
-                    onAnswerSelected = { viewModel.onAnswerSelected(it, onComplete) }
-                )
-                if (s.showCelebration) GoodJobPopup()
+                if (s.contentId != currentItem.contentId || s.roundIndex != roundIndex) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = colors.accent)
+                    }
+                } else {
+                    key(s.contentId, s.roundIndex) {
+                        CountingGameContent(
+                            state            = s,
+                            isCalmMode       = isCalmMode,
+                            viewModel        = viewModel,
+                            onAnswerSelected = { viewModel.onAnswerSelected(it, onComplete) }
+                        )
+                        if (s.showCelebration) GoodJobPopup()
+                    }
+                }
             }
         }
     }
@@ -175,16 +183,18 @@ private fun CountingGameContent(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         row.forEach { choice ->
-                            AnswerButton(
-                                number     = choice,
-                                isSelected = state.selectedAnswer == choice,
-                                isCorrect  = if (state.selectedAnswer == choice) state.isCorrect else null,
-                                isGoldHint = state.showCorrectHint && choice == state.targetCount,
-                                isShaking  = state.wrongAnswerIndex == choice,
-                                isEnabled  = buttonsEnabled,
-                                onClick    = { onAnswerSelected(choice) },
-                                modifier   = Modifier.weight(1f)
-                            )
+                            key(state.contentId, state.roundIndex, choice) {
+                                AnswerButton(
+                                    number     = choice,
+                                    isSelected = state.selectedAnswer == choice,
+                                    isCorrect  = if (state.selectedAnswer == choice) state.isCorrect else null,
+                                    isGoldHint = state.showCorrectHint && choice == state.targetCount,
+                                    isShaking  = state.wrongAnswerIndex == choice,
+                                    isEnabled  = buttonsEnabled,
+                                    onClick    = { onAnswerSelected(choice) },
+                                    modifier   = Modifier.weight(1f)
+                                )
+                            }
                         }
                     }
                 }

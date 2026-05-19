@@ -105,9 +105,8 @@ class AssessmentPlannerService @Inject constructor(
             AssessmentCategory.COLORS -> listOf("drag_colors_d$level")
             AssessmentCategory.SHAPES -> listOf("trace_shapes_d$level")
             AssessmentCategory.NUMBERS -> listOf(
-                "count_animals_d$level",
-                "drag_numbers_d$level",
-                "count_shapes_d$level"
+                "count_d$level",
+                "drag_numbers_d$level"
             )
             AssessmentCategory.LETTERS -> listOf(
                 "speech_letters_d$level",
@@ -115,7 +114,7 @@ class AssessmentPlannerService @Inject constructor(
                 "trace_letters_d$level"
             )
             AssessmentCategory.ANIMALS -> listOf(
-                "match_animals_d$level"
+                "speech_animals_d$level"
             )
         }
 }

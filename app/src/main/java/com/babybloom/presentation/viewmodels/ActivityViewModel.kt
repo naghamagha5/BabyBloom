@@ -54,6 +54,7 @@ sealed class ActivityUiState {
     data class Playing(
         val activityWithContent: ActivityWithContent,
         val currentIndex: Int = 0,
+        val stepIndex: Int = 0,
         val score: Int = 0,
         val totalAttempts: Int = 0,
         val sessionSettings: ActivitySessionSettings,
@@ -96,6 +97,8 @@ class ActivityViewModel @Inject constructor(
     private var activityStartMs: Long = 0L
     private val attentionTracker = AttentionTracker()
     private var timerJob: Job? = null
+    private var loadJob: Job? = null
+    private var loadRequestId: Long = 0L
     private var sessionQueue: List<ActivityLaunchStep> = emptyList()
     private var currentStepIndex: Int = 0
     private var currentStep: ActivityLaunchStep? = null
@@ -113,8 +116,10 @@ class ActivityViewModel @Inject constructor(
         isAssessment: Boolean = false,
         isTest: Boolean = false
     ) {
+        loadJob?.cancel()
+        val requestId = ++loadRequestId
         _uiState.value = ActivityUiState.Loading
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             lastAlgorithmOutput = null
             currentStepIndex = stepIndex
 
@@ -150,11 +155,13 @@ class ActivityViewModel @Inject constructor(
             sessionQueue = if (queue.isEmpty()) listOfNotNull(currentStep) else queue
 
             val child = childRepository.getById(childId) ?: run {
+                if (requestId != loadRequestId) return@launch
                 _uiState.value = ActivityUiState.Error("Child not found")
                 return@launch
             }
 
             val user = userRepository.getById(child.userId) ?: run {
+                if (requestId != loadRequestId) return@launch
                 _uiState.value = ActivityUiState.Error("User not found")
                 return@launch
             }
@@ -186,9 +193,12 @@ class ActivityViewModel @Inject constructor(
                     else activityWithContent.copy(contentItems = filteredItems)
                 }
             } ?: run {
+                if (requestId != loadRequestId) return@launch
                 _uiState.value = ActivityUiState.Error("Activity not found")
                 return@launch
             }
+
+            if (requestId != loadRequestId) return@launch
 
             val settings = ActivitySessionSettings(
                 isCalmMode             = child.uiTheme,
@@ -212,6 +222,7 @@ class ActivityViewModel @Inject constructor(
 
             _uiState.value = ActivityUiState.Playing(
                 activityWithContent = data,
+                stepIndex           = stepIndex,
                 sessionSettings     = settings,
                 sessionRemainingMs  = settings.sessionDurationMs
             )
@@ -470,6 +481,7 @@ class ActivityViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         appSoundSettings.stopSession()
+        loadJob?.cancel()
         timerJob?.cancel()
     }
 
