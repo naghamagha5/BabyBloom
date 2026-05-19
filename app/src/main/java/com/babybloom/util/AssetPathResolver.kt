@@ -101,5 +101,9 @@ enum class SoundEffect(val fileName: String) {
     COMPLETE("complete.ogg"),
     TAP("tap.ogg"),
     TRY_AGAIN("try_again.ogg"),
-    TRACE_INSTRUCTION("trace_instruction.ogg")
+    GOOD_JOB("good_job.ogg");
+
+    companion object {
+        val fileNames: Set<String> = entries.map { it.fileName }.toSet()
+    }
 }

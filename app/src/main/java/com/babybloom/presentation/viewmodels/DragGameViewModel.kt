@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babybloom.R
 import com.babybloom.data.local.dao.LearningContentDao
+import com.babybloom.di.AppSoundSettings
 import com.babybloom.domain.model.ActivityContent
 import com.babybloom.util.AssetPathResolver
 import com.babybloom.util.ImageAsset
@@ -142,7 +143,8 @@ data class DragGameState(
 @HiltViewModel
 class DragGameViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val learningContentDao: LearningContentDao
+    private val learningContentDao: LearningContentDao,
+    private val appSoundSettings: AppSoundSettings
 ) : ViewModel() {
 
     private companion object {
@@ -1019,6 +1021,10 @@ class DragGameViewModel @Inject constructor(
     private fun playSequence(paths: List<String>, index: Int = 0) {
         if (index >= paths.size) return
         val path = paths[index]
+        if (isDisabledSoundEffectPath(path)) {
+            playSequence(paths, index + 1)
+            return
+        }
         try {
             releasePlayer()
             mediaPlayer = MediaPlayer()
@@ -1044,6 +1050,7 @@ class DragGameViewModel @Inject constructor(
 
     private fun startLoopSound(path: String) {
         releaseLoopPlayer()
+        if (isDisabledSoundEffectPath(path)) return
         try {
             loopPlayer = MediaPlayer()
             val afd = context.assets.openFd(path)
@@ -1066,6 +1073,11 @@ class DragGameViewModel @Inject constructor(
         try { loopPlayer?.stop() } catch (_: Exception) {}
         loopPlayer?.release()
         loopPlayer = null
+    }
+
+    private fun isDisabledSoundEffectPath(path: String): Boolean {
+        val fileName = path.substringAfterLast('/')
+        return fileName in SoundEffect.fileNames && !appSoundSettings.soundEnabled.value
     }
 
     override fun onCleared() {
