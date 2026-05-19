@@ -158,7 +158,6 @@ class DragGameViewModel @Inject constructor(
         const val ATTEMPT_ENCODE_FACTOR    = 100_000L
         // ── Delays ───────────────────────────────────────────────────────────
         const val WRONG_LETTER_FLASH_MS            = 600L
-        const val LETTER_WORD_RECOGNITION_DELAY_MS = 1_200L
         const val WRONG_SHAPE_FLASH_MS             = 600L
         const val CELEBRATION_DURATION_MS          = 2_200L
         const val SESSION_ADVANCE_DELAY_MS         = 1_400L
@@ -724,21 +723,21 @@ class DragGameViewModel @Inject constructor(
                 val encoded         = elapsedMs + finalAttempts.toLong() * ATTEMPT_ENCODE_FACTOR
                 val touchComplexity = touchAnalyzer.analyze().touchComplexity
 
-                playSequence(listOf(
-                    AssetPathResolver.soundEffectPath(SoundEffect.CORRECT),
-                    countingSoundPath(newSet.size)
-                ))
+                val contentId = current.contentId
                 _state.value = _state.value.copy(
                     isAnswered          = true,
                     isCorrect           = true,
                     attemptsUsed        = finalAttempts,
-                    showCelebration     = true,
+                    showCelebration     = false,
                     sessionCorrectCount = current.sessionCorrectCount + 1
                 )
-                viewModelScope.launch {
-                    delay(CELEBRATION_DURATION_MS)
-                    _state.value = _state.value.copy(showCelebration = false)
-                    onComplete?.invoke(true, encoded, touchComplexity)
+                playSequence(
+                    listOf(
+                        AssetPathResolver.soundEffectPath(SoundEffect.CORRECT),
+                        countingSoundPath(newSet.size)
+                    )
+                ) {
+                    showCelebrationThenComplete(contentId, true, encoded, touchComplexity)
                 }
                 advanceSession(elapsedMs)
             } else {
@@ -884,17 +883,13 @@ class DragGameViewModel @Inject constructor(
             questionTimerJob?.cancel()
             hintJob?.cancel()
 
-            val delayCelebration = current.dragType == DragType.LETTER_TO_WORD
-            playSequence(listOfNotNull(
-                AssetPathResolver.soundEffectPath(SoundEffect.CORRECT),
-                successAudioPath
-            ))
+            val contentId = current.contentId
             _state.value = current.copy(
                 isAnswered           = true,
                 isCorrect            = true,
                 attemptsUsed         = newUsed,
                 attemptsLeft         = newLeft,
-                showCelebration      = !delayCelebration,
+                showCelebration      = false,
                 hintColorId          = null,
                 hintLetterId         = null,
                 hintShapeId          = null,
@@ -902,14 +897,13 @@ class DragGameViewModel @Inject constructor(
                 sessionTotalAttempts = current.sessionTotalAttempts + newUsed
             )
             val encoded = elapsedMs + (newUsed.toLong() * ATTEMPT_ENCODE_FACTOR)
-            viewModelScope.launch {
-                if (delayCelebration) {
-                    delay(LETTER_WORD_RECOGNITION_DELAY_MS)
-                    _state.value = _state.value.copy(showCelebration = true)
-                }
-                delay(CELEBRATION_DURATION_MS)
-                _state.value = _state.value.copy(showCelebration = false)
-                onComplete?.invoke(true, encoded, touchComplexity)
+            playSequence(
+                listOfNotNull(
+                    AssetPathResolver.soundEffectPath(SoundEffect.CORRECT),
+                    successAudioPath
+                )
+            ) {
+                showCelebrationThenComplete(contentId, true, encoded, touchComplexity)
             }
             advanceSession(elapsedMs)
 
@@ -1018,11 +1012,30 @@ class DragGameViewModel @Inject constructor(
     // Audio
     // ─────────────────────────────────────────────────────────────────────────
 
-    private fun playSequence(paths: List<String>, index: Int = 0) {
-        if (index >= paths.size) return
+    private fun showCelebrationThenComplete(
+        contentId: String?,
+        isCorrect: Boolean,
+        encoded: Long,
+        touchComplexity: Float
+    ) {
+        viewModelScope.launch {
+            if (_state.value.contentId != contentId) return@launch
+            _state.value = _state.value.copy(showCelebration = true)
+            delay(CELEBRATION_DURATION_MS)
+            if (_state.value.contentId != contentId) return@launch
+            _state.value = _state.value.copy(showCelebration = false)
+            onComplete?.invoke(isCorrect, encoded, touchComplexity)
+        }
+    }
+
+    private fun playSequence(paths: List<String>, index: Int = 0, onComplete: () -> Unit = {}) {
+        if (index >= paths.size) {
+            onComplete()
+            return
+        }
         val path = paths[index]
         if (isDisabledSoundEffectPath(path)) {
-            playSequence(paths, index + 1)
+            playSequence(paths, index + 1, onComplete)
             return
         }
         try {
@@ -1030,17 +1043,17 @@ class DragGameViewModel @Inject constructor(
             mediaPlayer = MediaPlayer()
             val afd = context.assets.openFd(path)
             mediaPlayer?.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-            mediaPlayer?.setOnCompletionListener { playSequence(paths, index + 1) }
+            mediaPlayer?.setOnCompletionListener { playSequence(paths, index + 1, onComplete) }
             mediaPlayer?.setOnErrorListener { _, _, _ ->
                 Log.w("DragGameVM", "Error playing: $path")
-                playSequence(paths, index + 1)
+                playSequence(paths, index + 1, onComplete)
                 true
             }
             mediaPlayer?.prepare()
             mediaPlayer?.start()
         } catch (e: Exception) {
             Log.w("DragGameVM", "Audio not found: $path — ${e.message}")
-            playSequence(paths, index + 1)
+            playSequence(paths, index + 1, onComplete)
         }
     }
 

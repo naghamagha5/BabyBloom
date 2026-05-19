@@ -101,6 +101,7 @@ class SpeechViewModel @Inject constructor(
         ) return
 
         attemptJob?.cancel()
+        speechRecognitionManager.cancelCurrent()
         releasePlayer()
         isRunning = true
 
@@ -159,6 +160,9 @@ class SpeechViewModel @Inject constructor(
                         attempts = attempt, micState = MicState.Processing
                     )
                     delay(300)
+
+                    val activeCard = _cardState.value as? SpeechCardState.Card
+                    if (activeCard?.item?.contentId != item.contentId) return@launch
 
                     when {
                         result == null -> appSoundSettings.playSoundEffect(SoundEffect.WRONG)
@@ -307,6 +311,7 @@ class SpeechViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         attemptJob?.cancel()
+        speechRecognitionManager.cancelCurrent()
         releasePlayer()
     }
 }

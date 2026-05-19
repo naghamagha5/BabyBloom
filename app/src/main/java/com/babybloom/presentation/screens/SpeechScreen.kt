@@ -75,10 +75,14 @@ fun SpeechScreen(
                 is SpeechCardState.Loading -> CircularProgressIndicator(color = colors.accent)
                 is SpeechCardState.Offline -> OfflineBlock()
                 is SpeechCardState.Card    -> {
-                    SpeechCardLayout(state, isCalmMode)
+                    if (state.item.contentId != currentItem.contentId) {
+                        CircularProgressIndicator(color = colors.accent)
+                    } else {
+                        SpeechCardLayout(state, isCalmMode)
                     // ── Unified celebration popup ──────────────────────────
-                    if (state.showSuccess) {
-                        GoodJobPopup(coverage = -1f)
+                        if (state.showSuccess) {
+                            GoodJobPopup(coverage = -1f)
+                        }
                     }
                 }
             }

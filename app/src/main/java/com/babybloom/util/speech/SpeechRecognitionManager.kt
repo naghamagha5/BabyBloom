@@ -12,7 +12,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
+import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,6 +26,8 @@ sealed class SpeechResult {
 class SpeechRecognitionManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+    private var activeRecognizer: SpeechRecognizer? = null
+
     fun isOnline(): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         return cm.activeNetwork?.let {
@@ -34,9 +36,17 @@ class SpeechRecognitionManager @Inject constructor(
         } ?: false
     }
 
+    fun cancelCurrent() {
+        activeRecognizer?.cancel()
+        activeRecognizer?.destroy()
+        activeRecognizer = null
+    }
+
     suspend fun listenOnce(): SpeechResult = withContext(Dispatchers.Main) {
-        suspendCoroutine { cont ->
+        suspendCancellableCoroutine { cont ->
+            cancelCurrent()
             val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
+            activeRecognizer = recognizer
 
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ar-EG")
@@ -56,8 +66,15 @@ class SpeechRecognitionManager @Inject constructor(
             fun settle(result: SpeechResult) {
                 if (settled) return
                 settled = true
+                if (activeRecognizer == recognizer) activeRecognizer = null
                 recognizer.destroy()
-                cont.resume(result)
+                if (cont.isActive) cont.resume(result)
+            }
+
+            cont.invokeOnCancellation {
+                if (activeRecognizer == recognizer) activeRecognizer = null
+                recognizer.cancel()
+                recognizer.destroy()
             }
 
             recognizer.setRecognitionListener(object : RecognitionListener {
