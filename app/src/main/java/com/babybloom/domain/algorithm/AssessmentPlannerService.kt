@@ -29,7 +29,7 @@ class AssessmentPlannerService @Inject constructor(
         listOfNotNull(
             warmUpStep("drag_numbers_d1", "number_1"),
             warmUpStep("trace_letters_d1", "letter_alef"),
-            warmUpStep("speech_colors_d1", "color_red")
+            warmUpStep("match_letters_d1", "letter_ba")
         )
 
     suspend fun nextProbe(
@@ -115,7 +115,7 @@ class AssessmentPlannerService @Inject constructor(
                 "trace_letters_d$level"
             )
             AssessmentCategory.ANIMALS -> listOf(
-                "speech_animals_d$level"
+                "match_animals_d$level"
             )
         }
 }

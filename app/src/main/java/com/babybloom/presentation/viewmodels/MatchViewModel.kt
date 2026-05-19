@@ -37,7 +37,7 @@ val ALL_HABITATS = listOf(
     Habitat("desert",   R.string.habitat_desert,   "Desert_active.jpg",   "Desert_calm.jpeg"),
     Habitat("farm",     R.string.habitat_farm,     "Farm_active.jpeg",    "Farm_calm.jpeg"),
     Habitat("wetlands", R.string.habitat_wetlands, "Wetlands_active.jpeg","Wetlands_calm.jpeg"),
-    Habitat("sea",      R.string.habitat_sea,      "Sea_active.jpeg",     "Sea_active.jpeg"),
+    Habitat("sea",      R.string.habitat_sea,      "Sea_active.jpeg",     "Sea_calm.jpeg"),
     Habitat("birds",    R.string.habitat_birds,    "Birds_active.jpeg",   "Birds_calm.jpeg")
 )
 
