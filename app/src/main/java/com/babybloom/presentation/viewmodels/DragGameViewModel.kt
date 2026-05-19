@@ -725,8 +725,8 @@ class DragGameViewModel @Inject constructor(
                 val touchComplexity = touchAnalyzer.analyze().touchComplexity
 
                 playSequence(listOf(
-                    countingSoundPath(newSet.size),
-                    AssetPathResolver.soundEffectPath(SoundEffect.CORRECT)
+                    AssetPathResolver.soundEffectPath(SoundEffect.CORRECT),
+                    countingSoundPath(newSet.size)
                 ))
                 _state.value = _state.value.copy(
                     isAnswered          = true,
@@ -886,8 +886,8 @@ class DragGameViewModel @Inject constructor(
 
             val delayCelebration = current.dragType == DragType.LETTER_TO_WORD
             playSequence(listOfNotNull(
-                successAudioPath,
-                AssetPathResolver.soundEffectPath(SoundEffect.CORRECT)
+                AssetPathResolver.soundEffectPath(SoundEffect.CORRECT),
+                successAudioPath
             ))
             _state.value = current.copy(
                 isAnswered           = true,

@@ -82,7 +82,6 @@ enum class AnswerState { Idle, Correct, Wrong, Revealed }
 // ── Timings ───────────────────────────────────────────────────────────────────
 private const val WIGGLE_HINT_DELAY_MS = 4_000L
 private const val ATTEMPT_TIMEOUT_MS   = 15_000L
-private const val WRONG_SOUND_DELAY_MS = 200L
 private const val WRONG_HIGHLIGHT_MS   = 650L
 private const val REVEAL_PAUSE_MS      = 1_500L
 private const val CELEBRATION_MS       = 1_800L
@@ -235,6 +234,7 @@ class MatchViewModel @Inject constructor(
         if (isCorrect) {
             cardCorrect++
             updateAnswerState(AnswerState.Correct)
+            appSoundSettings.playSoundEffect(SoundEffect.CORRECT)
 
             answerJob?.cancel()
             answerJob = viewModelScope.launch {
@@ -248,9 +248,7 @@ class MatchViewModel @Inject constructor(
                     }
                     "ANIMAL_TO_HABITAT" -> currentAnimalPath?.let { playVoiceAndWait(it) }
                 }
-                appSoundSettings.playSoundEffect(SoundEffect.CORRECT)
                 delay(400)
-                appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
                 setCelebration(true)
                 delay(CELEBRATION_MS)
                 setCelebration(false)
@@ -267,9 +265,6 @@ class MatchViewModel @Inject constructor(
 
             answerJob?.cancel()
             answerJob = viewModelScope.launch {
-                // FIX: delay prevents the WRONG sfx from colliding with the
-                // MediaPlayer voice audio that may still be finishing.
-                delay(WRONG_SOUND_DELAY_MS)
                 appSoundSettings.playSoundEffect(SoundEffect.WRONG)
 
                 decrementAttempts(attemptsLeft, selectedId)
@@ -353,7 +348,6 @@ class MatchViewModel @Inject constructor(
         val item = items.getOrNull(index) ?: run {
             questionJob?.cancel()
             questionJob = viewModelScope.launch {
-                appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
                 delay(1_500)
                 val elapsed = System.currentTimeMillis() - startTime
                 _cardState.value = MatchCardState.Done(elapsed, correctCount)

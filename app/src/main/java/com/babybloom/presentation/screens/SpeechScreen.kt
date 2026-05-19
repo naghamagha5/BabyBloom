@@ -78,7 +78,7 @@ fun SpeechScreen(
                     SpeechCardLayout(state, isCalmMode)
                     // ── Unified celebration popup ──────────────────────────
                     if (state.showSuccess) {
-                        GoodJobPopup()
+                        GoodJobPopup(coverage = -1f)
                     }
                 }
             }

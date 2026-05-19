@@ -6,9 +6,11 @@ import android.media.MediaPlayer
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.babybloom.di.AppSoundSettings
 import com.babybloom.domain.model.ActivityContent
 import com.babybloom.util.AssetPathResolver
 import com.babybloom.util.ImageAsset
+import com.babybloom.util.SoundEffect
 import com.babybloom.util.speech.SpeechRecognitionManager
 import com.babybloom.util.speech.SpeechResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,7 +42,8 @@ sealed class SpeechCardState {
 @HiltViewModel
 class SpeechViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val speechRecognitionManager: SpeechRecognitionManager
+    private val speechRecognitionManager: SpeechRecognitionManager,
+    private val appSoundSettings: AppSoundSettings
 ) : ViewModel() {
 
     private val _cardState = MutableStateFlow<SpeechCardState>(SpeechCardState.Loading)
@@ -158,10 +161,11 @@ class SpeechViewModel @Inject constructor(
                     delay(300)
 
                     when {
-                        result == null -> Unit // timeout — loop continues
+                        result == null -> appSoundSettings.playSoundEffect(SoundEffect.WRONG)
 
                         result is SpeechResult.Success &&
                                 isMatch(result.recognizedText, item.labelAr) -> {
+                            appSoundSettings.playSoundEffect(SoundEffect.CORRECT)
                             _cardState.value = SpeechCardState.Card(
                                 item = item, imageAsset = imageAsset,
                                 attempts = attempt, micState = MicState.Idle,
@@ -182,7 +186,7 @@ class SpeechViewModel @Inject constructor(
                             return@launch
                         }
 
-                        else -> Unit // wrong or error — loop continues
+                        else -> appSoundSettings.playSoundEffect(SoundEffect.WRONG)
                     }
                 }
 

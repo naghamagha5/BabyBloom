@@ -267,7 +267,7 @@ fun DragGameScreen(
             AttemptsRow(state)
         }
         if (state.showCelebration) {
-            GoodJobPopup()
+            GoodJobPopup(coverage = -1f)
         }
     }
 }

@@ -190,7 +190,7 @@ fun TraceScreen(
                     cardBackground   = colors.background,
                     contentType      = contentType
                 )
-                TraceSuccessPopup(coverage = s.finalScore)
+                GoodJobPopup(coverage = s.finalScore)
             }
 
             is TraceUiState.ShowEncouraging -> {
@@ -520,54 +520,6 @@ private fun TraceProgressBar(progress: Float, accentColor: Color) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Popups
 // ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-fun TraceSuccessPopup(coverage: Float) {
-    val infinite = rememberInfiniteTransition(label = "lp")
-    val lottieProgress by infinite.animateFloat(
-        0f, 1f, infiniteRepeatable(tween(2_000), RepeatMode.Restart), "lv"
-    )
-    val scale    by animateFloatAsState(1f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow), label = "sc")
-    val popAlpha by animateFloatAsState(1f, tween(350), label = "al")
-
-    val lottieComposition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.confetti))
-
-    Box(
-        modifier         = Modifier.fillMaxSize().background(TraceOverlayScrim),
-        contentAlignment = Alignment.Center
-    ) {
-        LottieAnimation(
-            composition = lottieComposition,
-            progress    = { (lottieProgress % 1f).coerceIn(0f, 1f) },
-            modifier    = Modifier.fillMaxSize()
-        )
-        Column(
-            modifier = Modifier
-                .graphicsLayer(scaleX = scale, scaleY = scale, alpha = popAlpha)
-                .background(TracePopupBackground, RoundedCornerShape(28.dp))
-                .padding(horizontal = 64.dp, vertical = 48.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(text = stringResource(R.string.trace_success_emoji), fontSize = 76.sp)
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text       = stringResource(R.string.trace_success_title),
-                fontSize   = 34.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color      = TraceSuccessText,
-                textAlign  = TextAlign.Center,
-                style      = LocalTextStyle.current.copy(textDirection = TextDirection.Rtl)
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text      = stringResource(R.string.trace_coverage_format, (coverage * 100).toInt()),
-                style     = MaterialTheme.typography.titleLarge,
-                color     = TraceSecondaryText,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
 
 @Composable
 fun TraceEncouragingPopup(attemptsDone: Int, isLastAttempt: Boolean) {

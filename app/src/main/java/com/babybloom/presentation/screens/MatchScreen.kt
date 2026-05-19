@@ -171,7 +171,7 @@ fun MatchScreen(
             is MatchCardState.LetterAnimalCard ->
                 LetterAnimalGame(state, isCalmMode, wiggleTick, viewModel)
         }
-        if (showCelebration) GoodJobPopup()
+        if (showCelebration) GoodJobPopup(coverage = -1f)
     }
 }
 

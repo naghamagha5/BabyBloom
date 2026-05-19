@@ -23,7 +23,6 @@ import com.babybloom.domain.repository.InteractionEventRepository
 import com.babybloom.domain.repository.LevelMasteryRepository
 import com.babybloom.domain.repository.SessionRepository
 import com.babybloom.domain.repository.UserRepository
-import com.babybloom.util.SoundEffect
 import com.babybloom.util.attention.AttentionDetector
 import com.babybloom.util.attention.AttentionSample
 import com.babybloom.util.attention.AttentionTracker
@@ -283,11 +282,6 @@ class ActivityViewModel @Inject constructor(
 
         val attentionScore = attentionTracker.computeScore().takeIf { it > 0f }
 
-        if (!current.sessionSettings.isAssessment) {
-            if (isCorrect) appSoundSettings.playSoundEffect(SoundEffect.CORRECT)
-            else appSoundSettings.playSoundEffect(SoundEffect.WRONG)
-        }
-
         val finalCorrectCount   = if (isCorrect) 1 else 0
         val finalIncorrectCount = (attempts - finalCorrectCount).coerceAtLeast(0)
         val calculatedScore     = if (attempts > 0) {
@@ -352,9 +346,6 @@ class ActivityViewModel @Inject constructor(
             val nextIndex = current.currentIndex + 1
 
             if (nextIndex >= current.activityWithContent.contentItems.size) {
-                if (!current.sessionSettings.isAssessment) {
-                    appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
-                }
                 _uiState.value = ActivityUiState.Completed(
                     newScore,
                     current.activityWithContent.contentItems.size,

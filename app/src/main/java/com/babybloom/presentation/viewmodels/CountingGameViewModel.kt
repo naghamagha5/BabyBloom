@@ -273,7 +273,6 @@ class CountingGameViewModel @Inject constructor(
                 playNumberAudio(state.targetCount)
                 delay(1400)
 
-                appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
                 updatePlaying { it.copy(showCelebration = true) }
                 delay(2200)
 

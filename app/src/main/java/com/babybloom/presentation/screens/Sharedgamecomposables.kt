@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
@@ -16,38 +17,35 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.airbnb.lottie.compose.*
 import com.babybloom.R
+import com.babybloom.di.AppSoundSettings
 import com.babybloom.ui.theme.TraceOverlayScrim
 import com.babybloom.ui.theme.TracePopupBackground
 import com.babybloom.ui.theme.TraceSecondaryText
 import com.babybloom.ui.theme.TraceSuccessText
+import com.babybloom.util.SoundEffect
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GoodJobPopup
-//
-// Unified "أحسنت" celebration shown whenever a child gets a correct answer in
-// ANY game (Story, Match, Count, Drag, Speech).
-//
-// Identical to TraceSuccessPopup — confetti Lottie + pop-in card — so the
-// experience is consistent across all activities.
-//
-// Usage:
-//   if (showCelebration) {
-//       GoodJobPopup(coverage = scorePercent)  // coverage is 0f..1f
-//   }
-//
-// The caller is responsible for:
-//   • deciding when to show it (set a boolean in your state)
-//   • playing SoundEffect.COMPLETE via AppSoundSettings BEFORE showing it
-//     (the ActivityViewModel already does this via onAnswerSubmitted for
-//      games that go through the shell; for mid-game celebrations the game
-//      ViewModel should call it directly)
+// Shared celebration popup. It owns complete.ogg so all activity celebrations
+// use the same timing in normal sessions and assessment flow.
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun GoodJobPopup(
-    coverage: Float = 1f,   // 0f..1f — shown as percentage; pass 1f if not applicable
-    label   : String = ""   // optional override; defaults to "أحسنت"
+    coverage: Float = -1f,
+    label   : String = ""
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            GoodJobSoundEntryPoint::class.java
+        ).appSoundSettings().playSoundEffect(SoundEffect.COMPLETE)
+    }
+
     val infinite = rememberInfiniteTransition(label = "confetti_loop")
     val lottieProgress by infinite.animateFloat(
         initialValue   = 0f,
@@ -94,10 +92,8 @@ fun GoodJobPopup(
                 .padding(horizontal = 64.dp, vertical = 48.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text     = "🌟",
-                fontSize = 76.sp
-            )
+            Text(text = stringResource(R.string.trace_success_emoji), fontSize = 76.sp)
+
             Spacer(Modifier.height(12.dp))
             Text(
                 text       = label.ifEmpty { "أحسنت!" },
@@ -108,7 +104,7 @@ fun GoodJobPopup(
                 style      = LocalTextStyle.current.copy(textDirection = TextDirection.Rtl)
             )
             // Only show coverage percentage when it's meaningful (< 100%)
-            if (coverage < 1f) {
+            if (coverage >= 0f) {
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text      = "${(coverage * 100).toInt()}%",
@@ -119,4 +115,10 @@ fun GoodJobPopup(
             }
         }
     }
+}
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+private interface GoodJobSoundEntryPoint {
+    fun appSoundSettings(): AppSoundSettings
 }

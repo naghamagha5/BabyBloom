@@ -104,7 +104,7 @@ fun CountingGameScreen(
                             viewModel        = viewModel,
                             onAnswerSelected = { viewModel.onAnswerSelected(it, onComplete) }
                         )
-                        if (s.showCelebration) GoodJobPopup()
+                        if (s.showCelebration) GoodJobPopup(coverage = -1f)
                     }
                 }
             }

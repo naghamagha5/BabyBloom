@@ -283,7 +283,6 @@ class TraceViewModel @Inject constructor(
             playContentAudio(state.item)
             delay(REVEAL_HOLD_MS)
             _uiState.value = TraceUiState.ShowSuccess(state, finalScore)
-            appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
             delay(SUCCESS_POPUP_MS)
             val analysis = touchAnalyzer.analyze()
             _uiState.value = TraceUiState.ItemComplete(
@@ -303,7 +302,7 @@ class TraceViewModel @Inject constructor(
     private fun onAttemptFailed(state: TraceState) {
         cancelAllJobs()
         val isLast = state.currentAttempt >= MAX_ATTEMPTS
-        appSoundSettings.playSoundEffect(SoundEffect.TRY_AGAIN)
+        appSoundSettings.playSoundEffect(SoundEffect.WRONG)
 
         _uiState.value = TraceUiState.ShowEncouraging(
             state         = state,
