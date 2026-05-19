@@ -219,11 +219,11 @@ val GameCalmCorrect    = Color(0xFFADF3B0) // soft green              → correc
 
 // ── Game Mode – Active palette ────────────────────────────────────────────────
 //   Accent swatches
-val GameActiveSwatch1  = Color(0xFFEB6584)  // hot pink
-val GameActiveSwatch2  = Color(0xFFF0B362)  // vivid orange
-val GameActiveSwatch3  = Color(0xFFFFEA80)  // bright yellow
-val GameActiveSwatch4  = Color(0xFFA4EBA2)  // vivid mint
-val GameActiveSwatch5  = Color(0xFF95ADF0)  // bright periwinkle
+val GameActiveSwatch1  = Color(0xFFE1316B)  // hot pink
+val GameActiveSwatch2  = Color(0xFFE5C404)  // vivid orange
+val GameActiveSwatch3  = Color(0xFFFD7D07)  // bright yellow
+val GameActiveSwatch4  = Color(0xFF82E34B)  // vivid mint
+val GameActiveSwatch5  = Color(0xFF0683FC)  // bright periwinkle
 
 //   Semantic colors
 val GameActiveBackground = Color(0xFFFFFFFF) // pure white              → card & screen BG

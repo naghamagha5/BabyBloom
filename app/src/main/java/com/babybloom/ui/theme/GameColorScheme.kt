@@ -60,7 +60,7 @@ private val activeSwatches = listOf(
  */
 fun gameColorSchemeFor(isCalmMode: Boolean, seed: Int): GameColorScheme {
     val swatches = if (isCalmMode) calmSwatches else activeSwatches
-    val accent   = swatches[seed % swatches.size]          // deterministic rotation
+    val accent   = swatches[Math.floorMod(seed, swatches.size)]
 
     return if (isCalmMode) {
         GameColorScheme(
