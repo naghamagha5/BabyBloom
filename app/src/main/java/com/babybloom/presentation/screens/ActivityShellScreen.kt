@@ -128,9 +128,7 @@ fun ActivityShellScreen(
 
             // ── Build the color scheme for this round ─────────────────────
             // seed = currentIndex  →  accent rotates each round automatically
-            val colorSeed = remember(activity.id, currentItem.contentId, state.stepIndex, state.currentIndex) {
-                listOf(activity.id, currentItem.contentId, state.stepIndex, state.currentIndex).hashCode()
-            }
+            val colorSeed = state.stepIndex + state.currentIndex
             val gameColors = remember(settings.isCalmMode, colorSeed) {
                 gameColorSchemeFor(
                     isCalmMode = settings.isCalmMode,
