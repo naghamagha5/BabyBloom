@@ -435,14 +435,7 @@ class TraceViewModel @Inject constructor(
             when {
                 item.contentId.startsWith("letter_") -> {
                     val namePath  = AssetPathResolver.audioPathFor(item.contentId, "LETTER_NAME")
-                    val soundContentId = "${item.contentId}_s"
-                    val soundPath = AssetPathResolver.audioPathFor(soundContentId, "LETTER_SOUND")
-
-                    nameAudioPlayer = buildMediaPlayer(namePath, CONTENT_AUDIO_ATTRS) {
-                        viewModelScope.launch {
-                            soundAudioPlayer = buildMediaPlayer(soundPath, CONTENT_AUDIO_ATTRS, null)
-                        }
-                    }
+                    nameAudioPlayer = buildMediaPlayer(namePath, CONTENT_AUDIO_ATTRS, null)
                 }
                 item.contentId.startsWith("number_") -> {
                     val path = AssetPathResolver.audioPathFor(item.contentId, "NUMBER")

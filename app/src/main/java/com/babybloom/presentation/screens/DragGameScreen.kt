@@ -406,34 +406,41 @@ private fun ColorToPaintGame(
         )
     } else {
         // ── Learning layout ──────────────────────────────────────────────────
-        // Pen rests centered on the shape.
-        // Hand hint animates from the pen resting position → color swatch center.
+        // The pen rests centered on the shape. Because the pen Box is always
+        // positioned so its center coincides with shapeCenterPx (by construction
+        // of the offset calculation below), we do NOT need a separate
+        // penRestCenter state variable — shapeCenterPx IS the rest center.
+        // Using shapeCenterPx directly avoids a race-condition where
+        // onGloballyPositioned fires before shapeCenterPx is resolved on the
+        // first composition, capturing a garbage (but non-zero) coordinate that
+        // prevents the hint loop from waiting properly.
 
-        var penRestCenter      by remember { mutableStateOf(Offset.Zero) }
         var swatchCenter       by remember { mutableStateOf(Offset.Zero) }
         var hintFromCenter     by remember { mutableStateOf(Offset.Zero) }
         var hintToCenter       by remember { mutableStateOf(Offset.Zero) }
         val handProgress       = remember { Animatable(0f) }
         var isColorPenDragging by remember { mutableStateOf(false) }
+
         // Track the outer Box's root origin so we can convert shapeCenterPx
         // (which is in root coords) into an offset local to this Box.
         var outerBoxOriginPx   by remember { mutableStateOf(Offset.Zero) }
 
-        // ── Hand hint: pen resting pos → color swatch center ────────────────
-        // Keys: hintColorId (starts/restarts the hint) + isAnswered (cancels it).
+        // ── Hand hint: pen resting pos (= shapeCenterPx) → color swatch ─────
+        // Keys: hintColorId (starts/restarts the hint) + isAnswered (cancels).
         // Loops until the question is answered or the user starts dragging.
-        // The overlay itself is suppressed via !isColorPenDragging so it never
-        // flickers while the user is actively holding the pen.
+        // We wait until shapeCenterPx and swatchCenter are both non-zero so
+        // both layout anchors are fully resolved before kicking off animation.
         LaunchedEffect(state.hintColorId, state.isAnswered) {
             if (state.hintColorId != null && !state.isAnswered) {
-                // Wait for both anchor points to be measured by the layout pass.
-                while (penRestCenter == Offset.Zero || swatchCenter == Offset.Zero) {
+                // Wait for the shape canvas and the swatch tile to be measured.
+                while (shapeCenterPx == Offset.Zero || swatchCenter == Offset.Zero) {
                     delay(16L)
                 }
                 while (true) {
-                    // Snapshot anchors each cycle so the hint follows layout changes
-                    // (e.g. first render offset settling).
-                    hintFromCenter = penRestCenter
+                    // Snapshot each cycle: shapeCenterPx can shift as the layout
+                    // settles (e.g. first-frame offset delta), so we always read
+                    // the freshest value rather than capturing it once up-front.
+                    hintFromCenter = shapeCenterPx
                     hintToCenter   = swatchCenter
                     handProgress.snapTo(0f)
                     handProgress.animateTo(
@@ -446,8 +453,7 @@ private fun ColorToPaintGame(
                     delay(HAND_HINT_PAUSE_MS)
                 }
             } else {
-                // Cancels any in-flight animation immediately when the question
-                // is answered or the hint is cleared by the ViewModel.
+                // Cancel any in-flight animation immediately.
                 handProgress.snapTo(0f)
             }
         }
@@ -525,23 +531,14 @@ private fun ColorToPaintGame(
             }
 
             // ── Pen overlay ──────────────────────────────────────────────────
-            // Anchored to TopStart and offset so the pen box is centered on the
-            // shape. The pen's rest center is captured here for the hand hint
-            // start-point (only while not dragging so it stays at the idle pos).
+            // Anchored to TopStart and offset so the pen box center lands exactly
+            // on shapeCenterPx. No separate onGloballyPositioned needed here —
+            // shapeCenterPx already IS the pen rest center by construction.
             val option = state.colorOptions.firstOrNull()
             if (option != null) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .onGloballyPositioned { coords ->
-                            // Only update the rest-center while the pen is idle so the
-                            // hand hint always starts from the visual resting position.
-                            if (!isColorPenDragging) {
-                                val pos = coords.positionInRoot()
-                                val sz  = coords.size
-                                penRestCenter = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
-                            }
-                        }
                         .offset {
                             val penBoxPx = COLOR_GAME_PEN_BOX_H.toPx()
                             IntOffset(
@@ -556,8 +553,8 @@ private fun ColorToPaintGame(
                         isAnswered     = state.isAnswered,
                         resetKey       = strokeKey,
                         fillColor      = if (penHasVisitedColorBox.value) activeColor else null,
-                        // Wobble is suppressed while the user is dragging so the
-                        // rotation doesn't fight with the finger position.
+                        // Wobble hint is suppressed while dragging so rotation
+                        // doesn't fight the finger position.
                         hintRotation   = if (state.hintColorId != null && !isColorPenDragging)
                             hintAnim.value else 0f,
                         onDragStarted  = {
@@ -595,20 +592,20 @@ private fun ColorToPaintGame(
             }
 
             // ── Hand hint overlay ────────────────────────────────────────────
-            // Rendered above everything (zIndex = 5 inside HandHintOverlay).
+            // Shown above everything (zIndex = 5 inside HandHintOverlay).
             // Conditions:
-            //   • hintColorId set by the ViewModel (hint requested)
+            //   • hintColorId set by the ViewModel
             //   • question still open
-            //   • both anchor points measured (non-Zero)
-            //   • user is NOT currently dragging (avoids overlay fighting the finger)
+            //   • both anchor points are resolved (non-Zero)
+            //   • user is NOT currently dragging
             if (state.hintColorId != null && !state.isAnswered &&
                 hintFromCenter != Offset.Zero && hintToCenter != Offset.Zero &&
                 !isColorPenDragging
             ) {
                 HandHintOverlay(
                     progress    = handProgress.value,
-                    startOffset = hintFromCenter,
-                    endOffset   = hintToCenter
+                    startOffset = hintFromCenter - outerBoxOriginPx,
+                    endOffset   = hintToCenter - outerBoxOriginPx
                 )
             }
         }
