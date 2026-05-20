@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -34,6 +33,7 @@ import com.babybloom.R
 import com.babybloom.presentation.viewmodels.AssessmentUiState
 import com.babybloom.presentation.viewmodels.AssessmentViewModel
 import com.babybloom.ui.theme.DarkPurple
+import kotlinx.coroutines.delay
 
 @Composable
 fun AssessmentScreen(
@@ -69,8 +69,11 @@ fun AssessmentScreen(
         }
         is AssessmentUiState.Bootstrapping -> AssessmentBootstrappingContent()
         is AssessmentUiState.Complete -> {
-            LaunchedEffect(Unit) { onAssessmentComplete() }
-            AssessmentBootstrappingContent()
+            GoodJobScreen(
+                score = currentState.correctCount,
+                total = currentState.totalCount,
+                onFinished = onAssessmentComplete
+            )
         }
         is AssessmentUiState.Error -> AssessmentErrorContent(message = currentState.message)
     }
@@ -85,6 +88,11 @@ private fun AssessmentIntroContent(
     val backgroundRes = if (isCalmMode) R.drawable.ic_welcome_calm else R.drawable.ic_welcome_active
     val animalsRes = if (isCalmMode) R.drawable.ic_calm_animals else R.drawable.ic_active_animals
     val decorationRes = if (isCalmMode) R.drawable.ic_calm_decoration else R.drawable.ic_active_decoration
+
+    LaunchedEffect(Unit) {
+        delay(10_000)
+        onStart()
+    }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -137,7 +145,7 @@ private fun AssessmentIntroContent(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 Text(
-                    text = "سنبدأ التقييم لنتعرف على مستواك في اللغة والأرقام والمهارات الحركية",
+                    text = "لِنَبْدَأْ مُغَامَرَةً صَغِيرَةً مَلِيئَةً بِالْمَرَحِ، نَتَعَرَّفُ فِيهَا عَلَى الْأَشْيَاءِ الَّتِي تُحِبُّهَا وَتَسْتَمْتِعُ بِهَا.",
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.Bold,
                         color = DarkPurple.copy(alpha = 0.85f),
@@ -150,12 +158,6 @@ private fun AssessmentIntroContent(
 
                 Spacer(modifier = Modifier.height(28.dp))
 
-                Button(
-                    onClick = onStart,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("ابدأ التقييم")
-                }
             }
         }
     }

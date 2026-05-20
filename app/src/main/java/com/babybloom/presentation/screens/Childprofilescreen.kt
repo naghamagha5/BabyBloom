@@ -373,7 +373,7 @@ internal fun ChildProfileHeader(
                                 modifier           = Modifier.size(35.dp)
                             )
                             Text(
-                                text  = if (assessmentCompleted) "ابدأ الجلسة" else "ابدأ التقييم",
+                                text  = if (assessmentCompleted) "اِبْدَأِ الْمُغَامَرَةَ" else "اِبْدَأْ رِحْلَةَ الِاكْتِشَافِ",
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     color      = White,

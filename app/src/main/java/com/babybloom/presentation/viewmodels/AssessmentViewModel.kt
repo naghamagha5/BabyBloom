@@ -40,7 +40,10 @@ sealed class AssessmentUiState {
         val isTest: Boolean
     ) : AssessmentUiState()
     object Bootstrapping : AssessmentUiState()
-    object Complete : AssessmentUiState()
+    data class Complete(
+        val correctCount: Int,
+        val totalCount: Int
+    ) : AssessmentUiState()
     data class Error(val message: String) : AssessmentUiState()
 }
 
@@ -99,6 +102,7 @@ class AssessmentViewModel @Inject constructor(
     private var currentStep: AssessmentLaunchStep? = null
     private var displayIndex: Int = 0
     private var scoredItemCount: Int = 0
+    private var correctShownCount: Int = 0
     private var probeOrder: Int = 0
     private var warmUpQueue: List<AssessmentLaunchStep> = emptyList()
     private var warmUpIndex: Int = 0
@@ -116,7 +120,7 @@ class AssessmentViewModel @Inject constructor(
             }
             val profile = childProfileRepository.getByChildId(childId)
             if (profile?.assessmentCompleted == true) {
-                _uiState.value = AssessmentUiState.Complete
+                _uiState.value = AssessmentUiState.Complete(0, 0)
                 return@launch
             }
             _uiState.value = AssessmentUiState.Intro(
@@ -141,6 +145,7 @@ class AssessmentViewModel @Inject constructor(
             warmUpIndex = 0
             displayIndex = 0
             scoredItemCount = 0
+            correctShownCount = 0
             probeOrder = 0
 
             sessionStartMs = System.currentTimeMillis()
@@ -162,6 +167,7 @@ class AssessmentViewModel @Inject constructor(
     fun onActivityComplete(score: Int, total: Int) {
         val finishedStep = currentStep ?: return
         val isCorrect = total > 0 && score >= total
+        if (isCorrect) correctShownCount++
 
         if (finishedStep.isWarmUp) {
             warmUpIndex++
@@ -306,7 +312,10 @@ class AssessmentViewModel @Inject constructor(
             )
 
             sessionRepository.endSession(sessionId, System.currentTimeMillis())
-            _uiState.value = AssessmentUiState.Complete
+            _uiState.value = AssessmentUiState.Complete(
+                correctCount = correctShownCount,
+                totalCount = displayIndex
+            )
         }
     }
 
