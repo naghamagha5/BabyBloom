@@ -147,7 +147,8 @@ fun ActivityShellScreen(
                 Box(modifier = Modifier.fillMaxSize()) {
                     AttentionCameraOverlay(
                         onSample = viewModel::onAttentionSample,
-                        analyzeImage = viewModel::analyzeAttention
+                        analyzeImage = viewModel::analyzeAttention,
+                        sampleIntervalMs = if (settings.isAssessment) 750L else 2_000L
                     )
 
                     // ── Full-screen background ────────────────────────────
@@ -282,12 +283,13 @@ fun ActivityShellScreen(
                                     isTest       = settings.isTest,
                                     isAssessment = settings.isAssessment,
                                     configJson   = activity.configJson,
-                                    onCardResult = { contentId, isCorrect, _, _, attempts ->
+                                    onCardResult = { contentId, isCorrect, _, _, attempts, touchComplexity ->
                                         viewModel.onAnswerSubmitted(
                                             isCorrect      = isCorrect,
                                             contentId      = contentId,
                                             responseTimeMs = System.currentTimeMillis(),
-                                            attempts       = attempts
+                                            attempts       = attempts,
+                                            touchComplexity = touchComplexity
                                         )
                                     },
                                     onComplete = { _, _ -> }
@@ -321,13 +323,12 @@ fun ActivityShellScreen(
                                     isTest       = settings.isTest,
                                     activityId      = activity.id,
                                     roundIndex      = state.currentIndex,
-                                    onComplete      = { isCorrect, elapsedMs, attempts, touchComplexity ->
+                                    onComplete      = { isCorrect, elapsedMs, attempts ->
                                         viewModel.onAnswerSubmitted(
                                             isCorrect       = isCorrect,
                                             contentId       = currentItem.contentId,
                                             responseTimeMs  = elapsedMs,
-                                            attempts        = attempts,
-                                            touchComplexity = touchComplexity
+                                            attempts        = attempts
                                         )
                                     }
                                 )

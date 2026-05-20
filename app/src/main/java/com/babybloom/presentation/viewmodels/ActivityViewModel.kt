@@ -95,6 +95,8 @@ class ActivityViewModel @Inject constructor(
     private var sessionId: Long = 0L
     private var activityStartMs: Long = 0L
     private val attentionTracker = AttentionTracker()
+    private var latestAttentionSample: AttentionSample? = null
+    private var latestAttentionSampleMs: Long = 0L
     private var timerJob: Job? = null
     private var loadJob: Job? = null
     private var loadRequestId: Long = 0L
@@ -280,7 +282,13 @@ class ActivityViewModel @Inject constructor(
             ?: return
         if (contentId != expectedContentId) return
 
-        val attentionScore = attentionTracker.computeScore().takeIf { it > 0f }
+        val fallbackAttentionScore = latestAttentionSample
+            ?.takeIf { System.currentTimeMillis() - latestAttentionSampleMs <= 5_000L }
+            ?.let { if (it.isAttentive) 1f else 0f }
+        val attentionScore = when {
+            attentionTracker.hasSamples() -> attentionTracker.computeScore()
+            else -> fallbackAttentionScore
+        }
 
         val finalCorrectCount   = if (isCorrect) 1 else 0
         val finalIncorrectCount = (attempts - finalCorrectCount).coerceAtLeast(0)
@@ -373,6 +381,8 @@ class ActivityViewModel @Inject constructor(
     fun onAttentionSample(sample: AttentionSample?) {
         attentionTracker.record(sample)
         sample?.let {
+            latestAttentionSample = it
+            latestAttentionSampleMs = System.currentTimeMillis()
             val current = _uiState.value as? ActivityUiState.Playing ?: return
             viewModelScope.launch {
                 interactionEventRepository.saveEvent(

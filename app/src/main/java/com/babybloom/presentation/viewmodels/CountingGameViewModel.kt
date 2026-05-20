@@ -79,7 +79,7 @@ class CountingGameViewModel @Inject constructor(
     private var timerJob            : Job?         = null
 
     // Stored so the timer expiry path can call it without requiring it as a parameter
-    private var onCompleteCallback  : ((Boolean, Long, Int, Float) -> Unit)? = null
+    private var onCompleteCallback  : ((Boolean, Long, Int) -> Unit)? = null
 
     // ── Catalogues ────────────────────────────────────────────────────────────
 
@@ -123,7 +123,7 @@ class CountingGameViewModel @Inject constructor(
         activityId     : String,
         roundIndex     : Int,
         isTest         : Boolean,
-        onComplete     : (isCorrect: Boolean, elapsedMs: Long, attempts: Int, touchComplexity: Float) -> Unit
+        onComplete     : (isCorrect: Boolean, elapsedMs: Long, attempts: Int) -> Unit
     ) {
         // Store callback so timer expiry can reach it without a parameter
         onCompleteCallback = onComplete
@@ -231,7 +231,7 @@ class CountingGameViewModel @Inject constructor(
                 delay(3000)
                 updatePlaying { it.copy(showCorrectHint = false) }
                 delay(300)
-                onCompleteCallback?.invoke(false, elapsedMs, newAttempts, computeTouch(newAttempts))
+                onCompleteCallback?.invoke(false, elapsedMs, newAttempts)
             } else {
                 // Reset and give the child another attempt with a fresh timer
                 updatePlaying { it.copy(timeRemainingSeconds = -1) }
@@ -245,7 +245,7 @@ class CountingGameViewModel @Inject constructor(
 
     fun onAnswerSelected(
         selected  : Int,
-        onComplete: (isCorrect: Boolean, elapsedMs: Long, attempts: Int, touchComplexity: Float) -> Unit
+        onComplete: (isCorrect: Boolean, elapsedMs: Long, attempts: Int) -> Unit
     ) {
         val state = _uiState.value as? CountingGameUiState.Playing ?: return
         // Only block if an answer is already being processed — animation no longer blocks
@@ -259,7 +259,6 @@ class CountingGameViewModel @Inject constructor(
         val isCorrect   = selected == state.targetCount
         val newAttempts = state.attempts + 1
         val elapsedMs   = System.currentTimeMillis() - state.startTimeMs
-        val touch       = computeTouch(newAttempts)
 
         viewModelScope.launch {
             // Clean up any in-progress animation state
@@ -278,7 +277,7 @@ class CountingGameViewModel @Inject constructor(
 
                 updatePlaying { it.copy(showCelebration = false) }
                 delay(300)
-                onComplete(true, elapsedMs, newAttempts, touch)
+                onComplete(true, elapsedMs, newAttempts)
 
             } else {
                 updatePlaying { it.copy(
@@ -299,7 +298,7 @@ class CountingGameViewModel @Inject constructor(
                     delay(3000)
                     updatePlaying { it.copy(showCorrectHint = false) }
                     delay(300)
-                    onComplete(false, elapsedMs, newAttempts, touch)
+                    onComplete(false, elapsedMs, newAttempts)
                 } else {
                     delay(400)
                     updatePlaying { it.copy(selectedAnswer = null, isCorrect = null) }
@@ -320,9 +319,6 @@ class CountingGameViewModel @Inject constructor(
             .shuffled()
         return (listOf(correct) + distractors).shuffled()
     }
-
-    private fun computeTouch(attempts: Int): Float =
-        (1f - (attempts - 1) * 0.2f).coerceIn(0f, 1f)
 
     private fun updatePlaying(block: (CountingGameUiState.Playing) -> CountingGameUiState.Playing) {
         val s = _uiState.value as? CountingGameUiState.Playing ?: return

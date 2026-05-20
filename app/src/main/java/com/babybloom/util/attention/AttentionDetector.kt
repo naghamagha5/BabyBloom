@@ -42,7 +42,6 @@ class AttentionDetector @Inject constructor(
     suspend fun analyze(imageProxy: ImageProxy): AttentionSample? =
         suspendCancellableCoroutine { cont ->
             val mediaImage = imageProxy.image ?: run {
-                imageProxy.close()
                 cont.resume(null)
                 return@suspendCancellableCoroutine
             }
@@ -52,7 +51,6 @@ class AttentionDetector @Inject constructor(
             )
             detector.process(inputImage)
                 .addOnSuccessListener { faces ->
-                    imageProxy.close()
                     val face = faces.firstOrNull()
                     if (face == null) {
                         cont.resume(null)
@@ -75,7 +73,6 @@ class AttentionDetector @Inject constructor(
                     ))
                 }
                 .addOnFailureListener {
-                    imageProxy.close()
                     cont.resume(null)
                 }
         }

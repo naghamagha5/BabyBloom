@@ -25,14 +25,15 @@ import java.util.concurrent.atomic.AtomicLong
 @Composable
 fun AttentionCameraOverlay(
     onSample: (AttentionSample?) -> Unit,
-    analyzeImage: suspend (ImageProxy) -> AttentionSample?
+    analyzeImage: suspend (ImageProxy) -> AttentionSample?,
+    sampleIntervalMs: Long = 2_000L
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
     val currentOnSample = rememberUpdatedState(onSample)
     val currentAnalyzeImage = rememberUpdatedState(analyzeImage)
 
-    DisposableEffect(context, lifecycleOwner) {
+    DisposableEffect(context, lifecycleOwner, sampleIntervalMs) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             return@DisposableEffect onDispose { }
         }
@@ -49,7 +50,7 @@ fun AttentionCameraOverlay(
 
         imageAnalyzer.setAnalyzer(executor) { imageProxy ->
             val now = System.currentTimeMillis()
-            if (now - lastSampleMs.get() < 2_000L || !isAnalyzing.compareAndSet(false, true)) {
+            if (now - lastSampleMs.get() < sampleIntervalMs || !isAnalyzing.compareAndSet(false, true)) {
                 imageProxy.close()
                 return@setAnalyzer
             }

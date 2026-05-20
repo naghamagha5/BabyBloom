@@ -7,7 +7,9 @@ class AttentionTracker {
         sample?.let { samples.add(it.isAttentive) }
     }
 
-    // Returns 0.0–1.0. Call when activity ends.
+    fun hasSamples(): Boolean = samples.isNotEmpty()
+
+    // Returns 0.0-1.0. Call when activity ends.
     fun computeScore(): Float {
         if (samples.isEmpty()) return 0f
         return samples.count { it }.toFloat() / samples.size

@@ -74,7 +74,7 @@ fun CountingGameScreen(
     activityId     : String,
     roundIndex     : Int,
     isTest         : Boolean = false,
-    onComplete     : (isCorrect: Boolean, elapsedMs: Long, attempts: Int, touchComplexity: Float) -> Unit,
+    onComplete     : (isCorrect: Boolean, elapsedMs: Long, attempts: Int) -> Unit,
     viewModel      : CountingGameViewModel = hiltViewModel()
 ) {
     val colors = LocalGameColorScheme.current

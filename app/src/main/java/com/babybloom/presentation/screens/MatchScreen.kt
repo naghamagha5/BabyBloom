@@ -135,7 +135,7 @@ fun MatchScreen(
     isTest       : Boolean,
     isAssessment : Boolean,
     configJson   : String = "{\"matchType\":\"ANIMAL_TO_HABITAT\"}",
-    onCardResult : (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int) -> Unit,
+    onCardResult : (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int, touchComplexity: Float) -> Unit,
     onComplete   : (elapsedMs: Long, correctCount: Int) -> Unit,
     viewModel    : MatchViewModel = hiltViewModel()
 ) {
@@ -219,12 +219,13 @@ private fun AnimalHabitatGame(
                             localDragPos  = startOffset
                             fingerPosRoot = gameAreaTopLeft + startOffset
                             isDragging    = true
-                            viewModel.onFirstInteraction()
+                            viewModel.onTouchStart(fingerPosRoot)
                         },
                         onDrag = { change, dragAmount ->
                             change.consume()
                             localDragPos  += dragAmount
                             fingerPosRoot  = gameAreaTopLeft + localDragPos
+                            viewModel.onTouchMove(fingerPosRoot)
                             snappedId = optionCenters
                                 .minByOrNull { (_, c) -> (fingerPosRoot - c).getDistance() }
                                 ?.takeIf    { (_, c) -> (fingerPosRoot - c).getDistance() < snapRadiusPx }
@@ -431,12 +432,13 @@ private fun LetterAnimalGame(
                             localDragPos  = startOffset
                             fingerPosRoot = gameAreaTopLeft + startOffset
                             isDragging    = true
-                            viewModel.onFirstInteraction()
+                            viewModel.onTouchStart(fingerPosRoot)
                         },
                         onDrag = { change, dragAmount ->
                             change.consume()
                             localDragPos  += dragAmount
                             fingerPosRoot  = gameAreaTopLeft + localDragPos
+                            viewModel.onTouchMove(fingerPosRoot)
                             snappedId = optionCenters
                                 .minByOrNull { (_, c) -> (fingerPosRoot - c).getDistance() }
                                 ?.takeIf    { (_, c) -> (fingerPosRoot - c).getDistance() < snapRadiusPx }

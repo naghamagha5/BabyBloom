@@ -3,6 +3,7 @@ package com.babybloom.presentation.viewmodels
 import android.content.Context
 import android.media.MediaPlayer
 import android.util.Log
+import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babybloom.R
@@ -13,6 +14,7 @@ import com.babybloom.domain.model.ActivityContent
 import com.babybloom.util.AssetPathResolver
 import com.babybloom.util.ImageAsset
 import com.babybloom.util.SoundEffect
+import com.babybloom.util.touch.TouchPatternAnalyzer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -159,11 +161,12 @@ class MatchViewModel @Inject constructor(
     private var cardIncorrect   = 0
     private var cardAttempts    = 0
     private var isCalmMode      = false
-    private var onComplete      : ((Long, Int) -> Unit)?                      = null
-    private var onCardResult    : ((String, Boolean, Int, Int, Int) -> Unit)? = null
+    private var onComplete      : ((Long, Int) -> Unit)?                             = null
+    private var onCardResult    : ((String, Boolean, Int, Int, Int, Float) -> Unit)? = null
     private var startTime       = 0L
     private var isLoaded        = false
     private var loadedSignature = ""
+    private val touchAnalyzer   = TouchPatternAnalyzer()
 
     private var currentContentId       = ""
     private var currentLetterPath      : String? = null
@@ -180,7 +183,7 @@ class MatchViewModel @Inject constructor(
         isTest       : Boolean,
         isAssessment : Boolean,   // reserved for future use
         configJson   : String,
-        onCardResult : (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int) -> Unit,
+        onCardResult : (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int, touchComplexity: Float) -> Unit,
         onComplete   : (elapsedMs: Long, correctCount: Int) -> Unit
     ) {
         val signature = listOf(
@@ -215,6 +218,15 @@ class MatchViewModel @Inject constructor(
         }
     }
 
+    fun onTouchStart(position: Offset) {
+        onFirstInteraction()
+        touchAnalyzer.onPointerEvent(position)
+    }
+
+    fun onTouchMove(position: Offset) {
+        touchAnalyzer.onPointerEvent(position)
+    }
+
     fun onAnswerSelected(selectedId: String) {
         val state = _cardState.value
         if (currentAnswerState() != AnswerState.Idle) return
@@ -230,6 +242,7 @@ class MatchViewModel @Inject constructor(
         // audio engine before the WRONG / CORRECT sound fires in the coroutine.
         appSoundSettings.playSoundEffect(SoundEffect.TAP)
         cardAttempts++
+        val touchComplexity = touchAnalyzer.analyze().touchComplexity
 
         if (isCorrect) {
             cardCorrect++
@@ -254,7 +267,7 @@ class MatchViewModel @Inject constructor(
                 setCelebration(false)
                 delay(300)
                 onCardResult?.invoke(
-                    currentContentId, true, cardCorrect, cardIncorrect, cardAttempts
+                    currentContentId, true, cardCorrect, cardIncorrect, cardAttempts, touchComplexity
                 )
                 advanceQuestion()
             }
@@ -330,7 +343,8 @@ class MatchViewModel @Inject constructor(
         }
         delay(REVEAL_PAUSE_MS)
         onCardResult?.invoke(
-            currentContentId, false, cardCorrect, cardIncorrect, cardAttempts
+            currentContentId, false, cardCorrect, cardIncorrect, cardAttempts,
+            touchAnalyzer.analyze().touchComplexity
         )
         advanceQuestion()
     }
@@ -344,6 +358,7 @@ class MatchViewModel @Inject constructor(
         cardCorrect   = 0
         cardIncorrect = 0
         cardAttempts  = 0
+        touchAnalyzer.onSessionStart()
 
         val item = items.getOrNull(index) ?: run {
             questionJob?.cancel()
@@ -399,7 +414,7 @@ class MatchViewModel @Inject constructor(
         )
         if (animal == null) {
             Log.w("MatchVM", "No animal for learningOrder=${item.learningOrder}")
-            onCardResult?.invoke(item.contentId, false, 0, 1, 1)
+            onCardResult?.invoke(item.contentId, false, 0, 1, 1, 0f)
             advanceQuestion(); return
         }
 
