@@ -106,7 +106,8 @@ fun ActivityResultEntity.toDomain() = ActivityResult(
     incorrectCount   = incorrectCount,
     attempts         = attempts,
     speechConfidence = speechConfidence,
-    touchComplexity  = touchComplexity,
+    motorSkillScore  = motorSkillScore,
+    choiceConfidenceScore = choiceConfidenceScore,
     attentionScore   = attentionScore,
     timestamp        = timestamp
 )
@@ -123,7 +124,8 @@ fun ActivityResult.toEntity() = ActivityResultEntity(
     incorrectCount   = incorrectCount,
     attempts         = attempts,
     speechConfidence = speechConfidence,
-    touchComplexity  = touchComplexity,
+    motorSkillScore  = motorSkillScore,
+    choiceConfidenceScore = choiceConfidenceScore,
     attentionScore   = attentionScore,
     timestamp        = timestamp
 )

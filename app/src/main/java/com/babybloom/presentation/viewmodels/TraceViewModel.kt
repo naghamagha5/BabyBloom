@@ -39,8 +39,9 @@ data class TraceResult(
     val coverage:        Float,
     val elapsedMs:       Long,
     val attempts:        Int,
-    val touchComplexity: Float,
-    val avgStrokeLength: Float,
+    val motorSkillScore: Float,
+    val choiceConfidenceScore: Float,
+    val averageMovementDistance: Float,
     val correctionCount: Int
 )
 
@@ -284,15 +285,19 @@ class TraceViewModel @Inject constructor(
             delay(REVEAL_HOLD_MS)
             _uiState.value = TraceUiState.ShowSuccess(state, finalScore)
             delay(SUCCESS_POPUP_MS)
-            val analysis = touchAnalyzer.analyze()
+            val analysis = touchAnalyzer.analyze(
+                isCorrect = true,
+                attempts = state.currentAttempt
+            )
             _uiState.value = TraceUiState.ItemComplete(
                 TraceResult(
                     isSuccess       = true,
                     coverage        = finalScore,
                     elapsedMs       = elapsed,
                     attempts        = state.currentAttempt,
-                    touchComplexity = analysis.touchComplexity,
-                    avgStrokeLength = analysis.averageStrokeLength,
+                    motorSkillScore = (analysis.motorSkillScore * 0.7f + finalScore * 0.3f).coerceIn(0f, 1f),
+                    choiceConfidenceScore = analysis.choiceConfidenceScore,
+                    averageMovementDistance = analysis.averageMovementDistance,
                     correctionCount = analysis.correctionCount
                 )
             )
@@ -313,7 +318,10 @@ class TraceViewModel @Inject constructor(
         postResultJob = viewModelScope.launch {
             delay(ENCOURAGING_HOLD_MS)
             if (isLast) {
-                val analysis = touchAnalyzer.analyze()
+                val analysis = touchAnalyzer.analyze(
+                    isCorrect = false,
+                    attempts = state.currentAttempt
+                )
                 val elapsed  = System.currentTimeMillis() - state.startTimeMs
                 _uiState.value = TraceUiState.ItemComplete(
                     TraceResult(
@@ -321,8 +329,9 @@ class TraceViewModel @Inject constructor(
                         coverage        = state.bestCoverage,
                         elapsedMs       = elapsed,
                         attempts        = state.currentAttempt,
-                        touchComplexity = analysis.touchComplexity,
-                        avgStrokeLength = analysis.averageStrokeLength,
+                        motorSkillScore = (analysis.motorSkillScore * 0.7f + state.bestCoverage * 0.3f).coerceIn(0f, 1f),
+                        choiceConfidenceScore = analysis.choiceConfidenceScore,
+                        averageMovementDistance = analysis.averageMovementDistance,
                         correctionCount = analysis.correctionCount
                     )
                 )

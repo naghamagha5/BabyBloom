@@ -21,7 +21,7 @@ import com.babybloom.data.local.entity.*
         ActivityRecommendationEntity::class,
         AssessmentResultEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

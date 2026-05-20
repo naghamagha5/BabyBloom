@@ -135,7 +135,7 @@ fun MatchScreen(
     isTest       : Boolean,
     isAssessment : Boolean,
     configJson   : String = "{\"matchType\":\"ANIMAL_TO_HABITAT\"}",
-    onCardResult : (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int, touchComplexity: Float) -> Unit,
+    onCardResult : (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int, motorSkillScore: Float, choiceConfidenceScore: Float) -> Unit,
     onComplete   : (elapsedMs: Long, correctCount: Int) -> Unit,
     viewModel    : MatchViewModel = hiltViewModel()
 ) {
@@ -232,7 +232,14 @@ private fun AnimalHabitatGame(
                                 ?.key
                         },
                         onDragEnd = {
-                            snappedId?.let { viewModel.onAnswerSelected(it) }
+                            snappedId?.let { selectedId ->
+                                viewModel.onAnswerSelected(
+                                    selectedId = selectedId,
+                                    releasePoint = fingerPosRoot,
+                                    targetCenter = optionCenters[selectedId],
+                                    snapRadiusPx = snapRadiusPx
+                                )
+                            }
                             isDragging = false; snappedId = null
                         },
                         onDragCancel = { isDragging = false; snappedId = null }
@@ -445,7 +452,14 @@ private fun LetterAnimalGame(
                                 ?.key
                         },
                         onDragEnd = {
-                            snappedId?.let { viewModel.onAnswerSelected(it) }
+                            snappedId?.let { selectedId ->
+                                viewModel.onAnswerSelected(
+                                    selectedId = selectedId,
+                                    releasePoint = fingerPosRoot,
+                                    targetCenter = optionCenters[selectedId],
+                                    snapRadiusPx = snapRadiusPx
+                                )
+                            }
                             isDragging = false; snappedId = null
                         },
                         onDragCancel = { isDragging = false; snappedId = null }

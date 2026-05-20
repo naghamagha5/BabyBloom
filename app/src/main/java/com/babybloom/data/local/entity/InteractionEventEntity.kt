@@ -39,7 +39,7 @@ data class InteractionEventEntity(
     val activityId: String,
 
     // "SPEECH"  → eventData = { "confidence": 0.87, "recognizedText": "قطة" }
-    // "TOUCH"   → eventData = { "complexity": 0.34, "avgStrokeLength": 120.5 }
+    // "TOUCH"   -> eventData = { "motorSkillScore": 0.82, "choiceConfidenceScore": 0.74 }
     // "GAZE"    → eventData = { "eyeOpenProb": 0.71, "attentive": true }
     val eventType: String,
     val eventData: String,           // JSON string

@@ -129,8 +129,9 @@ fun TraceScreen(
                         coverage        = 0f,
                         elapsedMs       = 1_500L,
                         attempts        = 1,
-                        touchComplexity = 0f,
-                        avgStrokeLength = 0f,
+                        motorSkillScore = 0f,
+                        choiceConfidenceScore = 0f,
+                        averageMovementDistance = 0f,
                         correctionCount = 0
                     )
                 )

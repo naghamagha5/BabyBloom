@@ -11,7 +11,8 @@ data class ActivitySignal(
     val incorrectCount: Int,
     val attempts: Int,
     val attentionScore: Float?,
-    val touchComplexity: Float?,
+    val motorSkillScore: Float?,
+    val choiceConfidenceScore: Float?,
     val speechConfidence: Float?,
     val durationMs: Long,
     val expectedDurationMs: Long = 60_000L
@@ -29,7 +30,8 @@ data class ActivitySignal(
                 incorrectCount    = result.incorrectCount,
                 attempts          = result.attempts,
                 attentionScore    = result.attentionScore,
-                touchComplexity   = result.touchComplexity,
+                motorSkillScore   = result.motorSkillScore,
+                choiceConfidenceScore = result.choiceConfidenceScore,
                 speechConfidence  = result.speechConfidence,
                 durationMs        = result.duration,
                 expectedDurationMs = 60_000L

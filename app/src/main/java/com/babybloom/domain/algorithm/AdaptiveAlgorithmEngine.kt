@@ -196,9 +196,13 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
                     conf  * AlgorithmWeights.SPEECH_CONFIDENCE_WEIGHT
         }
 
-        // Touch complexity bonus
-        signal.touchComplexity?.let { tc ->
-            base += tc * AlgorithmWeights.TOUCH_COMPLEXITY_BONUS_MAX
+        val touchQuality = listOfNotNull(
+            signal.motorSkillScore,
+            signal.choiceConfidenceScore
+        ).takeIf { it.isNotEmpty() }?.average()?.toFloat()
+
+        touchQuality?.let { score ->
+            base += score * AlgorithmWeights.TOUCH_QUALITY_BONUS_MAX
         }
 
         return base.coerceIn(0f, 1f)

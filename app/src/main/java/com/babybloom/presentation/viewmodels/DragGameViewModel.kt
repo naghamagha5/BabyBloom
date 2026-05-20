@@ -174,7 +174,7 @@ class DragGameViewModel @Inject constructor(
     val state: StateFlow<DragGameState> = _state.asStateFlow()
 
     // ── Callback ──────────────────────────────────────────────────────────────
-    private var onComplete: ((isCorrect: Boolean, elapsedMs: Long, touchComplexity: Float) -> Unit)? = null
+    private var onComplete: ((isCorrect: Boolean, elapsedMs: Long, motorSkillScore: Float, choiceConfidenceScore: Float) -> Unit)? = null
 
     // ── Media ─────────────────────────────────────────────────────────────────
     private var mediaPlayer : MediaPlayer? = null
@@ -205,7 +205,7 @@ class DragGameViewModel @Inject constructor(
         currentItem: ActivityContent,
         isCalmMode : Boolean,
         isTest     : Boolean,
-        onComplete : (isCorrect: Boolean, elapsedMs: Long, touchComplexity: Float) -> Unit
+        onComplete : (isCorrect: Boolean, elapsedMs: Long, motorSkillScore: Float, choiceConfidenceScore: Float) -> Unit
     ) {
         this.onComplete = onComplete
         loadJob?.cancel()
@@ -721,7 +721,10 @@ class DragGameViewModel @Inject constructor(
                 val elapsedMs       = System.currentTimeMillis() - current.startTimeMs
                 val finalAttempts   = current.attemptsUsed + 1
                 val encoded         = elapsedMs + finalAttempts.toLong() * ATTEMPT_ENCODE_FACTOR
-                val touchComplexity = touchAnalyzer.analyze().touchComplexity
+                val touchAnalysis = touchAnalyzer.analyze(
+                    isCorrect = true,
+                    attempts = finalAttempts
+                )
 
                 val contentId = current.contentId
                 _state.value = _state.value.copy(
@@ -737,7 +740,13 @@ class DragGameViewModel @Inject constructor(
                         countingSoundPath(newSet.size)
                     )
                 ) {
-                    showCelebrationThenComplete(contentId, true, encoded, touchComplexity)
+                    showCelebrationThenComplete(
+                        contentId,
+                        true,
+                        encoded,
+                        touchAnalysis.motorSkillScore,
+                        touchAnalysis.choiceConfidenceScore
+                    )
                 }
                 advanceSession(elapsedMs)
             } else {
@@ -834,7 +843,10 @@ class DragGameViewModel @Inject constructor(
         val elapsedMs       = System.currentTimeMillis() - current.startTimeMs
         val newUsed         = current.attemptsUsed + 1
         val newLeft         = (current.attemptsLeft - 1).coerceAtLeast(0)
-        val touchComplexity = touchAnalyzer.analyze().touchComplexity
+        val touchAnalysis = touchAnalyzer.analyze(
+            isCorrect = false,
+            attempts = newUsed
+        )
 
         playSound(AssetPathResolver.soundEffectPath(SoundEffect.WRONG))
 
@@ -849,7 +861,14 @@ class DragGameViewModel @Inject constructor(
                 sessionWrongAttempts = current.sessionWrongAttempts + 1,
                 sessionTotalAttempts = current.sessionTotalAttempts + newUsed
             )
-            viewModelScope.launch { onComplete?.invoke(false, encoded, touchComplexity) }
+            viewModelScope.launch {
+                onComplete?.invoke(
+                    false,
+                    encoded,
+                    touchAnalysis.motorSkillScore,
+                    touchAnalysis.choiceConfidenceScore
+                )
+            }
             advanceSession(elapsedMs)
         } else {
             // Still has attempts — reset the cage and restart the 30-second timer
@@ -876,7 +895,10 @@ class DragGameViewModel @Inject constructor(
         val elapsedMs       = System.currentTimeMillis() - current.startTimeMs
         val newUsed         = current.attemptsUsed + 1
         val newLeft         = (current.attemptsLeft - 1).coerceAtLeast(0)
-        val touchComplexity = touchAnalyzer.analyze().touchComplexity
+        val touchAnalysis = touchAnalyzer.analyze(
+            isCorrect = isCorrect,
+            attempts = newUsed
+        )
 
         if (isCorrect) {
             // ── Correct ───────────────────────────────────────────────────────
@@ -903,7 +925,13 @@ class DragGameViewModel @Inject constructor(
                     successAudioPath
                 )
             ) {
-                showCelebrationThenComplete(contentId, true, encoded, touchComplexity)
+                showCelebrationThenComplete(
+                    contentId,
+                    true,
+                    encoded,
+                    touchAnalysis.motorSkillScore,
+                    touchAnalysis.choiceConfidenceScore
+                )
             }
             advanceSession(elapsedMs)
 
@@ -930,7 +958,14 @@ class DragGameViewModel @Inject constructor(
                 droppedLetterId      = null
             )
             val encoded = elapsedMs + (newUsed.toLong() * ATTEMPT_ENCODE_FACTOR)
-            viewModelScope.launch { onComplete?.invoke(false, encoded, touchComplexity) }
+            viewModelScope.launch {
+                onComplete?.invoke(
+                    false,
+                    encoded,
+                    touchAnalysis.motorSkillScore,
+                    touchAnalysis.choiceConfidenceScore
+                )
+            }
             advanceSession(elapsedMs)
 
         } else {
@@ -1016,7 +1051,8 @@ class DragGameViewModel @Inject constructor(
         contentId: String?,
         isCorrect: Boolean,
         encoded: Long,
-        touchComplexity: Float
+        motorSkillScore: Float,
+        choiceConfidenceScore: Float
     ) {
         viewModelScope.launch {
             if (_state.value.contentId != contentId) return@launch
@@ -1024,7 +1060,7 @@ class DragGameViewModel @Inject constructor(
             delay(CELEBRATION_DURATION_MS)
             if (_state.value.contentId != contentId) return@launch
             _state.value = _state.value.copy(showCelebration = false)
-            onComplete?.invoke(isCorrect, encoded, touchComplexity)
+            onComplete?.invoke(isCorrect, encoded, motorSkillScore, choiceConfidenceScore)
         }
     }
 

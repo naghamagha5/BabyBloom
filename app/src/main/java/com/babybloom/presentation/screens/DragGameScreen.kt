@@ -216,7 +216,7 @@ fun DragGameScreen(
     currentItem : ActivityContent,
     isCalmMode  : Boolean,
     isTest      : Boolean,
-    onComplete  : (isCorrect: Boolean, elapsedMs: Long, touchComplexity: Float) -> Unit,
+    onComplete  : (isCorrect: Boolean, elapsedMs: Long, motorSkillScore: Float, choiceConfidenceScore: Float) -> Unit,
     viewModel   : DragGameViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -236,6 +236,7 @@ fun DragGameScreen(
             onComplete(
                 state.sessionCorrectCount > state.sessionWrongAttempts,
                 state.sessionElapsedMs,
+                0f,
                 0f
             )
         }

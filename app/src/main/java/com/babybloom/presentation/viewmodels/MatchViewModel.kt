@@ -162,7 +162,7 @@ class MatchViewModel @Inject constructor(
     private var cardAttempts    = 0
     private var isCalmMode      = false
     private var onComplete      : ((Long, Int) -> Unit)?                             = null
-    private var onCardResult    : ((String, Boolean, Int, Int, Int, Float) -> Unit)? = null
+    private var onCardResult    : ((String, Boolean, Int, Int, Int, Float, Float) -> Unit)? = null
     private var startTime       = 0L
     private var isLoaded        = false
     private var loadedSignature = ""
@@ -183,7 +183,7 @@ class MatchViewModel @Inject constructor(
         isTest       : Boolean,
         isAssessment : Boolean,   // reserved for future use
         configJson   : String,
-        onCardResult : (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int, touchComplexity: Float) -> Unit,
+        onCardResult : (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int, motorSkillScore: Float, choiceConfidenceScore: Float) -> Unit,
         onComplete   : (elapsedMs: Long, correctCount: Int) -> Unit
     ) {
         val signature = listOf(
@@ -227,7 +227,12 @@ class MatchViewModel @Inject constructor(
         touchAnalyzer.onPointerEvent(position)
     }
 
-    fun onAnswerSelected(selectedId: String) {
+    fun onAnswerSelected(
+        selectedId: String,
+        releasePoint: Offset? = null,
+        targetCenter: Offset? = null,
+        snapRadiusPx: Float? = null
+    ) {
         val state = _cardState.value
         if (currentAnswerState() != AnswerState.Idle) return
 
@@ -242,7 +247,13 @@ class MatchViewModel @Inject constructor(
         // audio engine before the WRONG / CORRECT sound fires in the coroutine.
         appSoundSettings.playSoundEffect(SoundEffect.TAP)
         cardAttempts++
-        val touchComplexity = touchAnalyzer.analyze().touchComplexity
+        val touchAnalysis = touchAnalyzer.analyze(
+            isCorrect = isCorrect,
+            attempts = cardAttempts,
+            releasePoint = releasePoint,
+            targetCenter = targetCenter,
+            snapRadiusPx = snapRadiusPx
+        )
 
         if (isCorrect) {
             cardCorrect++
@@ -267,7 +278,13 @@ class MatchViewModel @Inject constructor(
                 setCelebration(false)
                 delay(300)
                 onCardResult?.invoke(
-                    currentContentId, true, cardCorrect, cardIncorrect, cardAttempts, touchComplexity
+                    currentContentId,
+                    true,
+                    cardCorrect,
+                    cardIncorrect,
+                    cardAttempts,
+                    touchAnalysis.motorSkillScore,
+                    touchAnalysis.choiceConfidenceScore
                 )
                 advanceQuestion()
             }
@@ -342,9 +359,15 @@ class MatchViewModel @Inject constructor(
             "ANIMAL_TO_HABITAT" -> currentAnimalPath?.let { playVoiceAndWait(it) }
         }
         delay(REVEAL_PAUSE_MS)
+        val touchAnalysis = touchAnalyzer.analyze(isCorrect = false, attempts = cardAttempts)
         onCardResult?.invoke(
-            currentContentId, false, cardCorrect, cardIncorrect, cardAttempts,
-            touchAnalyzer.analyze().touchComplexity
+            currentContentId,
+            false,
+            cardCorrect,
+            cardIncorrect,
+            cardAttempts,
+            touchAnalysis.motorSkillScore,
+            touchAnalysis.choiceConfidenceScore
         )
         advanceQuestion()
     }
@@ -414,7 +437,7 @@ class MatchViewModel @Inject constructor(
         )
         if (animal == null) {
             Log.w("MatchVM", "No animal for learningOrder=${item.learningOrder}")
-            onCardResult?.invoke(item.contentId, false, 0, 1, 1, 0f)
+            onCardResult?.invoke(item.contentId, false, 0, 1, 1, 0f, 0f)
             advanceQuestion(); return
         }
 

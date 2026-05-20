@@ -272,7 +272,8 @@ class ActivityViewModel @Inject constructor(
         responseTimeMs: Long,
         attempts: Int = 1,
         speechConfidence: Float? = null,
-        touchComplexity: Float? = null,
+        motorSkillScore: Float? = null,
+        choiceConfidenceScore: Float? = null,
         scoreOverride: Float? = null
     ) {
         val current = _uiState.value as? ActivityUiState.Playing ?: return
@@ -311,7 +312,8 @@ class ActivityViewModel @Inject constructor(
                     incorrectCount   = finalIncorrectCount,
                     attempts         = attempts,
                     speechConfidence = speechConfidence,
-                    touchComplexity  = touchComplexity,
+                    motorSkillScore  = motorSkillScore,
+                    choiceConfidenceScore = choiceConfidenceScore,
                     attentionScore   = attentionScore
                 )
             )
@@ -329,7 +331,8 @@ class ActivityViewModel @Inject constructor(
                     incorrectCount     = finalIncorrectCount,
                     attempts           = attempts,
                     attentionScore     = attentionScore,
-                    touchComplexity    = touchComplexity,
+                    motorSkillScore     = motorSkillScore,
+                    choiceConfidenceScore = choiceConfidenceScore,
                     speechConfidence   = speechConfidence,
                     durationMs         = responseTimeMs,
                     expectedDurationMs = 60_000L
@@ -404,8 +407,9 @@ class ActivityViewModel @Inject constructor(
 
     fun saveTraceInteractionEvent(
         contentId: String,
-        touchComplexity: Float,
-        avgStrokeLength: Float,
+        motorSkillScore: Float,
+        choiceConfidenceScore: Float,
+        averageMovementDistance: Float,
         correctionCount: Int
     ) {
         val cur = _uiState.value as? ActivityUiState.Playing ?: return
@@ -415,7 +419,7 @@ class ActivityViewModel @Inject constructor(
                 childId    = cur.sessionSettings.childId,
                 activityId = cur.activityWithContent.activity.id,
                 eventType  = "TOUCH",
-                eventData  = """{"contentId":"$contentId","touchComplexity":$touchComplexity,"avgStrokeLength":$avgStrokeLength,"correctionCount":$correctionCount}"""
+                eventData  = """{"contentId":"$contentId","motorSkillScore":$motorSkillScore,"choiceConfidenceScore":$choiceConfidenceScore,"averageMovementDistance":$averageMovementDistance,"correctionCount":$correctionCount}"""
             ))
         }
     }

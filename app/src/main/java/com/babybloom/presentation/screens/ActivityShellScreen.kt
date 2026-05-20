@@ -283,13 +283,14 @@ fun ActivityShellScreen(
                                     isTest       = settings.isTest,
                                     isAssessment = settings.isAssessment,
                                     configJson   = activity.configJson,
-                                    onCardResult = { contentId, isCorrect, _, _, attempts, touchComplexity ->
+                                    onCardResult = { contentId, isCorrect, _, _, attempts, motorSkillScore, choiceConfidenceScore ->
                                         viewModel.onAnswerSubmitted(
                                             isCorrect      = isCorrect,
                                             contentId      = contentId,
                                             responseTimeMs = System.currentTimeMillis(),
                                             attempts       = attempts,
-                                            touchComplexity = touchComplexity
+                                            motorSkillScore = motorSkillScore,
+                                            choiceConfidenceScore = choiceConfidenceScore
                                         )
                                     },
                                     onComplete = { _, _ -> }
@@ -304,13 +305,15 @@ fun ActivityShellScreen(
                                             contentId       = currentItem.contentId,
                                             responseTimeMs  = result.elapsedMs,
                                             attempts        = result.attempts,
-                                            touchComplexity = result.touchComplexity,
+                                            motorSkillScore = result.motorSkillScore,
+                                            choiceConfidenceScore = result.choiceConfidenceScore,
                                             scoreOverride   = result.coverage
                                         )
                                         viewModel.saveTraceInteractionEvent(
                                             contentId       = currentItem.contentId,
-                                            touchComplexity = result.touchComplexity,
-                                            avgStrokeLength = result.avgStrokeLength,
+                                            motorSkillScore = result.motorSkillScore,
+                                            choiceConfidenceScore = result.choiceConfidenceScore,
+                                            averageMovementDistance = result.averageMovementDistance,
                                             correctionCount = result.correctionCount
                                         )
                                     }
@@ -337,7 +340,7 @@ fun ActivityShellScreen(
                                     currentItem  = currentItem,
                                     isCalmMode   = settings.isCalmMode,
                                     isTest       = settings.isTest,
-                                    onComplete   = { isCorrect, encodedMs, touchComplexity ->
+                                    onComplete   = { isCorrect, encodedMs, motorSkillScore, choiceConfidenceScore ->
                                         val attempts     = (encodedMs / 100_000L).toInt()
                                             .coerceAtLeast(1)
                                         val responseTime = encodedMs % 100_000L
@@ -346,7 +349,8 @@ fun ActivityShellScreen(
                                             contentId       = currentItem.contentId,
                                             responseTimeMs  = responseTime,
                                             attempts        = attempts,
-                                            touchComplexity = touchComplexity
+                                            motorSkillScore = motorSkillScore,
+                                            choiceConfidenceScore = choiceConfidenceScore
                                         )
                                     }
                                 )

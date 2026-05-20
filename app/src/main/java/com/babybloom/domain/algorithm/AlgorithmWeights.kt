@@ -14,7 +14,7 @@ object AlgorithmWeights {
 
     // ── Optional signal blending ───────────────────────────────────────────
     const val SPEECH_CONFIDENCE_WEIGHT  = 0.30f   // blended in when available
-    const val TOUCH_COMPLEXITY_BONUS_MAX = 0.10f  // additive bonus for fine motor
+    const val TOUCH_QUALITY_BONUS_MAX = 0.10f  // additive bonus for motor control and choice confidence
 
     // ── Modality contribution per activity type ────────────────────────────
     // Each entry: how much a completed activity of that type updates each modality

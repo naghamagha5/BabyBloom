@@ -110,7 +110,7 @@ interface ActivityResultDao {
     @Query("""
         SELECT * FROM activity_results 
         WHERE childId = :childId 
-          AND touchComplexity IS NOT NULL
+          AND (motorSkillScore IS NOT NULL OR choiceConfidenceScore IS NOT NULL)
         ORDER BY timestamp DESC
         LIMIT :limit
     """)
