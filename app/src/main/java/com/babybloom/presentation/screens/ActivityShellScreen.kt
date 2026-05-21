@@ -369,6 +369,7 @@ fun ActivityShellScreen(
                     if (state.showParentLock) {
                         ParentLockScreen(
                             onUnlocked = {
+                                viewModel.pauseNormalSessionForExit()
                                 viewModel.dismissParentLock()
                                 onExit()
                             },

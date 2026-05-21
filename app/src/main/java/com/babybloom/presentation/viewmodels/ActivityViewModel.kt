@@ -5,6 +5,8 @@ import androidx.camera.core.ImageProxy
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babybloom.di.AppSoundSettings
+import com.babybloom.di.NormalSessionProgress
+import com.babybloom.di.NormalSessionProgressStore
 import com.babybloom.domain.algorithm.AdaptiveAlgorithmEngine
 import com.babybloom.domain.algorithm.AlgorithmWeights
 import com.babybloom.domain.model.ActivityLaunchStep
@@ -26,6 +28,7 @@ import com.babybloom.domain.repository.UserRepository
 import com.babybloom.util.attention.AttentionDetector
 import com.babybloom.util.attention.AttentionSample
 import com.babybloom.util.attention.AttentionTracker
+import com.babybloom.util.SessionQueueCodec
 import com.babybloom.util.speech.SpeechRecognitionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -86,6 +89,7 @@ class ActivityViewModel @Inject constructor(
     private val algorithmEngine: AdaptiveAlgorithmEngine,
     private val speechRecognitionManager: SpeechRecognitionManager,
     private val appSoundSettings: AppSoundSettings,
+    private val normalSessionProgressStore: NormalSessionProgressStore,
     private val attentionDetector: AttentionDetector
 ) : ViewModel() {
 
@@ -228,10 +232,19 @@ class ActivityViewModel @Inject constructor(
             activityStartMs = System.currentTimeMillis()
             attentionTracker.reset()
 
-            val sessionRemainingMs = remainingSessionMs(
-                durationMs = settings.sessionDurationMs,
-                startedAtMs = realSessionStartMs
-            )
+            val savedProgress = if (!isAssessment) {
+                normalSessionProgressStore.getForChild(childId)
+            } else {
+                null
+            }
+            val sessionRemainingMs = savedProgress
+                ?.takeIf { it.sessionId == realSessionId }
+                ?.remainingMs
+                ?.coerceIn(0L, settings.sessionDurationMs)
+                ?: remainingSessionMs(
+                    durationMs = settings.sessionDurationMs,
+                    startedAtMs = realSessionStartMs
+                )
 
             _uiState.value = ActivityUiState.Playing(
                 activityWithContent = data,
@@ -239,28 +252,37 @@ class ActivityViewModel @Inject constructor(
                 sessionSettings     = settings,
                 sessionRemainingMs  = sessionRemainingMs
             )
+            if (!isAssessment) {
+                saveNormalSessionProgress(sessionRemainingMs)
+            }
             if (isAssessment) {
                 timerJob?.cancel()
             } else {
-                startSessionTimer(settings.sessionDurationMs, realSessionStartMs)
+                startSessionTimer(sessionRemainingMs)
             }
         }
     }
 
     // ── Session Timer ─────────────────────────────────────────────────────────
 
-    private fun startSessionTimer(durationMs: Long, startedAtMs: Long) {
+    private fun startSessionTimer(initialRemainingMs: Long) {
         timerJob?.cancel()
         timerJob = viewModelScope.launch {
+            var remaining = initialRemainingMs
+            var lastTickMs = System.currentTimeMillis()
             while (true) {
-                val remaining = remainingSessionMs(durationMs, startedAtMs)
+                val now = System.currentTimeMillis()
+                remaining = (remaining - (now - lastTickMs)).coerceAtLeast(0L)
+                lastTickMs = now
                 val current = _uiState.value as? ActivityUiState.Playing ?: break
                 _uiState.value = current.copy(sessionRemainingMs = remaining)
+                saveNormalSessionProgress(remaining)
                 if (remaining <= 0) {
                     sessionRepository.endSession(
                         this@ActivityViewModel.sessionId,
                         System.currentTimeMillis()
                     )
+                    normalSessionProgressStore.clear()
                     val (sessionScore, sessionTotal) = getSessionScore()
                     _uiState.value = ActivityUiState.Completed(
                         sessionScore,
@@ -381,6 +403,7 @@ class ActivityViewModel @Inject constructor(
                             this@ActivityViewModel.sessionId,
                             System.currentTimeMillis()
                         )
+                        normalSessionProgressStore.clear()
                         getSessionScore()
                     } else {
                         newScore to current.activityWithContent.contentItems.size
@@ -471,6 +494,17 @@ class ActivityViewModel @Inject constructor(
         appSoundSettings.stopSession()
     }
 
+    fun pauseNormalSessionForExit() {
+        timerJob?.cancel()
+        val current = _uiState.value as? ActivityUiState.Playing
+        if (current != null && !current.sessionSettings.isAssessment) {
+            viewModelScope.launch {
+                saveNormalSessionProgress(current.sessionRemainingMs)
+            }
+        }
+        appSoundSettings.stopSession()
+    }
+
     fun verifyPin(
         enteredPin: String,
         onSuccess: () -> Unit,
@@ -510,8 +544,7 @@ class ActivityViewModel @Inject constructor(
     // ── Cleanup ───────────────────────────────────────────────────────────────
 
     private fun onForceExit() {
-        timerJob?.cancel()
-        appSoundSettings.stopSession()
+        pauseNormalSessionForExit()
     }
 
     override fun onCleared() {
@@ -534,6 +567,20 @@ class ActivityViewModel @Inject constructor(
         val results = activityResultRepository.getForSession(sessionId)
         val correct = results.sumOf { it.correctCount }
         return correct to results.size
+    }
+
+    private suspend fun saveNormalSessionProgress(remainingMs: Long) {
+        val current = _uiState.value as? ActivityUiState.Playing
+        val childId = current?.sessionSettings?.childId ?: currentStep?.let { null } ?: return
+        normalSessionProgressStore.save(
+            NormalSessionProgress(
+                childId = childId,
+                sessionId = sessionId,
+                encodedQueue = SessionQueueCodec.encode(sessionQueue),
+                stepIndex = currentStepIndex,
+                remainingMs = remainingMs
+            )
+        )
     }
 
 }

@@ -45,14 +45,15 @@ fun WelcomeLearningScreen(
     LaunchedEffect(uiState.encodedQueue, uiState.childId) {
         if (uiState.childId == 0L || uiState.sessionQueue.isEmpty()) return@LaunchedEffect
         delay(3_000)
-        val firstStep = uiState.sessionQueue.first()
+        val firstStep = uiState.sessionQueue.getOrNull(uiState.stepIndex)
+            ?: uiState.sessionQueue.first()
         onNavigateToActivity(
             firstStep.activityId,
-            0L,
+            uiState.sessionId,
             uiState.childId,
             firstStep.contentId,
             uiState.encodedQueue,
-            0
+            uiState.stepIndex
         )
     }
 
