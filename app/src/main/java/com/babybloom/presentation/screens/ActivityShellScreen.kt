@@ -100,6 +100,7 @@ fun ActivityShellScreen(
                     score      = state.score,
                     total      = state.total,
                     onFinished = {
+                        viewModel.stopSoundSession()
                         onActivityComplete(
                             state.score,
                             state.total,

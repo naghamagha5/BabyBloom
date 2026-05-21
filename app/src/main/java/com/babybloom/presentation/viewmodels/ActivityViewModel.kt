@@ -467,6 +467,10 @@ class ActivityViewModel @Inject constructor(
         _uiState.value = current.copy(showParentLock = false)
     }
 
+    fun stopSoundSession() {
+        appSoundSettings.stopSession()
+    }
+
     fun verifyPin(
         enteredPin: String,
         onSuccess: () -> Unit,
@@ -512,7 +516,6 @@ class ActivityViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        appSoundSettings.stopSession()
         loadJob?.cancel()
         timerJob?.cancel()
     }
