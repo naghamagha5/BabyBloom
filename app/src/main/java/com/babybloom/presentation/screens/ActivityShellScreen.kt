@@ -283,11 +283,11 @@ fun ActivityShellScreen(
                                     isTest       = settings.isTest,
                                     isAssessment = settings.isAssessment,
                                     configJson   = activity.configJson,
-                                    onCardResult = { contentId, isCorrect, _, _, attempts, touchQualityScore ->
+                                    onCardResult = { contentId, isCorrect, _, _, attempts, touchQualityScore, elapsedMs ->
                                         viewModel.onAnswerSubmitted(
                                             isCorrect      = isCorrect,
                                             contentId      = contentId,
-                                            responseTimeMs = System.currentTimeMillis(),
+                                            responseTimeMs = elapsedMs,
                                             attempts       = attempts,
                                             touchQualityScore = touchQualityScore
                                         )

@@ -162,8 +162,9 @@ class MatchViewModel @Inject constructor(
     private var cardAttempts    = 0
     private var isCalmMode      = false
     private var onComplete      : ((Long, Int) -> Unit)?                             = null
-    private var onCardResult    : ((String, Boolean, Int, Int, Int, Float) -> Unit)? = null
+    private var onCardResult    : ((String, Boolean, Int, Int, Int, Float, Long) -> Unit)? = null
     private var startTime       = 0L
+    private var questionStartTime = 0L
     private var isLoaded        = false
     private var loadedSignature = ""
     private val touchAnalyzer   = TouchPatternAnalyzer()
@@ -183,7 +184,7 @@ class MatchViewModel @Inject constructor(
         isTest       : Boolean,
         isAssessment : Boolean,   // reserved for future use
         configJson   : String,
-        onCardResult : (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int, touchQualityScore: Float) -> Unit,
+        onCardResult : (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int, touchQualityScore: Float, elapsedMs: Long) -> Unit,
         onComplete   : (elapsedMs: Long, correctCount: Int) -> Unit
     ) {
         val signature = listOf(
@@ -253,6 +254,7 @@ class MatchViewModel @Inject constructor(
             targetCenter = targetCenter,
             snapRadiusPx = snapRadiusPx
         )
+        val responseElapsedMs = currentQuestionElapsedMs()
 
         if (isCorrect) {
             cardCorrect++
@@ -282,7 +284,8 @@ class MatchViewModel @Inject constructor(
                     cardCorrect,
                     cardIncorrect,
                     cardAttempts,
-                    touchAnalysis.touchQualityScore
+                    touchAnalysis.touchQualityScore,
+                    responseElapsedMs
                 )
                 advanceQuestion()
             }
@@ -299,7 +302,7 @@ class MatchViewModel @Inject constructor(
                 delay(WRONG_HIGHLIGHT_MS)
 
                 if (attemptsLeft <= 0) {
-                    revealAndAdvance()
+                    revealAndAdvance(responseElapsedMs)
                 } else {
                     resetToIdle(attemptsLeft)
                     startAttemptTimer()
@@ -335,16 +338,17 @@ class MatchViewModel @Inject constructor(
         cancelAttemptTimers()
         cardIncorrect++
         cardAttempts++
+        val responseElapsedMs = currentQuestionElapsedMs()
         appSoundSettings.playSoundEffect(SoundEffect.WRONG)
         val attemptsLeft = (getAttemptsLeft() - 1).coerceAtLeast(0)
         answerJob?.cancel()
         answerJob = viewModelScope.launch {
-            if (attemptsLeft <= 0) revealAndAdvance()
+            if (attemptsLeft <= 0) revealAndAdvance(responseElapsedMs)
             else { resetToIdle(attemptsLeft); startAttemptTimer() }
         }
     }
 
-    private suspend fun revealAndAdvance() {
+    private suspend fun revealAndAdvance(responseElapsedMs: Long) {
         revealCorrect()
         delay(400)
         _wiggleTick.value++
@@ -364,7 +368,8 @@ class MatchViewModel @Inject constructor(
             cardCorrect,
             cardIncorrect,
             cardAttempts,
-            touchAnalysis.touchQualityScore
+            touchAnalysis.touchQualityScore,
+            responseElapsedMs
         )
         advanceQuestion()
     }
@@ -391,6 +396,7 @@ class MatchViewModel @Inject constructor(
             return
         }
 
+        questionStartTime = System.currentTimeMillis()
         _cardState.value = MatchCardState.Loading
         questionJob?.cancel()
         questionJob = viewModelScope.launch {
@@ -434,7 +440,7 @@ class MatchViewModel @Inject constructor(
         )
         if (animal == null) {
             Log.w("MatchVM", "No animal for learningOrder=${item.learningOrder}")
-            onCardResult?.invoke(item.contentId, false, 0, 1, 1, 0f)
+            onCardResult?.invoke(item.contentId, false, 0, 1, 1, 0f, currentQuestionElapsedMs())
             advanceQuestion(); return
         }
 
@@ -473,6 +479,9 @@ class MatchViewModel @Inject constructor(
     }
 
     private fun advanceQuestion() { currentIndex++; showQuestion(currentIndex) }
+
+    private fun currentQuestionElapsedMs(): Long =
+        (System.currentTimeMillis() - questionStartTime).coerceAtLeast(0L)
 
     // ═════════════════════════════════════════════════════════════════════════
     // State helpers

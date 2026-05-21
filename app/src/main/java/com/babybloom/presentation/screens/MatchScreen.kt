@@ -135,7 +135,7 @@ fun MatchScreen(
     isTest       : Boolean,
     isAssessment : Boolean,
     configJson   : String = "{\"matchType\":\"ANIMAL_TO_HABITAT\"}",
-    onCardResult : (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int, touchQualityScore: Float) -> Unit,
+    onCardResult : (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int, touchQualityScore: Float, elapsedMs: Long) -> Unit,
     onComplete   : (elapsedMs: Long, correctCount: Int) -> Unit,
     viewModel    : MatchViewModel = hiltViewModel()
 ) {
