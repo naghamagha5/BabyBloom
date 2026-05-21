@@ -179,7 +179,12 @@ class SpeechViewModel @Inject constructor(
                             onCardComplete(
                                 System.currentTimeMillis() - startTime,
                                 attempt,
-                                result.confidence,
+                                speechConfidence(
+                                    recognized = result.recognizedText,
+                                    expected = item.labelAr,
+                                    recognizerConfidence = result.confidence,
+                                    attempts = attempt
+                                ),
                                 true
                             )
                             return@launch
@@ -262,6 +267,23 @@ class SpeechViewModel @Inject constructor(
 
         // ── levenshtein fallback ──────────────────────────────────────────
         return similarity(n1, n2) >= 0.8f
+    }
+
+    private fun speechConfidence(
+        recognized: String,
+        expected: String,
+        recognizerConfidence: Float,
+        attempts: Int
+    ): Float {
+        val pronunciationConfidence = similarity(normalize(recognized), normalize(expected))
+            .coerceIn(0f, 1f)
+        val attemptConfidence = (1f / attempts.coerceAtLeast(1)).coerceIn(0f, 1f)
+
+        return (
+            recognizerConfidence.coerceIn(0f, 1f) * 0.45f +
+                pronunciationConfidence * 0.40f +
+                attemptConfidence * 0.15f
+            ).coerceIn(0f, 1f)
     }
 
     private fun normalize(text: String): String {
