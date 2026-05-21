@@ -82,7 +82,10 @@ fun ActivityShellScreen(
                 return
             }
 
-            if (isAssessment) {
+            val isFinalNormalSession = state.decision == null ||
+                    state.decision is SessionDecision.SessionComplete
+
+            if (isAssessment || !isFinalNormalSession) {
                 LaunchedEffect(state.sessionId, state.activityId, state.contentId, state.stepIndex) {
                     onActivityComplete(
                         state.score,

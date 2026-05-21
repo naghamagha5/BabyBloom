@@ -261,9 +261,10 @@ class ActivityViewModel @Inject constructor(
                         this@ActivityViewModel.sessionId,
                         System.currentTimeMillis()
                     )
+                    val (sessionScore, sessionTotal) = getSessionScore()
                     _uiState.value = ActivityUiState.Completed(
-                        current.score,
-                        current.activityWithContent.contentItems.size,
+                        sessionScore,
+                        sessionTotal,
                         sessionId  = this@ActivityViewModel.sessionId,
                         activityId = current.activityWithContent.activity.id,
                         contentId  = current.activityWithContent.contentItems
@@ -373,16 +374,27 @@ class ActivityViewModel @Inject constructor(
             val nextIndex = current.currentIndex + 1
 
             if (nextIndex >= current.activityWithContent.contentItems.size) {
+                val decision = lastAlgorithmOutput?.let { resolveDecision(it) }
+                val (completedScore, completedTotal) =
+                    if (decision is SessionDecision.SessionComplete) {
+                        sessionRepository.endSession(
+                            this@ActivityViewModel.sessionId,
+                            System.currentTimeMillis()
+                        )
+                        getSessionScore()
+                    } else {
+                        newScore to current.activityWithContent.contentItems.size
+                    }
                 _uiState.value = ActivityUiState.Completed(
-                    newScore,
-                    current.activityWithContent.contentItems.size,
+                    completedScore,
+                    completedTotal,
                     sessionId  = this@ActivityViewModel.sessionId,
                     activityId = current.activityWithContent.activity.id,
                     contentId  = current.activityWithContent.contentItems
                         .getOrNull(current.currentIndex)
                         ?.contentId,
                     stepIndex  = currentStepIndex,
-                    lastAlgorithmOutput?.let { resolveDecision(it) }
+                    decision   = decision
                 )
             } else {
                 attentionTracker.reset()
@@ -513,6 +525,12 @@ class ActivityViewModel @Inject constructor(
             queue        = sessionQueue,
             currentIndex = currentStepIndex
         )
+    }
+
+    private suspend fun getSessionScore(): Pair<Int, Int> {
+        val results = activityResultRepository.getForSession(sessionId)
+        val correct = results.sumOf { it.correctCount }
+        return correct to results.size
     }
 
 }
