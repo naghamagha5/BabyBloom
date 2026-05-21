@@ -3,13 +3,19 @@ package com.babybloom.domain.algorithm
 import com.babybloom.data.local.entity.ActivityRecommendationEntity
 import com.babybloom.domain.model.ActivityLaunchStep
 import com.babybloom.domain.model.ChildProfile
+import com.babybloom.domain.model.LearningContent
 import com.babybloom.domain.repository.ActivityRepository
+import com.babybloom.domain.repository.ActivityResultRepository
+import com.babybloom.domain.repository.LearningContentRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class SessionPlannerService @Inject constructor(
-    private val activityRepository: ActivityRepository
+    private val activityRepository: ActivityRepository,
+    private val learningContentRepository: LearningContentRepository,
+    private val activityResultRepository: ActivityResultRepository,
+    private val algorithmEngine: AdaptiveAlgorithmEngine
 ) {
     private val activityPriority = mapOf(
         "STORY" to 0,
@@ -94,6 +100,9 @@ class SessionPlannerService @Inject constructor(
         profile: ChildProfile,
         sessionActivityCount: Int = AlgorithmWeights.SESSION_ACTIVITY_COUNT
     ): List<ActivityLaunchStep> {
+        val contentDrivenQueue = buildContentDrivenSessionSequence(profile)
+        if (contentDrivenQueue.isNotEmpty()) return contentDrivenQueue
+
         val plannedActivities = planSession(profile, sessionActivityCount)
         if (plannedActivities.isEmpty()) return emptyList()
 
@@ -169,5 +178,269 @@ class SessionPlannerService @Inject constructor(
         "NUMERACY" -> numeracyLevel
         "MOTOR"    -> motorLevel
         else       -> 1
+    }
+
+    private suspend fun buildContentDrivenSessionSequence(profile: ChildProfile): List<ActivityLaunchStep> {
+        val allContent = listOf(
+            learningContentRepository.getByCategory(CATEGORY_LETTER),
+            learningContentRepository.getByCategory(CATEGORY_ANIMAL),
+            learningContentRepository.getByCategory(CATEGORY_NUMBER),
+            learningContentRepository.getByCategory(CATEGORY_COLOR),
+            learningContentRepository.getByCategory(CATEGORY_SHAPE)
+        ).flatten()
+        if (allContent.isEmpty()) return emptyList()
+
+        val contentById = allContent.associateBy { it.id }
+        val results = activityResultRepository.getByChild(profile.childId)
+        val resultHistory = results
+            .filter { it.contentId.isNotBlank() }
+            .groupBy { it.contentId.removeSuffix("_s") }
+        val scoreByResultId = results.associate { result ->
+            result.id to algorithmScore(result)
+        }
+        val latestScoreByContent = resultHistory.mapValues { (_, contentResults) ->
+            contentResults
+                .maxByOrNull { it.timestamp }
+                ?.let { scoreByResultId[it.id] }
+                ?: 0f
+        }
+        val passedContentIds = latestScoreByContent
+            .filterValues { it >= AlgorithmWeights.CONTENT_PASS_THRESHOLD }
+            .keys
+
+        fun nextContent(category: String) =
+            allContent
+                .filter { it.category == category && it.id !in passedContentIds }
+                .minByOrNull { it.learningOrder }
+                ?: allContent
+                    .filter { it.category == category }
+                    .minByOrNull { it.learningOrder }
+
+        val letter = nextContent(CATEGORY_LETTER)
+        val animal = nextContent(CATEGORY_ANIMAL)
+        val thirdCategory = pickThirdCategory(allContent, resultHistory, passedContentIds)
+        val third = nextContent(thirdCategory)
+
+        val learningContentItems = listOfNotNull(letter, animal, third)
+            .distinctBy { it.id }
+        val learningContentIds = learningContentItems.map { it.id }
+
+        val learningSteps = learningContentItems.flatMap { content ->
+            stepsForContent(
+                content = content,
+                allContent = allContent,
+                phase = SessionPhase.LEARNING
+            )
+        }
+        val testSteps = interleaveTestSteps(
+            learningContentItems.map { content ->
+                stepsForContent(
+                    content = content,
+                    allContent = allContent,
+                    phase = SessionPhase.TEST
+                )
+            }
+        )
+        val revisionSteps = selectRevisionContentIds(
+            contentById = contentById,
+            resultHistory = resultHistory,
+            scoreByResultId = scoreByResultId,
+            passedContentIds = passedContentIds,
+            excludedContentIds = learningContentIds.toSet()
+        )
+            .mapNotNull { contentById[it] }
+            .map { content ->
+                stepsForContent(
+                    content = content,
+                    allContent = allContent,
+                    phase = SessionPhase.TEST
+                )
+            }
+            .let(::interleaveTestSteps)
+
+        return (learningSteps + testSteps + revisionSteps)
+            .distinctBy { "${it.activityId}:${it.contentId.orEmpty()}:${it.isTest}" }
+    }
+
+    private suspend fun pickThirdCategory(
+        allContent: List<LearningContent>,
+        resultHistory: Map<String, List<com.babybloom.domain.model.ActivityResult>>,
+        passedContentIds: Set<String>
+    ): String {
+        val categories = listOf(CATEGORY_NUMBER, CATEGORY_COLOR, CATEGORY_SHAPE)
+        val latestThirdCategory = resultHistory
+            .flatMap { (contentId, history) ->
+                val category = allContent.firstOrNull { it.id == contentId }?.category
+                history.map { result -> category to result.timestamp }
+            }
+            .filter { (category, _) -> category in categories }
+            .maxByOrNull { (_, timestamp) -> timestamp }
+            ?.first
+
+        val lastThirdPassed = latestThirdCategory != null &&
+            allContent
+                .filter { it.category == latestThirdCategory }
+                .any { it.id in passedContentIds }
+
+        val candidateCategories = if (lastThirdPassed) {
+            categories.filter { it != latestThirdCategory }
+        } else {
+            listOfNotNull(latestThirdCategory) + categories.filter { it != latestThirdCategory }
+        }
+
+        return candidateCategories.firstOrNull { category ->
+            allContent.any { it.category == category && it.id !in passedContentIds }
+        } ?: candidateCategories.firstOrNull()
+        ?: CATEGORY_NUMBER
+    }
+
+    private fun selectRevisionContentIds(
+        contentById: Map<String, LearningContent>,
+        resultHistory: Map<String, List<com.babybloom.domain.model.ActivityResult>>,
+        scoreByResultId: Map<Long, Float>,
+        passedContentIds: Set<String>,
+        excludedContentIds: Set<String>
+    ): List<String> =
+        passedContentIds
+            .filter { it !in excludedContentIds && contentById.containsKey(it) }
+            .mapNotNull { contentId ->
+                val history = resultHistory[contentId].orEmpty()
+                val latest = history.maxByOrNull { it.timestamp } ?: return@mapNotNull null
+                val firstSeen = history.minOfOrNull { it.timestamp } ?: latest.timestamp
+                RevisionCandidate(
+                    contentId = contentId,
+                    score = scoreByResultId[latest.id] ?: latest.score,
+                    firstSeen = firstSeen
+                )
+            }
+            .sortedWith(
+                compareBy<RevisionCandidate> { it.score }
+                    .thenBy { it.firstSeen }
+            )
+            .take(AlgorithmWeights.REVISION_CONTENT_COUNT)
+            .map { it.contentId }
+
+    private suspend fun stepsForContent(
+        content: LearningContent,
+        allContent: List<LearningContent>,
+        phase: SessionPhase
+    ): List<ActivityLaunchStep> {
+        val allowedPrefixes = activityPrefixesFor(content.category, phase)
+        val allActivities = activityRepository.getAll()
+        return allActivities
+            .filter { activity ->
+                allowedPrefixes.any { prefix -> activity.id.startsWith(prefix) }
+            }
+            .mapNotNull { activity ->
+                val activityWithContent = activityRepository.getActivityWithContent(activity.id)
+                    ?: return@mapNotNull null
+                val matchingId = matchingContentIdForActivity(
+                    content = content,
+                    activityId = activity.id,
+                    allContent = allContent
+                )
+                val matchingItem = activityWithContent.contentItems.firstOrNull { item ->
+                    item.contentId.removeSuffix("_s") == matchingId.removeSuffix("_s")
+                } ?: return@mapNotNull null
+
+                ActivityLaunchStep(
+                    activityId = activity.id,
+                    contentId = matchingItem.contentId,
+                    isTest = phase == SessionPhase.TEST
+                )
+            }
+            .sortedBy { step ->
+                allowedPrefixes.indexOfFirst { prefix -> step.activityId.startsWith(prefix) }
+                    .takeIf { it >= 0 }
+                    ?: Int.MAX_VALUE
+            }
+    }
+
+    private fun activityPrefixesFor(
+        category: String,
+        phase: SessionPhase
+    ): List<String> =
+        when (category) {
+            CATEGORY_LETTER -> when (phase) {
+                SessionPhase.LEARNING -> listOf("story_letters", "match_letters", "trace_letters")
+                SessionPhase.TEST -> listOf(
+                    "speech_letters_",
+                    "speech_letters_sounds",
+                    "match_letters",
+                    "trace_letters"
+                )
+            }
+            CATEGORY_ANIMAL -> when (phase) {
+                SessionPhase.LEARNING -> listOf("story_animals", "drag_letters", "match_animals")
+                SessionPhase.TEST -> listOf("speech_animals", "drag_letters", "match_animals")
+            }
+            CATEGORY_NUMBER -> when (phase) {
+                SessionPhase.LEARNING -> listOf("story_numbers", "count_", "drag_numbers", "trace_numbers")
+                SessionPhase.TEST -> listOf("speech_numbers", "count_", "drag_numbers", "trace_numbers")
+            }
+            CATEGORY_SHAPE -> when (phase) {
+                SessionPhase.LEARNING -> listOf("story_shapes", "drag_shapes", "trace_shapes")
+                SessionPhase.TEST -> listOf("speech_shapes", "drag_shapes", "trace_shapes")
+            }
+            CATEGORY_COLOR -> when (phase) {
+                SessionPhase.LEARNING -> listOf("story_colors", "drag_colors")
+                SessionPhase.TEST -> listOf("speech_colors", "drag_colors")
+            }
+            else -> emptyList()
+        }
+
+    private fun matchingContentIdForActivity(
+        content: LearningContent,
+        activityId: String,
+        allContent: List<LearningContent>
+    ): String {
+        if (content.category == CATEGORY_ANIMAL && activityId.startsWith("drag_letters")) {
+            return allContent.firstOrNull {
+                it.category == CATEGORY_LETTER && it.learningOrder == content.learningOrder
+            }?.id ?: content.id
+        }
+        return content.id
+    }
+
+    private fun interleaveTestSteps(
+        groupedSteps: List<List<ActivityLaunchStep>>
+    ): List<ActivityLaunchStep> {
+        val shuffledGroups = groupedSteps
+            .filter { it.isNotEmpty() }
+            .map { it.shuffled() }
+            .shuffled()
+        val result = mutableListOf<ActivityLaunchStep>()
+        val maxSize = shuffledGroups.maxOfOrNull { it.size } ?: 0
+        repeat(maxSize) { index ->
+            shuffledGroups.forEach { group ->
+                group.getOrNull(index)?.let(result::add)
+            }
+        }
+        return result
+    }
+
+    private data class RevisionCandidate(
+        val contentId: String,
+        val score: Float,
+        val firstSeen: Long
+    )
+
+    private suspend fun algorithmScore(result: com.babybloom.domain.model.ActivityResult): Float {
+        val activity = activityRepository.getById(result.activityId) ?: return result.score
+        val signal = com.babybloom.domain.model.ActivitySignal.from(result, activity)
+        return algorithmEngine.computeItemScore(signal)
+    }
+
+    private enum class SessionPhase {
+        LEARNING,
+        TEST
+    }
+
+    private companion object {
+        const val CATEGORY_LETTER = "LETTER_NAME"
+        const val CATEGORY_ANIMAL = "ANIMAL"
+        const val CATEGORY_NUMBER = "NUMBER"
+        const val CATEGORY_COLOR = "COLOR"
+        const val CATEGORY_SHAPE = "SHAPE"
     }
 }

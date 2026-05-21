@@ -38,11 +38,13 @@ object AlgorithmWeights {
 
     // ── Repeat / weakness decisions ────────────────────────────────────────
     const val REPEAT_THRESHOLD     = 0.60f   // item score below this → repeat activity
+    const val CONTENT_PASS_THRESHOLD = 0.60f // latest test score required to keep content out of learning queue
     const val WEAK_SKILL_THRESHOLD = 0.55f   // progress below this → mark area as weak
 
     // ── Session planning ───────────────────────────────────────────────────
     const val WEAK_SKILL_ACTIVITY_RATIO = 0.50f  // 50% of session targets weak skills
     const val SESSION_ACTIVITY_COUNT    = 4       // activities per regular session
+    const val REVISION_CONTENT_COUNT    = 3       // passed content IDs revised after the learning tests
 
     // ── Assessment ─────────────────────────────────────────────────────────
     const val ASSESSMENT_ACTIVITIES_PER_SKILL = 2

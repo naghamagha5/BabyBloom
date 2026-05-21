@@ -358,7 +358,7 @@ class ActivityViewModel @Inject constructor(
                 )
             )
 
-            if (!current.sessionSettings.isAssessment) {
+            if (!current.sessionSettings.isAssessment && current.sessionSettings.isTest) {
                 val activity = activityRepository.getById(activityId) ?: return@launch
                 val signal = ActivitySignal(
                     childId            = current.sessionSettings.childId,
@@ -397,6 +397,7 @@ class ActivityViewModel @Inject constructor(
 
             if (nextIndex >= current.activityWithContent.contentItems.size) {
                 val decision = lastAlgorithmOutput?.let { resolveDecision(it) }
+                    ?: resolveQueueDecisionWithoutAlgorithm()
                 val (completedScore, completedTotal) =
                     if (decision is SessionDecision.SessionComplete) {
                         sessionRepository.endSession(
@@ -554,13 +555,19 @@ class ActivityViewModel @Inject constructor(
     }
 
     private fun resolveDecision(output: AlgorithmOutput): SessionDecision? {
-        val step = currentStep ?: return null
-        return algorithmEngine.resolveSessionDecision(
-            output       = output,
-            currentStep  = step,
-            queue        = sessionQueue,
-            currentIndex = currentStepIndex
-        )
+        return resolveQueueDecisionWithoutAlgorithm()
+    }
+
+    private fun resolveQueueDecisionWithoutAlgorithm(): SessionDecision {
+        val nextStep = sessionQueue.getOrNull(currentStepIndex + 1)
+        return if (nextStep != null) {
+            SessionDecision.Next(
+                activityId = nextStep.activityId,
+                contentId = nextStep.contentId
+            )
+        } else {
+            SessionDecision.SessionComplete
+        }
     }
 
     private suspend fun getSessionScore(): Pair<Int, Int> {
