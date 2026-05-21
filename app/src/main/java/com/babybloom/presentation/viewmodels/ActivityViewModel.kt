@@ -284,11 +284,12 @@ class ActivityViewModel @Inject constructor(
 
         val fallbackAttentionScore = latestAttentionSample
             ?.takeIf { System.currentTimeMillis() - latestAttentionSampleMs <= 5_000L }
-            ?.let { if (it.isAttentive) 1f else 0f }
-        val attentionScore = when {
+            ?.attentionScore
+        val rawAttentionScore = when {
             attentionTracker.hasSamples() -> attentionTracker.computeScore()
             else -> fallbackAttentionScore
         }
+        val attentionScore = rawAttentionScore?.coerceIn(0f, 1f)
 
         val finalCorrectCount   = if (isCorrect) 1 else 0
         val finalIncorrectCount = (attempts - finalCorrectCount).coerceAtLeast(0)
@@ -391,7 +392,7 @@ class ActivityViewModel @Inject constructor(
                         childId    = current.sessionSettings.childId,
                         activityId = current.activityWithContent.activity.id,
                         eventType  = "GAZE",
-                        eventData  = """{"eulerY":${it.eulerY},"eulerX":${it.eulerX},"eyeOpenProb":${it.eyeOpenProbability},"attentive":${it.isAttentive}}"""
+                        eventData  = """{"eulerY":${it.eulerY},"eulerX":${it.eulerX},"eyeOpenProb":${it.eyeOpenProbability},"attentionScore":${it.attentionScore},"attentive":${it.isAttentive}}"""
                     )
                 )
             }
@@ -495,4 +496,5 @@ class ActivityViewModel @Inject constructor(
             currentIndex = currentStepIndex
         )
     }
+
 }
