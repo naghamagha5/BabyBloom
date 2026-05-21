@@ -123,8 +123,13 @@ fun ActivityShellScreen(
                 return
             }
 
-            val progress = if (state.activityWithContent.contentItems.isEmpty()) 0f
-            else state.currentIndex.toFloat() / state.activityWithContent.contentItems.size
+            val progress = if (isAssessment && assessmentTotal > 0) {
+                assessmentCurrent.toFloat() / assessmentTotal.toFloat()
+            } else {
+                val durationMs = settings.sessionDurationMs.coerceAtLeast(1L)
+                val elapsedMs = durationMs - state.sessionRemainingMs
+                elapsedMs.toFloat() / durationMs.toFloat()
+            }
 
             // ── Build the color scheme for this round ─────────────────────
             // seed = currentIndex  →  accent rotates each round automatically
@@ -187,7 +192,7 @@ fun ActivityShellScreen(
 
                             Spacer(Modifier.width(12.dp))
 
-                            // Progress bar – track matches background; fill = correct (green)
+                            // Progress bar shows elapsed session time in normal sessions.
                             Box(
                                 modifier = Modifier
                                     .weight(1f)

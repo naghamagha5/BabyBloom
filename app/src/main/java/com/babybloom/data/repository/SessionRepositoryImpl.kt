@@ -19,6 +19,9 @@ class SessionRepositoryImpl @Inject constructor(
     override suspend fun endSession(sessionId: Long, endTime: Long) =
         sessionDao.endSession(sessionId, endTime)
 
+    override suspend fun getSessionById(sessionId: Long): Session? =
+        sessionDao.getById(sessionId)?.toDomain()
+
     override fun getSessionsByChild(childId: Long): Flow<List<Session>> =
         sessionDao.getSessionsByChild(childId).map { list -> list.map { it.toDomain() } }
 

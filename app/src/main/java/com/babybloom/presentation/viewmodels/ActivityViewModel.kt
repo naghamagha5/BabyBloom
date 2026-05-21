@@ -167,19 +167,26 @@ class ActivityViewModel @Inject constructor(
                 return@launch
             }
 
-            // Create a real session row so ActivityResult FK doesn't fail
+            // Create a real session row so ActivityResult FK doesn't fail.
+            // Existing session IDs keep their original start time, so the
+            // visible timer spans the whole learning session across activities.
+            val now = System.currentTimeMillis()
+            val realSessionStartMs: Long
             val realSessionId = if (sessionId == 0L) {
+                realSessionStartMs = now
                 sessionRepository.startSession(
                     Session(
                         userId       = child.userId,
                         childId      = childId,
-                        startTime    = System.currentTimeMillis(),
+                        startTime    = realSessionStartMs,
                         endTime      = null,
                         isAssessment = isAssessment,
                         attentionScore = 0f
                     )
                 )
             } else {
+                val existingSession = sessionRepository.getSessionById(sessionId)
+                realSessionStartMs = existingSession?.startTime ?: now
                 sessionId
             }
             this@ActivityViewModel.sessionId = realSessionId
@@ -221,48 +228,59 @@ class ActivityViewModel @Inject constructor(
             activityStartMs = System.currentTimeMillis()
             attentionTracker.reset()
 
+            val sessionRemainingMs = remainingSessionMs(
+                durationMs = settings.sessionDurationMs,
+                startedAtMs = realSessionStartMs
+            )
+
             _uiState.value = ActivityUiState.Playing(
                 activityWithContent = data,
                 stepIndex           = stepIndex,
                 sessionSettings     = settings,
-                sessionRemainingMs  = settings.sessionDurationMs
+                sessionRemainingMs  = sessionRemainingMs
             )
             if (isAssessment) {
                 timerJob?.cancel()
             } else {
-                startSessionTimer(settings.sessionDurationMs)
+                startSessionTimer(settings.sessionDurationMs, realSessionStartMs)
             }
         }
     }
 
     // ── Session Timer ─────────────────────────────────────────────────────────
 
-    private fun startSessionTimer(durationMs: Long) {
+    private fun startSessionTimer(durationMs: Long, startedAtMs: Long) {
         timerJob?.cancel()
         timerJob = viewModelScope.launch {
-            var remaining = durationMs
-            while (remaining > 0) {
-                delay(1_000)
-                remaining -= 1_000
+            while (true) {
+                val remaining = remainingSessionMs(durationMs, startedAtMs)
                 val current = _uiState.value as? ActivityUiState.Playing ?: break
                 _uiState.value = current.copy(sessionRemainingMs = remaining)
-            }
-            if (remaining <= 0) {
-                val current = _uiState.value as? ActivityUiState.Playing ?: return@launch
-                _uiState.value = ActivityUiState.Completed(
-                    current.score,
-                    current.activityWithContent.contentItems.size,
-                    sessionId  = this@ActivityViewModel.sessionId,
-                    activityId = current.activityWithContent.activity.id,
-                    contentId  = current.activityWithContent.contentItems
-                        .getOrNull(current.currentIndex)
-                        ?.contentId,
-                    stepIndex  = currentStepIndex,
-                    lastAlgorithmOutput?.let { resolveDecision(it) }
-                )
+                if (remaining <= 0) {
+                    sessionRepository.endSession(
+                        this@ActivityViewModel.sessionId,
+                        System.currentTimeMillis()
+                    )
+                    _uiState.value = ActivityUiState.Completed(
+                        current.score,
+                        current.activityWithContent.contentItems.size,
+                        sessionId  = this@ActivityViewModel.sessionId,
+                        activityId = current.activityWithContent.activity.id,
+                        contentId  = current.activityWithContent.contentItems
+                            .getOrNull(current.currentIndex)
+                            ?.contentId,
+                        stepIndex  = currentStepIndex,
+                        decision   = null
+                    )
+                    break
+                }
+                delay(1_000)
             }
         }
     }
+
+    private fun remainingSessionMs(durationMs: Long, startedAtMs: Long): Long =
+        (durationMs - (System.currentTimeMillis() - startedAtMs)).coerceAtLeast(0L)
 
     // ── Answer Submission ─────────────────────────────────────────────────────
 
