@@ -103,7 +103,7 @@ class AssessmentPlannerService @Inject constructor(
     private fun activityIdsFor(category: AssessmentCategory, level: Int): List<String> =
         when (category) {
             AssessmentCategory.COLORS -> listOf("drag_colors_d$level")
-            AssessmentCategory.SHAPES -> listOf("drag_shapes_d$level")
+            AssessmentCategory.SHAPES -> listOf("trace_shapes_d$level")
             AssessmentCategory.NUMBERS -> listOf(
                 "count_d$level",
                 "drag_numbers_d$level"
