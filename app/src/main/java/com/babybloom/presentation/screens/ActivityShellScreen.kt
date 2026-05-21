@@ -283,14 +283,13 @@ fun ActivityShellScreen(
                                     isTest       = settings.isTest,
                                     isAssessment = settings.isAssessment,
                                     configJson   = activity.configJson,
-                                    onCardResult = { contentId, isCorrect, _, _, attempts, motorSkillScore, choiceConfidenceScore ->
+                                    onCardResult = { contentId, isCorrect, _, _, attempts, touchQualityScore ->
                                         viewModel.onAnswerSubmitted(
                                             isCorrect      = isCorrect,
                                             contentId      = contentId,
                                             responseTimeMs = System.currentTimeMillis(),
                                             attempts       = attempts,
-                                            motorSkillScore = motorSkillScore,
-                                            choiceConfidenceScore = choiceConfidenceScore
+                                            touchQualityScore = touchQualityScore
                                         )
                                     },
                                     onComplete = { _, _ -> }
@@ -305,14 +304,12 @@ fun ActivityShellScreen(
                                             contentId       = currentItem.contentId,
                                             responseTimeMs  = result.elapsedMs,
                                             attempts        = result.attempts,
-                                            motorSkillScore = result.motorSkillScore,
-                                            choiceConfidenceScore = result.choiceConfidenceScore,
+                                            touchQualityScore = result.touchQualityScore,
                                             scoreOverride   = result.coverage
                                         )
                                         viewModel.saveTraceInteractionEvent(
                                             contentId       = currentItem.contentId,
-                                            motorSkillScore = result.motorSkillScore,
-                                            choiceConfidenceScore = result.choiceConfidenceScore,
+                                            touchQualityScore = result.touchQualityScore,
                                             averageMovementDistance = result.averageMovementDistance,
                                             correctionCount = result.correctionCount
                                         )
@@ -340,7 +337,7 @@ fun ActivityShellScreen(
                                     currentItem  = currentItem,
                                     isCalmMode   = settings.isCalmMode,
                                     isTest       = settings.isTest,
-                                    onComplete   = { isCorrect, encodedMs, motorSkillScore, choiceConfidenceScore ->
+                                    onComplete   = { isCorrect, encodedMs, touchQualityScore ->
                                         val attempts     = (encodedMs / 100_000L).toInt()
                                             .coerceAtLeast(1)
                                         val responseTime = encodedMs % 100_000L
@@ -349,8 +346,7 @@ fun ActivityShellScreen(
                                             contentId       = currentItem.contentId,
                                             responseTimeMs  = responseTime,
                                             attempts        = attempts,
-                                            motorSkillScore = motorSkillScore,
-                                            choiceConfidenceScore = choiceConfidenceScore
+                                            touchQualityScore = touchQualityScore
                                         )
                                     }
                                 )

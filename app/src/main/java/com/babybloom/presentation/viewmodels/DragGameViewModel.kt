@@ -14,6 +14,7 @@ import com.babybloom.util.AssetPathResolver
 import com.babybloom.util.ImageAsset
 import com.babybloom.util.SoundEffect
 import com.babybloom.util.touch.TouchPatternAnalyzer
+import com.babybloom.util.touch.TouchScoringMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -174,7 +175,7 @@ class DragGameViewModel @Inject constructor(
     val state: StateFlow<DragGameState> = _state.asStateFlow()
 
     // ── Callback ──────────────────────────────────────────────────────────────
-    private var onComplete: ((isCorrect: Boolean, elapsedMs: Long, motorSkillScore: Float, choiceConfidenceScore: Float) -> Unit)? = null
+    private var onComplete: ((isCorrect: Boolean, elapsedMs: Long, touchQualityScore: Float) -> Unit)? = null
 
     // ── Media ─────────────────────────────────────────────────────────────────
     private var mediaPlayer : MediaPlayer? = null
@@ -188,6 +189,9 @@ class DragGameViewModel @Inject constructor(
 
     // ── Touch analysis ────────────────────────────────────────────────────────
     private val touchAnalyzer = TouchPatternAnalyzer()
+    private var colorScoringStarted = false
+    private var colorMoveCount = 0
+    private var colorInsideShapeMoveCount = 0
 
     // ─────────────────────────────────────────────────────────────────────────
     // Public API — touch tracking
@@ -195,6 +199,14 @@ class DragGameViewModel @Inject constructor(
 
     fun onTouchPoint(offset: Offset) {
         touchAnalyzer.onPointerEvent(offset)
+    }
+
+    fun onTouchStart(offset: Offset? = null) {
+        touchAnalyzer.onStrokeStart(offset)
+    }
+
+    fun onTouchEnd() {
+        touchAnalyzer.onStrokeEnd()
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -205,7 +217,7 @@ class DragGameViewModel @Inject constructor(
         currentItem: ActivityContent,
         isCalmMode : Boolean,
         isTest     : Boolean,
-        onComplete : (isCorrect: Boolean, elapsedMs: Long, motorSkillScore: Float, choiceConfidenceScore: Float) -> Unit
+        onComplete : (isCorrect: Boolean, elapsedMs: Long, touchQualityScore: Float) -> Unit
     ) {
         this.onComplete = onComplete
         loadJob?.cancel()
@@ -305,6 +317,7 @@ class DragGameViewModel @Inject constructor(
         )
 
         touchAnalyzer.onSessionStart()
+        resetColorShapeAdherence()
         playSound(AssetPathResolver.dragInstructionColorPath())
         startQuestionTimer()
         scheduleColorHint(item.contentId)
@@ -622,6 +635,7 @@ class DragGameViewModel @Inject constructor(
     }
 
     fun onPenDragReleased() {
+        onTouchEnd()
         if (_state.value.isPenDragging) {
             _state.value = _state.value.copy(isPenDragging = false)
         }
@@ -636,6 +650,26 @@ class DragGameViewModel @Inject constructor(
             fillProgress  = newProgress
         )
         if (newProgress >= 1f) submitColor(resolvedColorId)
+    }
+
+    fun onPenColoringMotion(
+        delta: Float,
+        resolvedColorId: String,
+        isInsideShape: Boolean,
+        isInColoringZone: Boolean
+    ) {
+        val current = _state.value
+        if (current.isAnswered || current.fillProgress >= 1f) return
+
+        if (isInColoringZone) colorScoringStarted = true
+        if (!colorScoringStarted) return
+
+        colorMoveCount++
+        if (isInsideShape) colorInsideShapeMoveCount++
+
+        if (isInColoringZone) {
+            onPenMovedOverShape(delta, resolvedColorId)
+        }
     }
 
     private fun submitColor(colorId: String) {
@@ -654,6 +688,7 @@ class DragGameViewModel @Inject constructor(
     // ─────────────────────────────────────────────────────────────────────────
 
     fun onLetterTileDragStarted(letterId: String) {
+        onTouchStart()
         val current = _state.value
         val option  = current.letterOptions.find { it.letterId == letterId } ?: return
         if (current.isTest) {
@@ -665,10 +700,16 @@ class DragGameViewModel @Inject constructor(
     }
 
     fun onLetterTileDragReleased() {
+        onTouchEnd()
         releaseLoopPlayer()
     }
 
-    fun onLetterDroppedToSlot(droppedLetterId: String) {
+    fun onLetterDroppedToSlot(
+        droppedLetterId: String,
+        dropPx: Offset? = null,
+        slotCenterPx: Offset? = null,
+        dropRadiusPx: Float? = null
+    ) {
         val current = _state.value
         if (current.isAnswered) return
 
@@ -678,7 +719,13 @@ class DragGameViewModel @Inject constructor(
         if (isCorrect) {
             _state.value = current.copy(droppedLetterId = droppedLetterId)
             val correctOption = current.letterOptions.find { it.letterId == droppedLetterId }
-            handleAnswer(true, correctOption?.animalAudioPath?.takeIf { it.isNotEmpty() })
+            handleAnswer(
+                isCorrect = true,
+                successAudioPath = correctOption?.animalAudioPath?.takeIf { it.isNotEmpty() },
+                releasePoint = dropPx,
+                targetCenter = slotCenterPx,
+                snapRadiusPx = dropRadiusPx
+            )
             return
         } else {
             _state.value = current.copy(wrongDropLetterId = droppedLetterId)
@@ -688,7 +735,12 @@ class DragGameViewModel @Inject constructor(
             }
             if (current.isTest) scheduleLetterHint(current.correctId)
         }
-        handleAnswer(false)
+        handleAnswer(
+            isCorrect = false,
+            releasePoint = dropPx,
+            targetCenter = slotCenterPx,
+            snapRadiusPx = dropRadiusPx
+        )
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -696,6 +748,7 @@ class DragGameViewModel @Inject constructor(
     // ─────────────────────────────────────────────────────────────────────────
 
     fun onCageAnimalDragStarted(poolIdx: Int) {
+        onTouchStart()
         // Audio is played on successful cage drop only.
     }
 
@@ -704,7 +757,12 @@ class DragGameViewModel @Inject constructor(
 
     private fun playCountingSound(count: Int) = playSound(countingSoundPath(count))
 
-    fun onAnimalDroppedToCage(poolIdx: Int) {
+    fun onAnimalDroppedToCage(
+        poolIdx: Int,
+        dropPx: Offset? = null,
+        cageCenterPx: Offset? = null,
+        dropRadiusPx: Float? = null
+    ) {
         val current  = _state.value
         if (current.isAnswered || poolIdx in current.inCageSet) return
         val poolItem = current.cagePool.getOrNull(poolIdx) ?: return
@@ -721,9 +779,12 @@ class DragGameViewModel @Inject constructor(
                 val elapsedMs       = System.currentTimeMillis() - current.startTimeMs
                 val finalAttempts   = current.attemptsUsed + 1
                 val encoded         = elapsedMs + finalAttempts.toLong() * ATTEMPT_ENCODE_FACTOR
-                val touchAnalysis = touchAnalyzer.analyze(
-                    isCorrect = true,
-                    attempts = finalAttempts
+                val touchAnalysis = analyzeDragTouch(
+                    current = current,
+                    attempts = finalAttempts,
+                    releasePoint = dropPx,
+                    targetCenter = cageCenterPx,
+                    snapRadiusPx = dropRadiusPx
                 )
 
                 val contentId = current.contentId
@@ -744,8 +805,7 @@ class DragGameViewModel @Inject constructor(
                         contentId,
                         true,
                         encoded,
-                        touchAnalysis.motorSkillScore,
-                        touchAnalysis.choiceConfidenceScore
+                        touchAnalysis.touchQualityScore
                     )
                 }
                 advanceSession(elapsedMs)
@@ -768,7 +828,13 @@ class DragGameViewModel @Inject constructor(
      * Called when the user drops [droppedShapeId] over the outline slot whose
      * target shape is [slotShapeId].
      */
-    fun onShapeDroppedToOutline(droppedShapeId: String, slotShapeId: String) {
+    fun onShapeDroppedToOutline(
+        droppedShapeId: String,
+        slotShapeId: String,
+        dropPx: Offset? = null,
+        slotCenterPx: Offset? = null,
+        dropRadiusPx: Float? = null
+    ) {
         val current = _state.value
         if (current.isAnswered) return
 
@@ -785,7 +851,13 @@ class DragGameViewModel @Inject constructor(
 
             val shapeAudio = current.shapeOptions
                 .find { it.shapeId == droppedShapeId }?.audioPath
-            handleAnswer(true, shapeAudio)
+            handleAnswer(
+                isCorrect = true,
+                successAudioPath = shapeAudio,
+                releasePoint = dropPx,
+                targetCenter = slotCenterPx,
+                snapRadiusPx = dropRadiusPx
+            )
         } else {
             // Wrong drop — flash and count as an attempt
             _state.value = current.copy(wrongDropSlotId = slotShapeId)
@@ -794,7 +866,12 @@ class DragGameViewModel @Inject constructor(
                 _state.value = _state.value.copy(wrongDropSlotId = null)
             }
             if (current.isTest) scheduleShapeHint(current.correctId)
-            handleAnswer(false)
+            handleAnswer(
+                isCorrect = false,
+                releasePoint = dropPx,
+                targetCenter = slotCenterPx,
+                snapRadiusPx = dropRadiusPx
+            )
         }
     }
 
@@ -843,10 +920,7 @@ class DragGameViewModel @Inject constructor(
         val elapsedMs       = System.currentTimeMillis() - current.startTimeMs
         val newUsed         = current.attemptsUsed + 1
         val newLeft         = (current.attemptsLeft - 1).coerceAtLeast(0)
-        val touchAnalysis = touchAnalyzer.analyze(
-            isCorrect = false,
-            attempts = newUsed
-        )
+        val touchAnalysis = analyzeDragTouch(current, newUsed)
 
         playSound(AssetPathResolver.soundEffectPath(SoundEffect.WRONG))
 
@@ -865,8 +939,7 @@ class DragGameViewModel @Inject constructor(
                 onComplete?.invoke(
                     false,
                     encoded,
-                    touchAnalysis.motorSkillScore,
-                    touchAnalysis.choiceConfidenceScore
+                    touchAnalysis.touchQualityScore
                 )
             }
             advanceSession(elapsedMs)
@@ -888,16 +961,78 @@ class DragGameViewModel @Inject constructor(
     // Core answer handler (COLOR_TO_SHAPE, LETTER_TO_WORD, SHAPE_TO_OUTLINE)
     // ─────────────────────────────────────────────────────────────────────────
 
-    private fun handleAnswer(isCorrect: Boolean, successAudioPath: String? = null) {
+    private fun analyzeDragTouch(
+        current: DragGameState,
+        attempts: Int,
+        releasePoint: Offset? = null,
+        targetCenter: Offset? = null,
+        snapRadiusPx: Float? = null
+    ) = when (current.dragType) {
+        DragType.COLOR_TO_SHAPE -> touchAnalyzer.analyze(
+            attempts = attempts,
+            progress = current.fillProgress,
+            pathAdherence = colorShapeAdherenceScore(),
+            mode = TouchScoringMode.COVERAGE_STROKES
+        )
+
+        DragType.ANIMALS_TO_CAGE -> touchAnalyzer.analyze(
+            attempts = attempts,
+            releasePoint = releasePoint,
+            targetCenter = targetCenter,
+            snapRadiusPx = snapRadiusPx,
+            expectedStrokeCount = current.targetCount,
+            mode = TouchScoringMode.PRECISION_RELEASE
+        )
+
+        DragType.SHAPE_TO_OUTLINE -> touchAnalyzer.analyze(
+            attempts = attempts,
+            releasePoint = releasePoint,
+            targetCenter = targetCenter,
+            snapRadiusPx = snapRadiusPx,
+            expectedStrokeCount = current.outlineSlots.size.takeIf { it > 1 },
+            mode = TouchScoringMode.PRECISION_RELEASE
+        )
+
+        DragType.LETTER_TO_WORD -> touchAnalyzer.analyze(
+            attempts = attempts,
+            releasePoint = releasePoint,
+            targetCenter = targetCenter,
+            snapRadiusPx = snapRadiusPx,
+            mode = TouchScoringMode.PRECISION_RELEASE
+        )
+    }
+
+    private fun resetColorShapeAdherence() {
+        colorScoringStarted = false
+        colorMoveCount = 0
+        colorInsideShapeMoveCount = 0
+    }
+
+    private fun colorShapeAdherenceScore(): Float {
+        if (colorMoveCount == 0) return 1f
+        val insideRate = colorInsideShapeMoveCount.toFloat() / colorMoveCount.toFloat()
+        return ((insideRate - 0.55f) / 0.45f).coerceIn(0f, 1f)
+    }
+
+    private fun handleAnswer(
+        isCorrect: Boolean,
+        successAudioPath: String? = null,
+        releasePoint: Offset? = null,
+        targetCenter: Offset? = null,
+        snapRadiusPx: Float? = null
+    ) {
         val current = _state.value
         if (current.isAnswered) return
 
         val elapsedMs       = System.currentTimeMillis() - current.startTimeMs
         val newUsed         = current.attemptsUsed + 1
         val newLeft         = (current.attemptsLeft - 1).coerceAtLeast(0)
-        val touchAnalysis = touchAnalyzer.analyze(
-            isCorrect = isCorrect,
-            attempts = newUsed
+        val touchAnalysis = analyzeDragTouch(
+            current = current,
+            attempts = newUsed,
+            releasePoint = releasePoint,
+            targetCenter = targetCenter,
+            snapRadiusPx = snapRadiusPx
         )
 
         if (isCorrect) {
@@ -929,8 +1064,7 @@ class DragGameViewModel @Inject constructor(
                     contentId,
                     true,
                     encoded,
-                    touchAnalysis.motorSkillScore,
-                    touchAnalysis.choiceConfidenceScore
+                    touchAnalysis.touchQualityScore
                 )
             }
             advanceSession(elapsedMs)
@@ -962,8 +1096,7 @@ class DragGameViewModel @Inject constructor(
                 onComplete?.invoke(
                     false,
                     encoded,
-                    touchAnalysis.motorSkillScore,
-                    touchAnalysis.choiceConfidenceScore
+                    touchAnalysis.touchQualityScore
                 )
             }
             advanceSession(elapsedMs)
@@ -1051,8 +1184,7 @@ class DragGameViewModel @Inject constructor(
         contentId: String?,
         isCorrect: Boolean,
         encoded: Long,
-        motorSkillScore: Float,
-        choiceConfidenceScore: Float
+        touchQualityScore: Float
     ) {
         viewModelScope.launch {
             if (_state.value.contentId != contentId) return@launch
@@ -1060,7 +1192,7 @@ class DragGameViewModel @Inject constructor(
             delay(CELEBRATION_DURATION_MS)
             if (_state.value.contentId != contentId) return@launch
             _state.value = _state.value.copy(showCelebration = false)
-            onComplete?.invoke(isCorrect, encoded, motorSkillScore, choiceConfidenceScore)
+            onComplete?.invoke(isCorrect, encoded, touchQualityScore)
         }
     }
 

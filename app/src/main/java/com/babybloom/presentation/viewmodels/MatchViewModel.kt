@@ -162,7 +162,7 @@ class MatchViewModel @Inject constructor(
     private var cardAttempts    = 0
     private var isCalmMode      = false
     private var onComplete      : ((Long, Int) -> Unit)?                             = null
-    private var onCardResult    : ((String, Boolean, Int, Int, Int, Float, Float) -> Unit)? = null
+    private var onCardResult    : ((String, Boolean, Int, Int, Int, Float) -> Unit)? = null
     private var startTime       = 0L
     private var isLoaded        = false
     private var loadedSignature = ""
@@ -183,7 +183,7 @@ class MatchViewModel @Inject constructor(
         isTest       : Boolean,
         isAssessment : Boolean,   // reserved for future use
         configJson   : String,
-        onCardResult : (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int, motorSkillScore: Float, choiceConfidenceScore: Float) -> Unit,
+        onCardResult : (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int, touchQualityScore: Float) -> Unit,
         onComplete   : (elapsedMs: Long, correctCount: Int) -> Unit
     ) {
         val signature = listOf(
@@ -248,7 +248,6 @@ class MatchViewModel @Inject constructor(
         appSoundSettings.playSoundEffect(SoundEffect.TAP)
         cardAttempts++
         val touchAnalysis = touchAnalyzer.analyze(
-            isCorrect = isCorrect,
             attempts = cardAttempts,
             releasePoint = releasePoint,
             targetCenter = targetCenter,
@@ -283,8 +282,7 @@ class MatchViewModel @Inject constructor(
                     cardCorrect,
                     cardIncorrect,
                     cardAttempts,
-                    touchAnalysis.motorSkillScore,
-                    touchAnalysis.choiceConfidenceScore
+                    touchAnalysis.touchQualityScore
                 )
                 advanceQuestion()
             }
@@ -359,15 +357,14 @@ class MatchViewModel @Inject constructor(
             "ANIMAL_TO_HABITAT" -> currentAnimalPath?.let { playVoiceAndWait(it) }
         }
         delay(REVEAL_PAUSE_MS)
-        val touchAnalysis = touchAnalyzer.analyze(isCorrect = false, attempts = cardAttempts)
+        val touchAnalysis = touchAnalyzer.analyze(attempts = cardAttempts)
         onCardResult?.invoke(
             currentContentId,
             false,
             cardCorrect,
             cardIncorrect,
             cardAttempts,
-            touchAnalysis.motorSkillScore,
-            touchAnalysis.choiceConfidenceScore
+            touchAnalysis.touchQualityScore
         )
         advanceQuestion()
     }
@@ -437,7 +434,7 @@ class MatchViewModel @Inject constructor(
         )
         if (animal == null) {
             Log.w("MatchVM", "No animal for learningOrder=${item.learningOrder}")
-            onCardResult?.invoke(item.contentId, false, 0, 1, 1, 0f, 0f)
+            onCardResult?.invoke(item.contentId, false, 0, 1, 1, 0f)
             advanceQuestion(); return
         }
 

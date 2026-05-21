@@ -216,7 +216,7 @@ fun DragGameScreen(
     currentItem : ActivityContent,
     isCalmMode  : Boolean,
     isTest      : Boolean,
-    onComplete  : (isCorrect: Boolean, elapsedMs: Long, motorSkillScore: Float, choiceConfidenceScore: Float) -> Unit,
+    onComplete  : (isCorrect: Boolean, elapsedMs: Long, touchQualityScore: Float) -> Unit,
     viewModel   : DragGameViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -236,7 +236,6 @@ fun DragGameScreen(
             onComplete(
                 state.sessionCorrectCount > state.sessionWrongAttempts,
                 state.sessionElapsedMs,
-                0f,
                 0f
             )
         }
@@ -563,6 +562,7 @@ private fun ColorToPaintGame(
                         hintRotation   = if (state.hintColorId != null && !isColorPenDragging)
                             hintAnim.value else 0f,
                         onDragStarted  = {
+                            viewModel.onTouchStart()
                             isColorPenDragging = true
                             viewModel.onColorPickedUp(option.colorId)
                         },
@@ -585,11 +585,20 @@ private fun ColorToPaintGame(
 
                             if (penHasVisitedColorBox.value &&
                                 !state.isAnswered && state.fillProgress < 1f &&
-                                shapeCenterPx != Offset.Zero &&
-                                (fingerPx - shapeCenterPx).getDistance() < shapeHalfSizePx * 1.4f
+                                shapeCenterPx != Offset.Zero
                             ) {
-                                penStrokePts.add(fingerPx - boxTopLeftPx)
-                                viewModel.onPenMovedOverShape(drag.getDistance(), option.colorId)
+                                val distanceFromShape = (fingerPx - shapeCenterPx).getDistance()
+                                val isInsideShape = distanceFromShape < shapeHalfSizePx * 1.08f
+                                val isInColoringZone = distanceFromShape < shapeHalfSizePx * 1.4f
+                                if (isInColoringZone) {
+                                    penStrokePts.add(fingerPx - boxTopLeftPx)
+                                }
+                                viewModel.onPenColoringMotion(
+                                    delta = drag.getDistance(),
+                                    resolvedColorId = option.colorId,
+                                    isInsideShape = isInsideShape,
+                                    isInColoringZone = isInColoringZone
+                                )
                             }
                         }
                     )
@@ -806,6 +815,7 @@ private fun TestColorLayoutV2(
                     fillColor      = activeColor,
                     hintRotation   = if (state.hintColorId != null) hintAnim.value else 0f,
                     onDragStarted  = {
+                        viewModel.onTouchStart()
                         val last = lastPickedColorIdState.value
                         onLocalColorId(last)
                         viewModel.onColorPickedUp(last ?: "")
@@ -829,11 +839,20 @@ private fun TestColorLayoutV2(
                                 ?: state.activeColorId
 
                         if (resolvedColorId != null && !state.isAnswered && state.fillProgress < 1f &&
-                            shapeCenterPx != Offset.Zero &&
-                            (fingerPx - shapeCenterPx).getDistance() < shapeHalfSizePx * 1.4f
+                            shapeCenterPx != Offset.Zero
                         ) {
-                            penStrokePts.add(fingerPx - boxTopLeftPx)
-                            viewModel.onPenMovedOverShape(drag.getDistance(), resolvedColorId)
+                            val distanceFromShape = (fingerPx - shapeCenterPx).getDistance()
+                            val isInsideShape = distanceFromShape < shapeHalfSizePx * 1.08f
+                            val isInColoringZone = distanceFromShape < shapeHalfSizePx * 1.4f
+                            if (isInColoringZone) {
+                                penStrokePts.add(fingerPx - boxTopLeftPx)
+                            }
+                            viewModel.onPenColoringMotion(
+                                delta = drag.getDistance(),
+                                resolvedColorId = resolvedColorId,
+                                isInsideShape = isInsideShape,
+                                isInColoringZone = isInColoringZone
+                            )
                         }
                     }
                 )
@@ -1184,8 +1203,14 @@ private fun LetterToWordGame(
                             },
                             onDragMove     = { pos -> viewModel.onTouchPoint(pos) },
                             onDropped      = { letterId, dropPx ->
-                                if ((dropPx - gapCenterPx).getDistance() < dropRadiusPx)
-                                    viewModel.onLetterDroppedToSlot(letterId)
+                                if ((dropPx - gapCenterPx).getDistance() < dropRadiusPx) {
+                                    viewModel.onLetterDroppedToSlot(
+                                        droppedLetterId = letterId,
+                                        dropPx = dropPx,
+                                        slotCenterPx = gapCenterPx,
+                                        dropRadiusPx = dropRadiusPx
+                                    )
+                                }
                             }
                         )
                     }
@@ -1461,10 +1486,19 @@ private fun AnimalsToCageGame(
                                             viewModel.onCageAnimalDragStarted(idx)
                                         },
                                         onDragMove    = { pos -> viewModel.onTouchPoint(pos) },
-                                        onDropped     = { dropPx ->
+                                        onDragFinished = {
                                             isAnimalDragging = false
-                                            if ((dropPx - cageCenterPx.value).getDistance() < dropRadiusPx)
-                                                viewModel.onAnimalDroppedToCage(idx)
+                                            viewModel.onTouchEnd()
+                                        },
+                                        onDropped     = { dropPx ->
+                                            if ((dropPx - cageCenterPx.value).getDistance() < dropRadiusPx) {
+                                                viewModel.onAnimalDroppedToCage(
+                                                    poolIdx = idx,
+                                                    dropPx = dropPx,
+                                                    cageCenterPx = cageCenterPx.value,
+                                                    dropRadiusPx = dropRadiusPx
+                                                )
+                                            }
                                         },
                                         onRejectDone  = { viewModel.onRejectAnimationDone(idx) }
                                     )
@@ -1559,6 +1593,7 @@ private fun DraggablePoolAnimal(
     hintRotation : Float = 0f,
     onDragStarted: ()    -> Unit = {},
     onDragMove   : ((Offset) -> Unit)? = null,
+    onDragFinished: ()   -> Unit = {},
     onDropped    : (dropPx: Offset) -> Unit,
     onRejectDone : ()    -> Unit
 ) {
@@ -1625,9 +1660,13 @@ private fun DraggablePoolAnimal(
                             Offset(rootPos.x + sizePx.x / 2f + offsetX,
                                 rootPos.y + sizePx.y / 2f + offsetY)
                         )
+                        onDragFinished()
                         offsetX = 0f; offsetY = 0f; isDragging = false
                     },
-                    onDragCancel = { offsetX = 0f; offsetY = 0f; isDragging = false }
+                    onDragCancel = {
+                        onDragFinished()
+                        offsetX = 0f; offsetY = 0f; isDragging = false
+                    }
                 )
             },
         contentAlignment = Alignment.Center
@@ -1747,14 +1786,28 @@ private fun ShapeToOutlineGame(
                         fillColor      = tileColor,
                         hintRotation   = if (tileOption.shapeId == state.hintShapeId) hintAnim.value else 0f,
                         onDragMove     = { viewModel.onTouchPoint(it) },
-                        onDragStarted  = { isShapeDragging = true },
-                        onDragEnded    = { isShapeDragging = false },
+                        onDragStarted  = {
+                            viewModel.onTouchStart()
+                            isShapeDragging = true
+                        },
+                        onDragEnded    = {
+                            viewModel.onTouchEnd()
+                            isShapeDragging = false
+                        },
                         onPositioned   = { center -> tileCenter = center },
                         onDropped      = { shapeId, dropPx ->
                             val nearest = slotCenters
                                 .minByOrNull { (_, c) -> (dropPx - c).getDistance() }
                                 ?.takeIf { (_, c) -> (dropPx - c).getDistance() < dropRadiusPx }
-                            if (nearest != null) viewModel.onShapeDroppedToOutline(shapeId, nearest.key)
+                            if (nearest != null) {
+                                viewModel.onShapeDroppedToOutline(
+                                    droppedShapeId = shapeId,
+                                    slotShapeId = nearest.key,
+                                    dropPx = dropPx,
+                                    slotCenterPx = nearest.value,
+                                    dropRadiusPx = dropRadiusPx
+                                )
+                            }
                         }
                     )
                 }
@@ -1793,13 +1846,27 @@ private fun ShapeToOutlineGame(
                         fillColor    = tileColor,
                         hintRotation = if (tileOption.shapeId == state.hintShapeId) hintAnim.value else 0f,
                         onDragMove   = { viewModel.onTouchPoint(it) },
-                        onDragStarted = { isShapeDragging = true },
-                        onDragEnded   = { isShapeDragging = false },
+                        onDragStarted = {
+                            viewModel.onTouchStart()
+                            isShapeDragging = true
+                        },
+                        onDragEnded   = {
+                            viewModel.onTouchEnd()
+                            isShapeDragging = false
+                        },
                         onDropped    = { shapeId, dropPx ->
                             val nearest = slotCenters
                                 .minByOrNull { (_, c) -> (dropPx - c).getDistance() }
                                 ?.takeIf { (_, c) -> (dropPx - c).getDistance() < dropRadiusPx }
-                            if (nearest != null) viewModel.onShapeDroppedToOutline(shapeId, nearest.key)
+                            if (nearest != null) {
+                                viewModel.onShapeDroppedToOutline(
+                                    droppedShapeId = shapeId,
+                                    slotShapeId = nearest.key,
+                                    dropPx = dropPx,
+                                    slotCenterPx = nearest.value,
+                                    dropRadiusPx = dropRadiusPx
+                                )
+                            }
                         }
                     )
                 }

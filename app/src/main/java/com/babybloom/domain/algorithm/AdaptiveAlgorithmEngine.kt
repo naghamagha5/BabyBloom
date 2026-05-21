@@ -196,12 +196,7 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
                     conf  * AlgorithmWeights.SPEECH_CONFIDENCE_WEIGHT
         }
 
-        val touchQuality = listOfNotNull(
-            signal.motorSkillScore,
-            signal.choiceConfidenceScore
-        ).takeIf { it.isNotEmpty() }?.average()?.toFloat()
-
-        touchQuality?.let { score ->
+        signal.touchQualityScore?.let { score ->
             base += score * AlgorithmWeights.TOUCH_QUALITY_BONUS_MAX
         }
 
