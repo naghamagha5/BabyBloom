@@ -186,6 +186,8 @@ class DragGameViewModel @Inject constructor(
     private var questionTimerJob: Job? = null
     private var hintJob         : Job? = null
     private var loadJob         : Job? = null
+    private var loadGeneration  : Long = 0L
+    private var completedGeneration: Long = -1L
 
     // ── Touch analysis ────────────────────────────────────────────────────────
     private val touchAnalyzer = TouchPatternAnalyzer()
@@ -219,6 +221,8 @@ class DragGameViewModel @Inject constructor(
         isTest     : Boolean,
         onComplete : (isCorrect: Boolean, elapsedMs: Long, touchQualityScore: Float) -> Unit
     ) {
+        loadGeneration++
+        completedGeneration = -1L
         this.onComplete = onComplete
         loadJob?.cancel()
         cageTimerJob?.cancel()
@@ -246,6 +250,8 @@ class DragGameViewModel @Inject constructor(
 
     fun stopContent(contentId: String) {
         if (_state.value.contentId != contentId) return
+        loadGeneration++
+        onComplete = null
         loadJob?.cancel()
         cageTimerJob?.cancel()
         questionTimerJob?.cancel()
@@ -805,7 +811,8 @@ class DragGameViewModel @Inject constructor(
                         contentId,
                         true,
                         encoded,
-                        touchAnalysis.touchQualityScore
+                        touchAnalysis.touchQualityScore,
+                        loadGeneration
                     )
                 }
                 advanceSession(elapsedMs)
@@ -936,10 +943,11 @@ class DragGameViewModel @Inject constructor(
                 sessionTotalAttempts = current.sessionTotalAttempts + newUsed
             )
             viewModelScope.launch {
-                onComplete?.invoke(
+                dispatchCompleteOnce(
                     false,
                     encoded,
-                    touchAnalysis.touchQualityScore
+                    touchAnalysis.touchQualityScore,
+                    loadGeneration
                 )
             }
             advanceSession(elapsedMs)
@@ -1064,7 +1072,8 @@ class DragGameViewModel @Inject constructor(
                     contentId,
                     true,
                     encoded,
-                    touchAnalysis.touchQualityScore
+                    touchAnalysis.touchQualityScore,
+                    loadGeneration
                 )
             }
             advanceSession(elapsedMs)
@@ -1093,10 +1102,11 @@ class DragGameViewModel @Inject constructor(
             )
             val encoded = elapsedMs + (newUsed.toLong() * ATTEMPT_ENCODE_FACTOR)
             viewModelScope.launch {
-                onComplete?.invoke(
+                dispatchCompleteOnce(
                     false,
                     encoded,
-                    touchAnalysis.touchQualityScore
+                    touchAnalysis.touchQualityScore,
+                    loadGeneration
                 )
             }
             advanceSession(elapsedMs)
@@ -1184,16 +1194,28 @@ class DragGameViewModel @Inject constructor(
         contentId: String?,
         isCorrect: Boolean,
         encoded: Long,
-        touchQualityScore: Float
+        touchQualityScore: Float,
+        generation: Long
     ) {
         viewModelScope.launch {
-            if (_state.value.contentId != contentId) return@launch
+            if (generation != loadGeneration || _state.value.contentId != contentId) return@launch
             _state.value = _state.value.copy(showCelebration = true)
             delay(CELEBRATION_DURATION_MS)
-            if (_state.value.contentId != contentId) return@launch
+            if (generation != loadGeneration || _state.value.contentId != contentId) return@launch
             _state.value = _state.value.copy(showCelebration = false)
-            onComplete?.invoke(isCorrect, encoded, touchQualityScore)
+            dispatchCompleteOnce(isCorrect, encoded, touchQualityScore, generation)
         }
+    }
+
+    private fun dispatchCompleteOnce(
+        isCorrect: Boolean,
+        encoded: Long,
+        touchQualityScore: Float,
+        generation: Long
+    ) {
+        if (generation != loadGeneration || completedGeneration == generation) return
+        completedGeneration = generation
+        onComplete?.invoke(isCorrect, encoded, touchQualityScore)
     }
 
     private fun playSequence(paths: List<String>, index: Int = 0, onComplete: () -> Unit = {}) {

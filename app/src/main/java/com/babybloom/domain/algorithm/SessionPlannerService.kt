@@ -208,67 +208,152 @@ class SessionPlannerService @Inject constructor(
             .filterValues { it >= AlgorithmWeights.CONTENT_PASS_THRESHOLD }
             .keys
 
-        fun nextContent(category: String) =
-            allContent
-                .filter { it.category == category && it.id !in passedContentIds }
-                .minByOrNull { it.learningOrder }
-                ?: allContent
-                    .filter { it.category == category }
-                    .minByOrNull { it.learningOrder }
-
-        val letter = nextContent(CATEGORY_LETTER)
-        val animal = nextContent(CATEGORY_ANIMAL)
-        val thirdCategory = pickThirdCategory(allContent, resultHistory, passedContentIds)
-        val third = nextContent(thirdCategory)
-
-        val learningContentItems = listOfNotNull(letter, animal, third)
-            .distinctBy { it.id }
-        val learningContentIds = learningContentItems.map { it.id }
-
-        val learningSteps = learningContentItems.flatMap { content ->
-            stepsForContent(
-                content = content,
-                allContent = allContent,
-                phase = SessionPhase.LEARNING
-            )
-        }
-        val testSteps = interleaveTestSteps(
-            learningContentItems.map { content ->
-                stepsForContent(
-                    content = content,
-                    allContent = allContent,
-                    phase = SessionPhase.TEST
-                )
-            }
-        )
-        val revisionSteps = selectRevisionContentIds(
+        val revisionContentQueue = selectRevisionContentIds(
             contentById = contentById,
             resultHistory = resultHistory,
             scoreByResultId = scoreByResultId,
             passedContentIds = passedContentIds,
-            excludedContentIds = learningContentIds.toSet()
+            excludedContentIds = emptySet(),
+            limit = Int.MAX_VALUE
         )
             .mapNotNull { contentById[it] }
-            .map { content ->
+
+        val learningBatches = buildLearningBatches(
+            allContent = allContent,
+            resultHistory = resultHistory,
+            passedContentIds = passedContentIds
+        )
+
+        val queue = mutableListOf<ActivityLaunchStep>()
+        val usedTestStepKeys = mutableSetOf<String>()
+        var revisionIndex = 0
+        learningBatches.forEach { learningContentItems ->
+            val learningSteps = learningContentItems.flatMap { content ->
                 stepsForContent(
                     content = content,
                     allContent = allContent,
-                    phase = SessionPhase.TEST
+                    phase = SessionPhase.LEARNING
                 )
             }
-            .let(::interleaveTestSteps)
+            val testSteps = interleaveTestSteps(
+                learningContentItems.map { content ->
+                    stepsForContent(
+                        content = content,
+                        allContent = allContent,
+                        phase = SessionPhase.TEST
+                    )
+                }
+            )
+                .distinctBy { it.exactStepKey() }
+            val uniqueTestSteps = testSteps.filter { usedTestStepKeys.add(it.exactStepKey()) }
+            val currentLearningIds = learningContentItems.map { it.id }.toSet()
+            val revisionBatch = revisionContentQueue
+                .drop(revisionIndex)
+                .filter { it.id !in currentLearningIds }
+                .take(AlgorithmWeights.REVISION_CONTENT_COUNT)
+            revisionIndex += revisionBatch.size
 
-        return (learningSteps + testSteps + revisionSteps)
-            .distinctBy { "${it.activityId}:${it.contentId.orEmpty()}:${it.isTest}" }
+            val revisionSteps = interleaveTestSteps(
+                revisionBatch.map { content ->
+                    stepsForContent(
+                        content = content,
+                        allContent = allContent,
+                        phase = SessionPhase.TEST
+                    )
+                }
+            )
+                .filter { usedTestStepKeys.add(it.exactStepKey()) }
+
+            queue += learningSteps
+            queue += uniqueTestSteps
+            queue += revisionSteps
+        }
+
+        if (queue.isEmpty() && revisionContentQueue.isNotEmpty()) {
+            queue += interleaveTestSteps(
+                revisionContentQueue
+                    .take(AlgorithmWeights.REVISION_CONTENT_COUNT)
+                    .map { content ->
+                        stepsForContent(
+                            content = content,
+                            allContent = allContent,
+                            phase = SessionPhase.TEST
+                        )
+                    }
+            )
+                .filter { usedTestStepKeys.add(it.exactStepKey()) }
+        }
+
+        return queue
+            .distinctBy { it.exactStepKey() }
     }
 
-    private suspend fun pickThirdCategory(
+    private fun buildLearningBatches(
         allContent: List<LearningContent>,
         resultHistory: Map<String, List<com.babybloom.domain.model.ActivityResult>>,
         passedContentIds: Set<String>
-    ): String {
+    ): List<List<LearningContent>> {
+        val letterQueue = learningQueueForCategory(allContent, CATEGORY_LETTER, passedContentIds)
+        val animalQueue = learningQueueForCategory(allContent, CATEGORY_ANIMAL, passedContentIds)
+        val thirdQueues = listOf(CATEGORY_NUMBER, CATEGORY_COLOR, CATEGORY_SHAPE)
+            .associateWith { category ->
+                learningQueueForCategory(allContent, category, passedContentIds)
+            }
+
+        val batches = mutableListOf<List<LearningContent>>()
+        val thirdIndexes = mutableMapOf(
+            CATEGORY_NUMBER to 0,
+            CATEGORY_COLOR to 0,
+            CATEGORY_SHAPE to 0
+        )
+        val maxBatches = listOf(
+            letterQueue.size,
+            animalQueue.size,
+            thirdQueues.values.sumOf { it.size }
+        ).maxOrNull() ?: 0
+        if (maxBatches == 0) return emptyList()
+
+        var lastThirdCategory = latestThirdCategory(allContent, resultHistory)
+        repeat(maxBatches) { index ->
+            val thirdCategory = pickThirdCategoryForBatch(
+                thirdQueues = thirdQueues,
+                thirdIndexes = thirdIndexes,
+                previousCategory = lastThirdCategory
+            )
+            val third = thirdCategory?.let { category ->
+                val categoryIndex = thirdIndexes[category] ?: 0
+                thirdIndexes[category] = categoryIndex + 1
+                thirdQueues[category]?.getOrNull(categoryIndex)
+            }
+            if (third != null) lastThirdCategory = third.category
+
+            val batch = listOfNotNull(
+                letterQueue.getOrNull(index),
+                animalQueue.getOrNull(index),
+                third
+            ).distinctBy { it.id }
+
+            if (batch.isNotEmpty()) batches += batch
+        }
+
+        return batches
+    }
+
+    private fun learningQueueForCategory(
+        allContent: List<LearningContent>,
+        category: String,
+        passedContentIds: Set<String>
+    ): List<LearningContent> =
+        allContent
+            .filter { it.category == category && it.id !in passedContentIds }
+            .sortedBy { it.learningOrder }
+
+    private fun latestThirdCategory(
+        allContent: List<LearningContent>,
+        resultHistory: Map<String, List<com.babybloom.domain.model.ActivityResult>>
+    ): String? {
         val categories = listOf(CATEGORY_NUMBER, CATEGORY_COLOR, CATEGORY_SHAPE)
-        val latestThirdCategory = resultHistory
+        return resultHistory
             .flatMap { (contentId, history) ->
                 val category = allContent.firstOrNull { it.id == contentId }?.category
                 history.map { result -> category to result.timestamp }
@@ -276,22 +361,22 @@ class SessionPlannerService @Inject constructor(
             .filter { (category, _) -> category in categories }
             .maxByOrNull { (_, timestamp) -> timestamp }
             ?.first
+    }
 
-        val lastThirdPassed = latestThirdCategory != null &&
-            allContent
-                .filter { it.category == latestThirdCategory }
-                .any { it.id in passedContentIds }
-
-        val candidateCategories = if (lastThirdPassed) {
-            categories.filter { it != latestThirdCategory }
-        } else {
-            listOfNotNull(latestThirdCategory) + categories.filter { it != latestThirdCategory }
+    private fun pickThirdCategoryForBatch(
+        thirdQueues: Map<String, List<LearningContent>>,
+        thirdIndexes: Map<String, Int>,
+        previousCategory: String?
+    ): String? {
+        val categories = listOf(CATEGORY_NUMBER, CATEGORY_COLOR, CATEGORY_SHAPE)
+        val candidateCategories = categories
+            .dropWhile { it != previousCategory }
+            .drop(1) + categories.takeWhile { it != previousCategory }
+        val rotatedCategories = candidateCategories.ifEmpty { categories }
+        return rotatedCategories.firstOrNull { category ->
+            val nextIndex = thirdIndexes[category] ?: 0
+            thirdQueues[category]?.getOrNull(nextIndex) != null
         }
-
-        return candidateCategories.firstOrNull { category ->
-            allContent.any { it.category == category && it.id !in passedContentIds }
-        } ?: candidateCategories.firstOrNull()
-        ?: CATEGORY_NUMBER
     }
 
     private fun selectRevisionContentIds(
@@ -299,7 +384,8 @@ class SessionPlannerService @Inject constructor(
         resultHistory: Map<String, List<com.babybloom.domain.model.ActivityResult>>,
         scoreByResultId: Map<Long, Float>,
         passedContentIds: Set<String>,
-        excludedContentIds: Set<String>
+        excludedContentIds: Set<String>,
+        limit: Int
     ): List<String> =
         passedContentIds
             .filter { it !in excludedContentIds && contentById.containsKey(it) }
@@ -317,7 +403,7 @@ class SessionPlannerService @Inject constructor(
                 compareBy<RevisionCandidate> { it.score }
                     .thenBy { it.firstSeen }
             )
-            .take(AlgorithmWeights.REVISION_CONTENT_COUNT)
+            .take(limit)
             .map { it.contentId }
 
     private suspend fun stepsForContent(
@@ -353,6 +439,10 @@ class SessionPlannerService @Inject constructor(
                 allowedPrefixes.indexOfFirst { prefix -> step.activityId.startsWith(prefix) }
                     .takeIf { it >= 0 }
                     ?: Int.MAX_VALUE
+            }
+            .distinctBy { step ->
+                allowedPrefixes.firstOrNull { prefix -> step.activityId.startsWith(prefix) }
+                    ?: step.activityId
             }
     }
 
@@ -435,6 +525,9 @@ class SessionPlannerService @Inject constructor(
         LEARNING,
         TEST
     }
+
+    private fun ActivityLaunchStep.exactStepKey(): String =
+        "${activityId}:${contentId.orEmpty()}:${isTest}"
 
     private companion object {
         const val CATEGORY_LETTER = "LETTER_NAME"
