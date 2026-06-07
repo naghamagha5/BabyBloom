@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -24,6 +25,12 @@ import com.babybloom.R
 import com.babybloom.presentation.components.AttentionCameraOverlay
 import com.babybloom.presentation.viewmodels.ActivityUiState
 import com.babybloom.presentation.viewmodels.ActivityViewModel
+import com.babybloom.ui.theme.GameActiveSwatch1
+import com.babybloom.ui.theme.GameActiveSwatch2
+import com.babybloom.ui.theme.GameActiveSwatch3
+import com.babybloom.ui.theme.GameCalmSwatch1
+import com.babybloom.ui.theme.GameCalmSwatch3
+import com.babybloom.ui.theme.GameCalmSwatch2
 import com.babybloom.ui.theme.LocalGameColorScheme
 import com.babybloom.ui.theme.gameColorSchemeFor
 
@@ -144,6 +151,25 @@ fun ActivityShellScreen(
                     seed       = colorSeed
                 )
             }
+            val progressBrush = remember(settings.isCalmMode) {
+                if (settings.isCalmMode) {
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            GameCalmSwatch2,
+                            GameCalmSwatch3,
+                            GameCalmSwatch1
+                        )
+                    )
+                } else {
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            GameActiveSwatch2,
+                            GameActiveSwatch3,
+                            GameActiveSwatch1
+                        )
+                    )
+                }
+            }
 
             val backgroundRes = if (settings.isCalmMode)
                 R.drawable.ic_game_background_calm
@@ -209,7 +235,7 @@ fun ActivityShellScreen(
                                         .fillMaxHeight()
                                         .fillMaxWidth(progress.coerceIn(0f, 1f))
                                         .clip(RoundedCornerShape(50))
-                                        .background(gameColors.correct)
+                                        .background(progressBrush)
                                 )
                             }
 
