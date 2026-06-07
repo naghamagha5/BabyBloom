@@ -177,6 +177,80 @@ private fun DragInstructionBadge(text: String, accentColor: Color = TraceBadgeTe
     }
 }
 
+@Composable
+private fun DragTargetNumberIcon(targetCount: Int, modifier: Modifier = Modifier) {
+    val colors = LocalGameColorScheme.current
+    val context = LocalContext.current
+    val asset = remember(targetCount, colors.isCalmMode) {
+        AssetPathResolver.imageAssetFor(
+            contentId = "number_$targetCount",
+            category = "NUMBER",
+            isCalmMode = colors.isCalmMode
+        )
+    }
+
+    when (asset) {
+        is ImageAsset.SvgDrawable -> {
+            val drawableId = remember(asset.drawableName) {
+                context.resources.getIdentifier(
+                    asset.drawableName,
+                    "drawable",
+                    context.packageName
+                )
+            }
+            if (drawableId != 0) {
+                Image(
+                    painter = painterResource(drawableId),
+                    contentDescription = null,
+                    modifier = modifier.size(44.dp),
+                    colorFilter = ColorFilter.tint(colors.accent)
+                )
+            }
+        }
+
+        is ImageAsset.PngAsset -> {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(AssetPathResolver.androidAssetUri(asset.path))
+                    .crossfade(true)
+                    .build(),
+                contentDescription = null,
+                modifier = modifier.size(44.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
+    }
+}
+
+@Composable
+private fun DragTargetNumberBadge(number: String, targetCount: Int) {
+    val colors = LocalGameColorScheme.current
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(colors.background)
+            .border(1.5.dp, colors.accent.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            DragTargetNumberIcon(targetCount = targetCount)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = number,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = colors.accent,
+                textAlign = TextAlign.Center,
+                style = LocalTextStyle.current.copy(textDirection = TextDirection.Rtl)
+            )
+        }
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Color name badge for test layout
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1426,13 +1500,18 @@ private fun AnimalsToCageGame(
             modifier            = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
-                modifier         = Modifier
+            Column(
+                modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 4.dp, bottom = 2.dp),
-                contentAlignment = Alignment.Center
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 DragInstructionBadge(text = state.instructionText)
+                Spacer(Modifier.height(8.dp))
+                DragTargetNumberBadge(
+                    number = state.targetNumeral,
+                    targetCount = state.targetCount
+                )
             }
 
             BoxWithConstraints(

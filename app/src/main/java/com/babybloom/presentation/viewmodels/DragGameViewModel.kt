@@ -160,6 +160,7 @@ class DragGameViewModel @Inject constructor(
         // ── Delays ───────────────────────────────────────────────────────────
         const val WRONG_LETTER_FLASH_MS            = 600L
         const val WRONG_SHAPE_FLASH_MS             = 600L
+        const val CAGE_SUCCESS_CONFIRM_MS          = 2_000L
         const val CELEBRATION_DURATION_MS          = 2_200L
         const val SESSION_ADVANCE_DELAY_MS         = 1_400L
         // ── Category keys ────────────────────────────────────────────────────
@@ -183,6 +184,7 @@ class DragGameViewModel @Inject constructor(
 
     // ── Jobs ──────────────────────────────────────────────────────────────────
     private var cageTimerJob    : Job? = null
+    private var cageValidationJob: Job? = null
     private var questionTimerJob: Job? = null
     private var hintJob         : Job? = null
     private var loadJob         : Job? = null
@@ -226,6 +228,7 @@ class DragGameViewModel @Inject constructor(
         this.onComplete = onComplete
         loadJob?.cancel()
         cageTimerJob?.cancel()
+        cageValidationJob?.cancel()
         questionTimerJob?.cancel()
         hintJob?.cancel()
         releasePlayer()
@@ -254,6 +257,7 @@ class DragGameViewModel @Inject constructor(
         onComplete = null
         loadJob?.cancel()
         cageTimerJob?.cancel()
+        cageValidationJob?.cancel()
         questionTimerJob?.cancel()
         hintJob?.cancel()
         releasePlayer()
@@ -774,50 +778,44 @@ class DragGameViewModel @Inject constructor(
         val poolItem = current.cagePool.getOrNull(poolIdx) ?: return
 
         if (poolItem.isCorrect) {
+            cageValidationJob?.cancel()
             val newSet = current.inCageSet + poolIdx
             _state.value = current.copy(
                 inCageSet            = newSet,
                 sessionTotalAttempts = current.sessionTotalAttempts + 1
             )
-            if (newSet.size == current.targetCount) {
-                cageTimerJob?.cancel()
+            val updated = _state.value
+            when {
+                newSet.size < current.targetCount -> {
+                    playCountingSound(newSet.size)
+                }
 
-                val elapsedMs       = System.currentTimeMillis() - current.startTimeMs
-                val finalAttempts   = current.attemptsUsed + 1
-                val encoded         = elapsedMs + finalAttempts.toLong() * ATTEMPT_ENCODE_FACTOR
-                val touchAnalysis = analyzeDragTouch(
-                    current = current,
-                    attempts = finalAttempts,
-                    releasePoint = dropPx,
-                    targetCenter = cageCenterPx,
-                    snapRadiusPx = dropRadiusPx
-                )
+                newSet.size == current.targetCount -> {
+                    if (current.isTest) {
+                        cageTimerJob?.cancel()
+                        playCountingSound(newSet.size)
+                        scheduleCageSuccessValidation(
+                            dropPx = dropPx,
+                            cageCenterPx = cageCenterPx,
+                            dropRadiusPx = dropRadiusPx
+                        )
+                    } else {
+                        finalizeCageSuccess(
+                            current = updated,
+                            dropPx = dropPx,
+                            cageCenterPx = cageCenterPx,
+                            dropRadiusPx = dropRadiusPx
+                        )
+                    }
+                }
 
-                val contentId = current.contentId
-                _state.value = _state.value.copy(
-                    isAnswered          = true,
-                    isCorrect           = true,
-                    attemptsUsed        = finalAttempts,
-                    showCelebration     = false,
-                    sessionCorrectCount = current.sessionCorrectCount + 1
-                )
-                playSequence(
-                    listOf(
-                        AssetPathResolver.soundEffectPath(SoundEffect.CORRECT),
-                        countingSoundPath(newSet.size)
-                    )
-                ) {
-                    showCelebrationThenComplete(
-                        contentId,
-                        true,
-                        encoded,
-                        touchAnalysis.touchQualityScore,
-                        loadGeneration
+                else -> {
+                    handleCageOverfill(
+                        dropPx = dropPx,
+                        cageCenterPx = cageCenterPx,
+                        dropRadiusPx = dropRadiusPx
                     )
                 }
-                advanceSession(elapsedMs)
-            } else {
-                playCountingSound(newSet.size)
             }
         }
     }
@@ -923,6 +921,7 @@ class DragGameViewModel @Inject constructor(
     private fun handleCageTimeout() {
         val current = _state.value
         if (current.isAnswered) return
+        cageValidationJob?.cancel()
 
         val elapsedMs       = System.currentTimeMillis() - current.startTimeMs
         val newUsed         = current.attemptsUsed + 1
@@ -953,6 +952,133 @@ class DragGameViewModel @Inject constructor(
             advanceSession(elapsedMs)
         } else {
             // Still has attempts — reset the cage and restart the 30-second timer
+            _state.value = current.copy(
+                attemptsUsed         = newUsed,
+                attemptsLeft         = newLeft,
+                inCageSet            = emptySet(),
+                showCelebration      = false,
+                sessionWrongAttempts = current.sessionWrongAttempts + 1,
+                sessionTotalAttempts = current.sessionTotalAttempts + 1
+            )
+            startCageTimer()
+        }
+    }
+
+    private fun scheduleCageSuccessValidation(
+        dropPx: Offset? = null,
+        cageCenterPx: Offset? = null,
+        dropRadiusPx: Float? = null
+    ) {
+        val generation = loadGeneration
+        val contentId = _state.value.contentId
+        cageValidationJob?.cancel()
+        cageValidationJob = viewModelScope.launch {
+            delay(CAGE_SUCCESS_CONFIRM_MS)
+
+            val current = _state.value
+            if (
+                generation != loadGeneration ||
+                current.contentId != contentId ||
+                current.isAnswered ||
+                current.inCageSet.size != current.targetCount
+            ) return@launch
+
+            finalizeCageSuccess(
+                current = current,
+                dropPx = dropPx,
+                cageCenterPx = cageCenterPx,
+                dropRadiusPx = dropRadiusPx
+            )
+        }
+    }
+
+    private fun finalizeCageSuccess(
+        current: DragGameState,
+        dropPx: Offset? = null,
+        cageCenterPx: Offset? = null,
+        dropRadiusPx: Float? = null
+    ) {
+        cageTimerJob?.cancel()
+        cageValidationJob?.cancel()
+
+        val elapsedMs       = System.currentTimeMillis() - current.startTimeMs
+        val finalAttempts   = current.attemptsUsed + 1
+        val encoded         = elapsedMs + finalAttempts.toLong() * ATTEMPT_ENCODE_FACTOR
+        val touchAnalysis = analyzeDragTouch(
+            current = current,
+            attempts = finalAttempts,
+            releasePoint = dropPx,
+            targetCenter = cageCenterPx,
+            snapRadiusPx = dropRadiusPx
+        )
+
+        val contentId = current.contentId
+        _state.value = current.copy(
+            isAnswered          = true,
+            isCorrect           = true,
+            attemptsUsed        = finalAttempts,
+            showCelebration     = false,
+            sessionCorrectCount = current.sessionCorrectCount + 1
+        )
+        playSequence(
+            listOf(AssetPathResolver.soundEffectPath(SoundEffect.CORRECT))
+        ) {
+            showCelebrationThenComplete(
+                contentId,
+                true,
+                encoded,
+                touchAnalysis.touchQualityScore,
+                loadGeneration
+            )
+        }
+        advanceSession(elapsedMs)
+    }
+
+    private fun handleCageOverfill(
+        dropPx: Offset? = null,
+        cageCenterPx: Offset? = null,
+        dropRadiusPx: Float? = null
+    ) {
+        val current = _state.value
+        if (current.isAnswered) return
+
+        cageTimerJob?.cancel()
+        cageValidationJob?.cancel()
+
+        val elapsedMs       = System.currentTimeMillis() - current.startTimeMs
+        val newUsed         = current.attemptsUsed + 1
+        val newLeft         = (current.attemptsLeft - 1).coerceAtLeast(0)
+        val touchAnalysis = analyzeDragTouch(
+            current = current,
+            attempts = newUsed,
+            releasePoint = dropPx,
+            targetCenter = cageCenterPx,
+            snapRadiusPx = dropRadiusPx
+        )
+
+        playSound(AssetPathResolver.soundEffectPath(SoundEffect.WRONG))
+
+        if (newLeft == 0) {
+            val encoded = elapsedMs + newUsed.toLong() * ATTEMPT_ENCODE_FACTOR
+            _state.value = current.copy(
+                isAnswered           = true,
+                isCorrect            = false,
+                attemptsUsed         = newUsed,
+                attemptsLeft         = 0,
+                showCelebration      = false,
+                sessionWrongAttempts = current.sessionWrongAttempts + 1,
+                sessionTotalAttempts = current.sessionTotalAttempts + 1
+            )
+            viewModelScope.launch {
+                dispatchCompleteOnce(
+                    false,
+                    encoded,
+                    touchAnalysis.touchQualityScore,
+                    loadGeneration
+                )
+            }
+            advanceSession(elapsedMs)
+        } else {
             _state.value = current.copy(
                 attemptsUsed         = newUsed,
                 attemptsLeft         = newLeft,
