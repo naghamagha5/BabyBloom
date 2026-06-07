@@ -1486,23 +1486,6 @@
     ]
   },
   {
-    "id": "drag_shapes_d5",
-    "title": "صَاحِب الشَّكْل بِظِلِّهِ",
-    "description": "اسْحَب الشَّكْل إِلَى مَكَانِهِ الصَّحِيح",
-    "modality": "INTERACTIVE",
-    "skillArea": "MOTOR",
-    "difficultyLevel": 5,
-    "activityType": "DRAG",
-    "isActive": true,
-    "configJson": "{\"dragType\":\"SHAPE_TO_OUTLINE\"}",
-    "contentIds": [
-      "shape_circle",
-      "shape_square",
-      "shape_triangle",
-      "shape_rectangle"
-    ]
-  },
-  {
     "id": "speech_animals_d5",
     "title": "قُل اسْم الحَيَوَان",
     "description": "انْظُر إِلَى الصُّورَة وَقُل اسْمَهَا",

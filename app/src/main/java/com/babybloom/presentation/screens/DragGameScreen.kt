@@ -110,6 +110,7 @@ private val SHAPE_TILE_SIZE                = 180.dp
 private val SHAPE_OUTLINE_SLOT_SIZE        = 190.dp
 private val SHAPE_DROP_RADIUS_DP           = 115.dp
 private val SHAPE_INSTRUCTION_SIZE_SP      = 18
+private const val SHAPE_DRAG_SCALE_ACTIVE  = 1.12f
 
 // ── Drag/animation constants ──────────────────────────────────────────────────
 private const val DRAG_SCALE_ACTIVE        = 1.25f
@@ -142,6 +143,14 @@ private val activeShapeSwatches = listOf(
 private fun shapeColorForIndex(index: Int, isCalmMode: Boolean): Color {
     val swatches = if (isCalmMode) calmShapeSwatches else activeShapeSwatches
     return swatches[index % swatches.size]
+}
+
+private fun <T> shapeGridRows(items: List<T>): List<List<T>> = when {
+    items.size >= 4 -> listOf(items.take(2), items.drop(2).take(2))
+    items.size == 3 -> listOf(items.take(1), items.drop(1))
+    items.size == 2 -> listOf(items)
+    items.size == 1 -> listOf(items)
+    else -> emptyList()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1992,51 +2001,47 @@ private fun ShapeOutlineSlotsTriangle(
     shapeColorMap   : Map<String, Color>,
     slotCenters     : MutableMap<String, Offset>
 ) {
-    val slots = outlineSlots.take(3)
-    Column(
-        modifier            = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        if (slots.isNotEmpty()) {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                ShapeOutlineSlot(
-                    slotShapeId    = slots[0],
-                    droppedShapeId = droppedShapes[slots[0]],
-                    isCorrect      = isCorrect,
-                    isWrong        = wrongDropSlotId == slots[0],
-                    isAnswered     = isAnswered,
-                    shapeOptions   = shapeOptions,
-                    shapeColorMap  = shapeColorMap,
-                    modifier       = Modifier.onGloballyPositioned { coords ->
-                        val pos = coords.positionInRoot()
-                        val sz  = coords.size
-                        slotCenters[slots[0]] = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
+    val slots = outlineSlots.take(4)
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val rowSpacing = 12.dp
+        val horizontalPadding = 16.dp
+        val rows = shapeGridRows(slots)
+        val maxColumns = rows.maxOfOrNull { it.size } ?: 1
+        val computedBottomSlotSize =
+            ((maxWidth - horizontalPadding * 2 - rowSpacing * (maxColumns - 1)) / maxColumns)
+                .coerceAtMost(SHAPE_OUTLINE_SLOT_SIZE)
+        val slotSize = computedBottomSlotSize.coerceAtLeast(128.dp)
+
+        Column(
+            modifier            = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            for (rowSlots in rows) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = horizontalPadding),
+                    horizontalArrangement = Arrangement.spacedBy(rowSpacing, Alignment.CenterHorizontally),
+                    verticalAlignment     = Alignment.CenterVertically
+                ) {
+                    for (slotId in rowSlots) {
+                        ShapeOutlineSlot(
+                            slotShapeId    = slotId,
+                            droppedShapeId = droppedShapes[slotId],
+                            isCorrect      = isCorrect,
+                            isWrong        = wrongDropSlotId == slotId,
+                            isAnswered     = isAnswered,
+                            shapeOptions   = shapeOptions,
+                            shapeColorMap  = shapeColorMap,
+                            slotSize       = slotSize,
+                            modifier       = Modifier.onGloballyPositioned { coords ->
+                                val pos = coords.positionInRoot()
+                                val sz  = coords.size
+                                slotCenters[slotId] = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
+                            }
+                        )
                     }
-                )
-            }
-        }
-        if (slots.size > 1) {
-            Row(
-                modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                verticalAlignment     = Alignment.CenterVertically
-            ) {
-                for (slotId in slots.drop(1)) {
-                    ShapeOutlineSlot(
-                        slotShapeId    = slotId,
-                        droppedShapeId = droppedShapes[slotId],
-                        isCorrect      = isCorrect,
-                        isWrong        = wrongDropSlotId == slotId,
-                        isAnswered     = isAnswered,
-                        shapeOptions   = shapeOptions,
-                        shapeColorMap  = shapeColorMap,
-                        modifier       = Modifier.onGloballyPositioned { coords ->
-                            val pos = coords.positionInRoot()
-                            val sz  = coords.size
-                            slotCenters[slotId] = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
-                        }
-                    )
                 }
             }
         }
@@ -2093,6 +2098,7 @@ private fun ShapeOutlineSlot(
     isAnswered     : Boolean,
     shapeOptions   : List<ShapeOption>,
     shapeColorMap  : Map<String, Color>,
+    slotSize       : Dp = SHAPE_OUTLINE_SLOT_SIZE,
     modifier       : Modifier = Modifier
 ) {
     val colors = LocalGameColorScheme.current
@@ -2104,7 +2110,7 @@ private fun ShapeOutlineSlot(
 
     Box(
         modifier = modifier
-            .size(SHAPE_OUTLINE_SLOT_SIZE)
+            .size(slotSize)
             .clip(RoundedCornerShape(20.dp))
             .background(
                 if (bgColor == Color.Transparent) colors.background.copy(alpha = 0.72f) else bgColor
@@ -2150,7 +2156,7 @@ private fun DraggableShapeTile(
     var sizePx     by remember { mutableStateOf(Offset.Zero) }
 
     val scale by animateFloatAsState(
-        targetValue   = if (isDragging) DRAG_SCALE_ACTIVE else DRAG_SCALE_DEFAULT,
+        targetValue   = if (isDragging) SHAPE_DRAG_SCALE_ACTIVE else DRAG_SCALE_DEFAULT,
         animationSpec = spring(stiffness = Spring.StiffnessMedium),
         label         = "shapeTileScale"
     )
