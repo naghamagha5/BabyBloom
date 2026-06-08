@@ -634,6 +634,7 @@ class DragGameViewModel @Inject constructor(
 
     fun onColorPickedUp(colorId: String) {
         if (_state.value.isAnswered) return
+        questionTimerJob?.cancel()
         _state.value = _state.value.copy(
             activeColorId = if (_state.value.isTest) {
                 colorId.takeIf { it.isNotEmpty() }
@@ -651,8 +652,12 @@ class DragGameViewModel @Inject constructor(
 
     fun onPenDragReleased() {
         onTouchEnd()
-        if (_state.value.isPenDragging) {
-            _state.value = _state.value.copy(isPenDragging = false)
+        val current = _state.value
+        if (current.isPenDragging) {
+            _state.value = current.copy(isPenDragging = false)
+        }
+        if (!current.isAnswered && current.dragType == DragType.COLOR_TO_SHAPE) {
+            startQuestionTimer()
         }
     }
 
@@ -694,6 +699,12 @@ class DragGameViewModel @Inject constructor(
         val successAudioPath = if (isCorrect)
             current.colorOptions.find { it.colorId == colorId }?.audioPath
         else null
+        if (isCorrect) {
+            _state.value = current.copy(
+                activeColorId = colorId,
+                fillProgress = 1f
+            )
+        }
         handleAnswer(isCorrect, successAudioPath)
         if (!isCorrect && current.isTest) scheduleColorHint(current.correctId)
     }

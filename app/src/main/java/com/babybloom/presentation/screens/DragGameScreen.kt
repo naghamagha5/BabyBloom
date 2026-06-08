@@ -631,7 +631,7 @@ private fun ColorToPaintGame(
                     ColorShapeCanvas(
                         state        = state,
                         penStrokePts = penStrokePts,
-                        activeColor  = if (penHasVisitedColorBox.value) activeColor else null,
+                        activeColor  = if (penHasVisitedColorBox.value || state.isCorrect) activeColor else null,
                         colors       = colors
                     )
                 }
@@ -689,7 +689,7 @@ private fun ColorToPaintGame(
                         penBoxDp       = COLOR_GAME_PEN_BOX_H,
                         isAnswered     = state.isAnswered,
                         resetKey       = strokeKey,
-                        fillColor      = if (penHasVisitedColorBox.value) activeColor else null,
+                        fillColor      = if (penHasVisitedColorBox.value || state.isCorrect) activeColor else null,
                         // Wobble hint is suppressed while dragging so rotation
                         // doesn't fight the finger position.
                         hintRotation   = if (state.hintColorId != null && !isColorPenDragging)
