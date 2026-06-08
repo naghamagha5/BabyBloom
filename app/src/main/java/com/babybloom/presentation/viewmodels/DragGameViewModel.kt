@@ -717,6 +717,7 @@ class DragGameViewModel @Inject constructor(
         onTouchStart()
         val current = _state.value
         val option  = current.letterOptions.find { it.letterId == letterId } ?: return
+        questionTimerJob?.cancel()
         if (current.isTest) {
             if (option.isCorrect) playSoundOnce(option.letterSoundPath)
         } else {
@@ -728,6 +729,10 @@ class DragGameViewModel @Inject constructor(
     fun onLetterTileDragReleased() {
         onTouchEnd()
         releaseLoopPlayer()
+        val current = _state.value
+        if (!current.isAnswered && current.dragType == DragType.LETTER_TO_WORD) {
+            startQuestionTimer()
+        }
     }
 
     fun onLetterDroppedToSlot(
