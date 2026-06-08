@@ -187,7 +187,7 @@ private fun DragInstructionBadge(text: String, accentColor: Color = TraceBadgeTe
 }
 
 @Composable
-private fun DragTargetNumberIcon(targetCount: Int, modifier: Modifier = Modifier) {
+private fun DragTargetNumberIcon(targetCount: Int, modifier: Modifier = Modifier.size(44.dp)) {
     val colors = LocalGameColorScheme.current
     val context = LocalContext.current
     val asset = remember(targetCount, colors.isCalmMode) {
@@ -208,25 +208,36 @@ private fun DragTargetNumberIcon(targetCount: Int, modifier: Modifier = Modifier
                 )
             }
             if (drawableId != 0) {
-                Image(
-                    painter = painterResource(drawableId),
-                    contentDescription = null,
-                    modifier = modifier.size(44.dp),
-                    colorFilter = ColorFilter.tint(colors.accent)
-                )
+                Box(
+                    modifier = modifier,
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(drawableId),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit,
+                        colorFilter = ColorFilter.tint(colors.accent)
+                    )
+                }
             }
         }
 
         is ImageAsset.PngAsset -> {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(AssetPathResolver.androidAssetUri(asset.path))
-                    .crossfade(true)
-                    .build(),
-                contentDescription = null,
-                modifier = modifier.size(44.dp),
-                contentScale = ContentScale.Fit
-            )
+            Box(
+                modifier = modifier,
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(AssetPathResolver.androidAssetUri(asset.path))
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            }
         }
     }
 }
@@ -263,6 +274,45 @@ private fun DragTargetNumberBadge(number: String, targetCount: Int) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Color name badge for test layout
 // ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun DragTargetNumberRevealCard(label: String, targetCount: Int) {
+    val colors = LocalGameColorScheme.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(0.72f)
+            .shadow(18.dp, RoundedCornerShape(28.dp), clip = false)
+            .clip(RoundedCornerShape(28.dp))
+            .background(colors.background)
+            .border(3.dp, colors.accent.copy(alpha = 0.45f), RoundedCornerShape(28.dp))
+            .padding(horizontal = 28.dp, vertical = 32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                DragTargetNumberIcon(
+                    targetCount = targetCount,
+                    modifier = Modifier.size(120.dp)
+                )
+            }
+            Spacer(Modifier.height(20.dp))
+            Text(
+                text = label,
+                fontSize = 34.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = colors.accent,
+                textAlign = TextAlign.Center,
+                style = LocalTextStyle.current.copy(textDirection = TextDirection.Rtl)
+            )
+        }
+    }
+}
+
 @Composable
 private fun ColorNameBadge(label: String, colorId: String) {
     val displayColor = dragColorForContentId(colorId)
@@ -1503,6 +1553,21 @@ private fun AnimalsToCageGame(
         }
     }
 
+    if (state.showTargetNumberCard) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            DragTargetNumberRevealCard(
+                label = state.currentLabel,
+                targetCount = state.targetCount
+            )
+        }
+        return
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
 
         Column(
@@ -1576,7 +1641,7 @@ private fun AnimalsToCageGame(
                                         onDragMove    = { pos -> viewModel.onTouchPoint(pos) },
                                         onDragFinished = {
                                             isAnimalDragging = false
-                                            viewModel.onTouchEnd()
+                                            viewModel.onCageAnimalDragReleased()
                                         },
                                         onDropped     = { dropPx ->
                                             if ((dropPx - cageCenterPx.value).getDistance() < dropRadiusPx) {
