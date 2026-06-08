@@ -1940,11 +1940,11 @@ private fun ShapeToOutlineGame(
                         hintRotation   = if (tileOption.shapeId == state.hintShapeId) hintAnim.value else 0f,
                         onDragMove     = { viewModel.onTouchPoint(it) },
                         onDragStarted  = {
-                            viewModel.onTouchStart()
+                            viewModel.onShapeTileDragStarted()
                             isShapeDragging = true
                         },
                         onDragEnded    = {
-                            viewModel.onTouchEnd()
+                            viewModel.onShapeTileDragReleased()
                             isShapeDragging = false
                         },
                         onPositioned   = { center -> tileCenter = center },
@@ -2000,11 +2000,11 @@ private fun ShapeToOutlineGame(
                         hintRotation = if (tileOption.shapeId == state.hintShapeId) hintAnim.value else 0f,
                         onDragMove   = { viewModel.onTouchPoint(it) },
                         onDragStarted = {
-                            viewModel.onTouchStart()
+                            viewModel.onShapeTileDragStarted()
                             isShapeDragging = true
                         },
                         onDragEnded   = {
-                            viewModel.onTouchEnd()
+                            viewModel.onShapeTileDragReleased()
                             isShapeDragging = false
                         },
                         onDropped    = { shapeId, dropPx ->

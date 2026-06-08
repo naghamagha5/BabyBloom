@@ -858,6 +858,19 @@ class DragGameViewModel @Inject constructor(
             _state.value = _state.value.copy(rejectIdx = -1)
     }
 
+    fun onShapeTileDragStarted() {
+        onTouchStart()
+        questionTimerJob?.cancel()
+    }
+
+    fun onShapeTileDragReleased() {
+        onTouchEnd()
+        val current = _state.value
+        if (!current.isAnswered && current.dragType == DragType.SHAPE_TO_OUTLINE) {
+            startQuestionTimer()
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // User events — SHAPE_TO_OUTLINE
     // ─────────────────────────────────────────────────────────────────────────
