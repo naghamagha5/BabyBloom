@@ -14,14 +14,18 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
@@ -51,22 +55,17 @@ fun AssessmentScreen(
         is AssessmentUiState.Intro -> AssessmentIntroContent(
             childName = currentState.childName,
             isCalmMode = currentState.isCalmMode,
-            onStart = viewModel::beginActivities
+            showSpeechInternetDialog = currentState.showSpeechInternetDialog,
+            onStart = viewModel::beginActivities,
+            onDismissSpeechInternetDialog = viewModel::dismissSpeechInternetDialog,
+            onExitAssessment = onExitAssessment
         )
-        is AssessmentUiState.Playing -> {
-            androidx.compose.runtime.key(
-                currentState.currentActivityId,
-                currentState.currentContentId,
-                currentState.currentIndex
-            ) {
-                AssessmentPlayingContent(
-                    state = currentState,
-                    childId = childId,
-                    onComplete = viewModel::onActivityComplete,
-                    onExitAssessment = onExitAssessment
-                )
-            }
-        }
+        is AssessmentUiState.Playing -> AssessmentPlayingContent(
+            state = currentState,
+            childId = childId,
+            onComplete = viewModel::onActivityComplete,
+            onExitAssessment = onExitAssessment
+        )
         is AssessmentUiState.Bootstrapping -> AssessmentBootstrappingContent()
         is AssessmentUiState.Complete -> {
             GoodJobScreen(
@@ -83,13 +82,19 @@ fun AssessmentScreen(
 private fun AssessmentIntroContent(
     childName: String,
     isCalmMode: Boolean,
-    onStart: () -> Unit
+    showSpeechInternetDialog: Boolean,
+    onStart: () -> Unit,
+    onDismissSpeechInternetDialog: () -> Unit,
+    onExitAssessment: () -> Unit
 ) {
     val backgroundRes = if (isCalmMode) R.drawable.ic_welcome_calm else R.drawable.ic_welcome_active
     val animalsRes = if (isCalmMode) R.drawable.ic_calm_animals else R.drawable.ic_active_animals
     val decorationRes = if (isCalmMode) R.drawable.ic_calm_decoration else R.drawable.ic_active_decoration
+    var isDialogVisible by remember(showSpeechInternetDialog) { mutableStateOf(showSpeechInternetDialog) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(showSpeechInternetDialog) {
+        isDialogVisible = showSpeechInternetDialog
+        if (showSpeechInternetDialog) return@LaunchedEffect
         delay(10_000)
         onStart()
     }
@@ -132,7 +137,7 @@ private fun AssessmentIntroContent(
                 Spacer(modifier = Modifier.height(60.dp))
 
                 Text(
-                    text = "هيا يا $childName",
+                    text = stringResource(R.string.assessment_intro_greeting, childName),
                     style = MaterialTheme.typography.displaySmall.copy(
                         fontWeight = FontWeight.Black,
                         color = DarkPurple,
@@ -145,7 +150,7 @@ private fun AssessmentIntroContent(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 Text(
-                    text = "لِنَبْدَأْ مُغَامَرَةً صَغِيرَةً مَلِيئَةً بِالْمَرَحِ، نَتَعَرَّفُ فِيهَا عَلَى الْأَشْيَاءِ الَّتِي تُحِبُّهَا وَتَسْتَمْتِعُ بِهَا.",
+                    text = stringResource(R.string.assessment_intro_subtitle),
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.Bold,
                         color = DarkPurple.copy(alpha = 0.85f),
@@ -157,7 +162,18 @@ private fun AssessmentIntroContent(
                 )
 
                 Spacer(modifier = Modifier.height(28.dp))
+            }
 
+            if (isDialogVisible) {
+                SessionInternetDialog(
+                    message = stringResource(R.string.session_internet_assessment_message),
+                    onRetry = onStart,
+                    onExit = {
+                        isDialogVisible = false
+                        onDismissSpeechInternetDialog()
+                        onExitAssessment()
+                    }
+                )
             }
         }
     }
@@ -198,7 +214,7 @@ private fun AssessmentBootstrappingContent() {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator()
             Spacer(modifier = Modifier.height(16.dp))
-            Text("نحلل نتائجك...")
+            Text(stringResource(R.string.assessment_bootstrapping_message))
         }
     }
 }

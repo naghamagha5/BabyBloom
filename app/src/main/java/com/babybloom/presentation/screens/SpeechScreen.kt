@@ -52,6 +52,7 @@ fun SpeechScreen(
     currentItem: ActivityContent,
     isCalmMode: Boolean,
     onComplete: (elapsedMs: Long, attempts: Int, confidence: Float?, isCorrect: Boolean) -> Unit,
+    onOffline: () -> Unit,
     viewModel: SpeechViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -67,6 +68,12 @@ fun SpeechScreen(
     }
 
     val cardState by viewModel.cardState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(cardState) {
+        if (cardState is SpeechCardState.Offline) {
+            onOffline()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when {

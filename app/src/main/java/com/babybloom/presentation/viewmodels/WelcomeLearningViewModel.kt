@@ -10,6 +10,7 @@ import com.babybloom.domain.repository.ChildProfileRepository
 import com.babybloom.domain.repository.ChildRepository
 import com.babybloom.domain.repository.SessionRepository
 import com.babybloom.util.SessionQueueCodec
+import com.babybloom.util.speech.SpeechRecognitionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,7 +27,8 @@ data class WelcomeLearningUiState(
     val sessionQueue: List<ActivityLaunchStep> = emptyList(),
     val encodedQueue: String = "",
     val sessionId: Long = 0L,
-    val stepIndex: Int = 0
+    val stepIndex: Int = 0,
+    val showSpeechInternetDialog: Boolean = false
 )
 
 @HiltViewModel
@@ -36,6 +38,7 @@ class WelcomeLearningViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val sessionPlannerService: SessionPlannerService,
     private val normalSessionProgressStore: NormalSessionProgressStore,
+    private val speechRecognitionManager: SpeechRecognitionManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -63,6 +66,20 @@ class WelcomeLearningViewModel @Inject constructor(
         }
     }
 
+    fun onScreenReady() {
+        if (!speechRecognitionManager.isOnline()) {
+            _uiState.update { state ->
+                state.copy(showSpeechInternetDialog = true)
+            }
+            return
+        }
+
+        _uiState.update { state ->
+            state.copy(showSpeechInternetDialog = false)
+        }
+        prepareSession()
+    }
+
     fun prepareSession() {
         viewModelScope.launch {
             val child = childRepository.getById(childId) ?: return@launch
@@ -85,7 +102,8 @@ class WelcomeLearningViewModel @Inject constructor(
                             sessionQueue = savedQueue,
                             encodedQueue = savedProgress.encodedQueue,
                             sessionId = savedProgress.sessionId,
-                            stepIndex = savedProgress.stepIndex
+                            stepIndex = savedProgress.stepIndex,
+                            showSpeechInternetDialog = false
                         )
                     }
                     return@launch
@@ -107,9 +125,16 @@ class WelcomeLearningViewModel @Inject constructor(
                     sessionQueue = queue,
                     encodedQueue = SessionQueueCodec.encode(queue),
                     sessionId = 0L,
-                    stepIndex = 0
+                    stepIndex = 0,
+                    showSpeechInternetDialog = false
                 )
             }
+        }
+    }
+
+    fun dismissSpeechInternetDialog() {
+        _uiState.update { state ->
+            state.copy(showSpeechInternetDialog = false)
         }
     }
 }

@@ -233,6 +233,12 @@ fun BabyBloomNavGraph(
                             append("&stepIndex=$stepIndex")
                         }
                     )
+                },
+                onExitToChildProfile = {
+                    navController.popBackStack(
+                        route = "${Routes.CHILD_PROFILE}/$childId",
+                        inclusive = false
+                    )
                 }
             )
         }

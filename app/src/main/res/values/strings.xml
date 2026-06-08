@@ -453,4 +453,18 @@
     <string name="speech_offline_title">هذه اللعبة تحتاج إلى اتصال بالإنترنت</string>
     <string name="speech_offline_body">يرجى الاتصال بالإنترنت والمحاولة مجدداً</string>
 
+    <string name="session_internet_required_title">الإنترنت مطلوب</string>
+    <string name="session_internet_learning_message">يرجى الاتصال بالإنترنت لبدء الجلسة لأن نشاط الكلام يحتاج إلى اتصال.</string>
+    <string name="session_internet_assessment_message">يرجى الاتصال بالإنترنت لبدء التقييم لأن نشاط الكلام يحتاج إلى اتصال.</string>
+    <string name="session_internet_retry_button">إعادة المحاولة</string>
+    <string name="session_internet_exit_button">خروج</string>
+    <string name="session_exit_button">خروج</string>
+    <string name="session_speech_offline_banner">وضع الكلام يحتاج إنترنت</string>
+    <string name="session_speech_skip_message">انقطع الإنترنت. سيتم تخطي نشاط الكلام والانتقال للنشاط التالي.</string>
+    <string name="assessment_intro_greeting">هيا يا %1$s</string>
+    <string name="assessment_intro_subtitle">لنبدأ مغامرة صغيرة مليئة بالمرح، نتعرف فيها على الأشياء التي تحبها وتستمتع بها.</string>
+    <string name="assessment_bootstrapping_message">نحلل نتائجك...</string>
+    <string name="session_speech_fallback_title">انقطع الإنترنت</string>
+    <string name="session_speech_fallback_subtitle">سيتم تخطي نشاط الكلام والانتقال للنشاط التالي</string>
+    <string name="session_speech_fallback_countdown">الانتقال خلال لحظات...</string>
 </resources>
