@@ -25,6 +25,7 @@ object AlgorithmWeights {
         "TRACE"  to mapOf("INTERACTIVE" to 0.8f, "VISUAL" to 0.2f),
         "COUNT"  to mapOf("INTERACTIVE" to 0.1f, "VISUAL" to 0.9f),
         "DRAG"   to mapOf("INTERACTIVE" to 0.8f, "VISUAL" to 0.2f),
+        "LISTEN_AND_CHOOSE" to mapOf("AUDIO" to 1.0f),
     )
 
     // ── Level thresholds ───────────────────────────────────────────────────

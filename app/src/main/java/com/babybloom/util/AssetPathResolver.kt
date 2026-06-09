@@ -62,6 +62,18 @@ object AssetPathResolver {
         return "activities/audio/drag/drag_instruction_number_$numberToken.ogg"
     }
 
+    fun listenAndChooseInstructionPath(category: String): String {
+        val suffix = when (resolveCategory(category, "")) {
+            "ANIMAL"      -> "animal"
+            "COLOR"       -> "color"
+            "NUMBER"      -> "number"
+            "SHAPE"       -> "shape"
+            "LETTER_NAME" -> "letter"
+            else          -> "letter"
+        }
+        return "activities/audio/Listen&Choose/Listen&Choose_instruction_$suffix.ogg"
+    }
+
     // ─── Private Helpers ─────────────────────────────────────────────────────
 
     private fun resolveCategory(category: String, contentId: String): String {

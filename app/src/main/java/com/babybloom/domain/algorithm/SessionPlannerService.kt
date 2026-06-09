@@ -20,10 +20,11 @@ class SessionPlannerService @Inject constructor(
     private val activityPriority = mapOf(
         "STORY" to 0,
         "SPEECH" to 1,
-        "DRAG" to 2,
-        "MATCH" to 3,
-        "COUNT" to 4,
-        "TRACE" to 5
+        "LISTEN_AND_CHOOSE" to 2,
+        "DRAG" to 3,
+        "MATCH" to 4,
+        "COUNT" to 5,
+        "TRACE" to 6
     )
 
     /**
