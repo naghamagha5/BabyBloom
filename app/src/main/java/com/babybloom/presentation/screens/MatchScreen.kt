@@ -53,6 +53,7 @@ import com.babybloom.presentation.viewmodels.AnswerState
 import com.babybloom.presentation.viewmodels.Habitat
 import com.babybloom.presentation.viewmodels.MatchCardState
 import com.babybloom.presentation.viewmodels.MatchViewModel
+import com.babybloom.presentation.viewmodels.VisualMatchOption
 import com.babybloom.ui.theme.LocalGameColorScheme
 import com.babybloom.ui.theme.RevealGold
 import com.babybloom.ui.theme.TraceBadgeBorder
@@ -157,6 +158,7 @@ fun MatchScreen(
     val showCelebration = when (val s = cardState) {
         is MatchCardState.AnimalHabitatCard -> s.showCelebration
         is MatchCardState.LetterAnimalCard  -> s.showCelebration
+        is MatchCardState.VisualImageCard   -> s.showCelebration
         else -> false
     }
 
@@ -170,6 +172,8 @@ fun MatchScreen(
                 AnimalHabitatGame(state, isCalmMode, wiggleTick, viewModel)
             is MatchCardState.LetterAnimalCard ->
                 LetterAnimalGame(state, isCalmMode, wiggleTick, viewModel)
+            is MatchCardState.VisualImageCard ->
+                VisualImageGame(state, wiggleTick, viewModel)
         }
         if (showCelebration) GoodJobPopup(coverage = -1f)
     }
@@ -619,6 +623,257 @@ private fun LearningLetterAnimalLayout(
 // while the text was absolutely positioned over it. Now uses a Column so the
 // image gets weight(1f) (fills all remaining space) and the label sits below it
 // in its own row — they can never overlap regardless of font size or card size.
+@Composable
+private fun VisualImageGame(
+    state: MatchCardState.VisualImageCard,
+    wiggleTick: Int,
+    viewModel: MatchViewModel
+) {
+    val density = LocalDensity.current
+    val snapRadiusPx = with(density) { SNAP_RADIUS_DP.toPx() }
+    val colors = LocalGameColorScheme.current
+    val resetKey = state.questionIndex
+    var gameAreaTopLeft by remember(resetKey) { mutableStateOf(Offset.Zero) }
+    var contentCenter by remember(resetKey) { mutableStateOf(Offset.Zero) }
+    val optionCenters = remember(resetKey) { mutableStateMapOf<String, Offset>() }
+    var isDragging by remember(resetKey) { mutableStateOf(false) }
+    var fingerPosRoot by remember(resetKey) { mutableStateOf(Offset.Zero) }
+    var snappedId by remember(resetKey) { mutableStateOf<String?>(null) }
+    var localDragPos by remember(resetKey) { mutableStateOf(Offset.Zero) }
+
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(Modifier.height(4.dp))
+        MatchPromptBanner(state.prompt)
+        Box(
+            Modifier.fillMaxWidth().weight(1f)
+                .onGloballyPositioned { gameAreaTopLeft = it.positionInRoot() }
+                .pointerInput(state.answerState, resetKey) {
+                    if (state.answerState != AnswerState.Idle) return@pointerInput
+                    detectDragGestures(
+                        onDragStart = { start ->
+                            localDragPos = start
+                            fingerPosRoot = gameAreaTopLeft + start
+                            isDragging = true
+                            viewModel.onTouchStart(fingerPosRoot)
+                        },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            localDragPos += amount
+                            fingerPosRoot = gameAreaTopLeft + localDragPos
+                            viewModel.onTouchMove(fingerPosRoot)
+                            snappedId = optionCenters
+                                .minByOrNull { (_, center) -> (fingerPosRoot - center).getDistance() }
+                                ?.takeIf { (_, center) -> (fingerPosRoot - center).getDistance() < snapRadiusPx }
+                                ?.key
+                        },
+                        onDragEnd = {
+                            snappedId?.let {
+                                viewModel.onAnswerSelected(
+                                    it, fingerPosRoot, optionCenters[it], snapRadiusPx
+                                )
+                            }
+                            isDragging = false
+                            snappedId = null
+                        },
+                        onDragCancel = { isDragging = false; snappedId = null }
+                    )
+                }
+        ) {
+            VisualImageLayout(
+                state = state,
+                wiggleTick = wiggleTick,
+                snappedId = snappedId,
+                onContentCenter = { contentCenter = it },
+                onOptionCenter = { id, center -> optionCenters[id] = center }
+            )
+            if (isDragging && contentCenter != Offset.Zero) {
+                val endRoot = snappedId?.let { optionCenters[it] } ?: fingerPosRoot
+                val start = contentCenter - gameAreaTopLeft
+                val end = endRoot - gameAreaTopLeft
+                Canvas(Modifier.fillMaxSize().zIndex(5f)) {
+                    drawLine(colors.accent, start, end, 7.dp.toPx(), StrokeCap.Round)
+                    drawCircle(colors.accent, 10.dp.toPx(), start)
+                    drawCircle(
+                        if (snappedId != null) colors.correct else colors.accent.copy(alpha = 0.55f),
+                        if (snappedId != null) 15.dp.toPx() else 10.dp.toPx(), end
+                    )
+                }
+            }
+            if (state.showHandHint && !isDragging) {
+                optionCenters[state.correctOptionId]?.let { correctCenter ->
+                    if (contentCenter != Offset.Zero) {
+                        HandHintOverlay(contentCenter, correctCenter, gameAreaTopLeft)
+                    }
+                }
+            }
+        }
+        MatchAttemptsRow(state.attemptsLeft)
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun VisualImageLayout(
+    state: MatchCardState.VisualImageCard,
+    wiggleTick: Int,
+    snappedId: String?,
+    onContentCenter: (Offset) -> Unit,
+    onOptionCenter: (String, Offset) -> Unit
+) {
+    if (!state.isTest) {
+        val option = state.options.firstOrNull() ?: return
+        val wiggle = wiggleOffset(if (state.showCorrectWiggle) wiggleTick else 0)
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(Modifier.height(LEARNING_TOP_PAD))
+            Box(Modifier.size(CONTENT_CARD_LEARN_DP).onGloballyPositioned { coords ->
+                val p = coords.positionInRoot(); val s = coords.size
+                onContentCenter(Offset(p.x + s.width / 2f, p.y + s.height / 2f))
+            }) { VisualTargetCard(state) }
+            Spacer(Modifier.height(LEARNING_MODE_GAP_DP))
+            Box(
+                Modifier.size(OPT_CARD_LEARN_DP).graphicsLayer { translationX = wiggle }
+                    .onGloballyPositioned { coords ->
+                        val p = coords.positionInRoot(); val s = coords.size
+                        onOptionCenter(option.entity.id, Offset(p.x + s.width / 2f, p.y + s.height / 2f))
+                    }
+            ) {
+                DrawableAnswerCard(option, true, option.entity.id == snappedId, state.answerState, state.lastWrongId)
+            }
+            Spacer(Modifier.weight(1f))
+        }
+        return
+    }
+
+    val density = LocalDensity.current
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val contentHalf = with(density) { (CONTENT_SIZE_TEST_DP / 2).toPx() }
+        val optionHalf = with(density) { (OPT_SIZE_TEST_DP / 2).toPx() }
+        val dx = contentHalf + with(density) { OPT_GAP_DP.toPx() } + optionHalf +
+            with(density) { OPT_PAIR_SPREAD_DP.toPx() }
+        val dy = contentHalf + with(density) { OPT_GAP_DP.toPx() } + optionHalf
+        val cx = constraints.maxWidth / 2f
+        val cy = constraints.maxHeight / 2f
+        val signs = listOf(-1f to -1f, 1f to -1f, -1f to 1f, 1f to 1f)
+        state.options.take(4).forEachIndexed { index, option ->
+            val (sx, sy) = signs[index]
+            val correct = option.entity.id == state.correctOptionId
+            val wiggle = wiggleOffset(if (correct && state.showCorrectWiggle) wiggleTick else 0)
+            Box(
+                Modifier.offset {
+                    IntOffset(
+                        (cx + sx * dx - optionHalf).roundToInt(),
+                        (cy + sy * dy - optionHalf).roundToInt()
+                    )
+                }.size(OPT_SIZE_TEST_DP).graphicsLayer { translationX = wiggle }
+                    .onGloballyPositioned { coords ->
+                        val p = coords.positionInRoot(); val s = coords.size
+                        onOptionCenter(option.entity.id, Offset(p.x + s.width / 2f, p.y + s.height / 2f))
+                    }
+            ) {
+                DrawableAnswerCard(option, correct, option.entity.id == snappedId, state.answerState, state.lastWrongId)
+            }
+        }
+        Box(
+            Modifier.offset {
+                IntOffset((cx - contentHalf).roundToInt(), (cy - contentHalf).roundToInt())
+            }.size(CONTENT_SIZE_TEST_DP).onGloballyPositioned { coords ->
+                val p = coords.positionInRoot(); val s = coords.size
+                onContentCenter(Offset(p.x + s.width / 2f, p.y + s.height / 2f))
+            }
+        ) { VisualTargetCard(state) }
+    }
+}
+
+@Composable
+private fun VisualTargetCard(state: MatchCardState.VisualImageCard) {
+    val colors = LocalGameColorScheme.current
+    val context = LocalContext.current
+    val resId = context.resources.getIdentifier(
+        state.target.contentId, "drawable", context.packageName
+    )
+    val borderColor by animateColorAsState(
+        when (state.answerState) {
+            AnswerState.Correct -> colors.correct
+            AnswerState.Revealed -> RevealGold
+            else -> colors.accent
+        }, tween(300), label = "visualTargetBorder"
+    )
+    Box(
+        Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp))
+            .border(3.dp, borderColor, RoundedCornerShape(20.dp)).background(colors.background),
+        contentAlignment = Alignment.Center
+    ) {
+        if (resId != 0) {
+            Image(
+                painter = painterResource(resId),
+                contentDescription = state.target.labelAr,
+                modifier = Modifier.fillMaxSize().padding(18.dp),
+                contentScale = ContentScale.Fit,
+                colorFilter = if (state.target.category == "SHAPE") {
+                    ColorFilter.tint(colors.accent)
+                } else {
+                    null
+                }
+            )
+        } else {
+            Text(
+                state.target.labelAr,
+                fontSize = 36.sp,
+                fontWeight = FontWeight.Bold,
+                color = colors.accent
+            )
+        }
+    }
+}
+
+@Composable
+private fun DrawableAnswerCard(
+    option: VisualMatchOption,
+    isCorrect: Boolean,
+    isSnapped: Boolean,
+    answerState: AnswerState,
+    lastWrongId: String?
+) {
+    val colors = LocalGameColorScheme.current
+    val context = LocalContext.current
+    val imageUri = AssetPathResolver.androidAssetUri(option.imagePath)
+    val isWrong = option.entity.id == lastWrongId && answerState == AnswerState.Wrong
+    val showCorrect = isCorrect && answerState in listOf(AnswerState.Correct, AnswerState.Revealed)
+    val borderColor by animateColorAsState(
+        when {
+            isCorrect && answerState == AnswerState.Correct -> colors.correct
+            isCorrect && answerState == AnswerState.Revealed -> RevealGold
+            isWrong -> colors.wrong
+            isSnapped -> colors.accent
+            else -> colors.accent.copy(alpha = 0.28f)
+        }, tween(250), label = "visualOptionBorder"
+    )
+    Box(
+        Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp))
+            .border(if (isSnapped || showCorrect || isWrong) 3.dp else 2.dp, borderColor, RoundedCornerShape(18.dp))
+            .background(colors.background), contentAlignment = Alignment.Center
+    ) {
+        AsyncImage(
+            model = ImageRequest.Builder(context).data(imageUri).crossfade(true).build(),
+            contentDescription = option.entity.labelAr,
+            modifier = Modifier.fillMaxSize().padding(10.dp),
+            contentScale = ContentScale.Fit
+        )
+        if (showCorrect) Box(Modifier.fillMaxSize().background(
+            if (answerState == AnswerState.Revealed) RevealGold.copy(alpha = 0.20f)
+            else colors.correct.copy(alpha = 0.18f)
+        ))
+        if (isWrong) Box(Modifier.fillMaxSize().background(colors.wrong.copy(alpha = 0.22f)))
+        OptionCornerBadge(isCorrect, isWrong, answerState)
+    }
+}
+
 @Composable
 private fun AnimalContentCard(
     animal      : ActivityContent,

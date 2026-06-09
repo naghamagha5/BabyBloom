@@ -79,6 +79,11 @@ data class AnimalOption(
     val habitatId : String
 )
 
+data class VisualMatchOption(
+    val entity: LearningContentEntity,
+    val imagePath: String
+)
+
 enum class AnswerState { Idle, Correct, Wrong, Revealed }
 
 // ── Timings ───────────────────────────────────────────────────────────────────
@@ -119,6 +124,22 @@ sealed class MatchCardState {
         val letterImageAsset : ImageAsset,
         val options          : List<AnimalOption>,
         val correctAnimalId  : String,
+        val answerState      : AnswerState = AnswerState.Idle,
+        val attemptsLeft     : Int         = MAX_ATTEMPTS,
+        val showCorrectWiggle: Boolean     = false,
+        val questionIndex    : Int         = 0,
+        val totalQuestions   : Int         = QUESTIONS_PER_ROUND,
+        val lastWrongId      : String?     = null,
+        val showCelebration  : Boolean     = false,
+        val isTest           : Boolean     = false,
+        val showHandHint     : Boolean     = false
+    ) : MatchCardState()
+
+    data class VisualImageCard(
+        val target           : ActivityContent,
+        val options          : List<VisualMatchOption>,
+        val correctOptionId  : String,
+        val prompt           : String,
         val answerState      : AnswerState = AnswerState.Idle,
         val attemptsLeft     : Int         = MAX_ATTEMPTS,
         val showCorrectWiggle: Boolean     = false,
@@ -206,6 +227,8 @@ class MatchViewModel @Inject constructor(
         this.startTime    = System.currentTimeMillis()
         this.matchType    = when {
             configJson.contains("LETTER_TO_ANIMAL") -> "LETTER_TO_ANIMAL"
+            configJson.contains("SHAPE_TO_OBJECT") -> "SHAPE_TO_OBJECT"
+            configJson.contains("COLOR_TO_COLOR") -> "COLOR_TO_COLOR"
             else                                    -> "ANIMAL_TO_HABITAT"
         }
         showQuestion(0)
@@ -215,6 +238,7 @@ class MatchViewModel @Inject constructor(
         _cardState.value = when (val s = _cardState.value) {
             is MatchCardState.AnimalHabitatCard -> s.copy(showHandHint = false)
             is MatchCardState.LetterAnimalCard  -> s.copy(showHandHint = false)
+            is MatchCardState.VisualImageCard   -> s.copy(showHandHint = false)
             else -> _cardState.value
         }
     }
@@ -240,6 +264,7 @@ class MatchViewModel @Inject constructor(
         val isCorrect = when (state) {
             is MatchCardState.AnimalHabitatCard -> selectedId == state.correctHabitatId
             is MatchCardState.LetterAnimalCard  -> selectedId == state.correctAnimalId
+            is MatchCardState.VisualImageCard   -> selectedId == state.correctOptionId
             else -> return
         }
 
@@ -272,6 +297,7 @@ class MatchViewModel @Inject constructor(
                         currentAnimalPath?.let { playVoiceAndWait(it) }
                     }
                     "ANIMAL_TO_HABITAT" -> currentAnimalPath?.let { playVoiceAndWait(it) }
+                    else -> currentAnimalPath?.let { playVoiceAndWait(it) }
                 }
                 delay(400)
                 setCelebration(true)
@@ -359,6 +385,7 @@ class MatchViewModel @Inject constructor(
                 currentAnimalPath?.let { playVoiceAndWait(it) }
             }
             "ANIMAL_TO_HABITAT" -> currentAnimalPath?.let { playVoiceAndWait(it) }
+            else -> currentAnimalPath?.let { playVoiceAndWait(it) }
         }
         delay(REVEAL_PAUSE_MS)
         val touchAnalysis = touchAnalyzer.analyze(attempts = cardAttempts)
@@ -402,6 +429,7 @@ class MatchViewModel @Inject constructor(
         questionJob = viewModelScope.launch {
             when (matchType) {
                 "LETTER_TO_ANIMAL" -> buildLetterAnimalCard(item, index)
+                "SHAPE_TO_OBJECT", "COLOR_TO_COLOR" -> buildVisualImageCard(item, index)
                 else               -> buildAnimalHabitatCard(item, index)
             }
             startAttemptTimer()
@@ -478,6 +506,48 @@ class MatchViewModel @Inject constructor(
         playVoice(currentLetterPath!!)
     }
 
+    private suspend fun buildVisualImageCard(item: ActivityContent, index: Int) {
+        val category = if (matchType == "SHAPE_TO_OBJECT") "SHAPE" else "COLOR"
+        val allEntities = learningContentDao.getByCategory(category)
+        val correct = allEntities.firstOrNull { it.id == item.contentId } ?: run {
+            Log.w("MatchVM", "No $category content for ${item.contentId}")
+            onCardResult?.invoke(item.contentId, false, 0, 1, 1, 0f, currentQuestionElapsedMs())
+            advanceQuestion()
+            return
+        }
+
+        fun optionFor(entity: LearningContentEntity) = VisualMatchOption(
+            entity = entity,
+            imagePath = AssetPathResolver.matchOptionImagePathFor(
+                entity.id, isCalmMode
+            )
+        )
+
+        val options = if (isTest) {
+            val wrong = allEntities.filter { it.id != correct.id }.shuffled().take(3)
+            (wrong + correct).shuffled().map(::optionFor)
+        } else {
+            listOf(optionFor(correct))
+        }
+
+        currentContentId = item.contentId
+        currentLetterPath = null
+        currentLetterSoundPath = null
+        currentAnimalPath = AssetPathResolver.audioPathFor(item.contentId, category)
+
+        _cardState.value = MatchCardState.VisualImageCard(
+            target = item,
+            options = options,
+            correctOptionId = correct.id,
+            prompt = if (category == "SHAPE") "اختر الصورة التي لها نفس الشكل" else "اختر اللون المطابق",
+            questionIndex = index,
+            totalQuestions = items.size,
+            isTest = isTest,
+            showHandHint = !isTest
+        )
+        playVoice(currentAnimalPath!!)
+    }
+
     private fun advanceQuestion() { currentIndex++; showQuestion(currentIndex) }
 
     private fun currentQuestionElapsedMs(): Long =
@@ -490,12 +560,14 @@ class MatchViewModel @Inject constructor(
     private fun getAttemptsLeft(): Int = when (val s = _cardState.value) {
         is MatchCardState.AnimalHabitatCard -> s.attemptsLeft
         is MatchCardState.LetterAnimalCard  -> s.attemptsLeft
+        is MatchCardState.VisualImageCard   -> s.attemptsLeft
         else -> 0
     }
     private fun setCelebration(show: Boolean) {
         _cardState.value = when (val s = _cardState.value) {
             is MatchCardState.AnimalHabitatCard -> s.copy(showCelebration = show)
             is MatchCardState.LetterAnimalCard  -> s.copy(showCelebration = show)
+            is MatchCardState.VisualImageCard   -> s.copy(showCelebration = show)
             else -> _cardState.value
         }
     }
@@ -503,6 +575,7 @@ class MatchViewModel @Inject constructor(
         _cardState.value = when (val s = _cardState.value) {
             is MatchCardState.AnimalHabitatCard -> s.copy(showCorrectWiggle = on)
             is MatchCardState.LetterAnimalCard  -> s.copy(showCorrectWiggle = on)
+            is MatchCardState.VisualImageCard   -> s.copy(showCorrectWiggle = on)
             else -> _cardState.value
         }
     }
@@ -512,6 +585,8 @@ class MatchViewModel @Inject constructor(
                 s.copy(answerState = AnswerState.Revealed, attemptsLeft = 0, showCorrectWiggle = false)
             is MatchCardState.LetterAnimalCard ->
                 s.copy(answerState = AnswerState.Revealed, attemptsLeft = 0, showCorrectWiggle = false)
+            is MatchCardState.VisualImageCard ->
+                s.copy(answerState = AnswerState.Revealed, attemptsLeft = 0, showCorrectWiggle = false)
             else -> _cardState.value
         }
     }
@@ -520,6 +595,8 @@ class MatchViewModel @Inject constructor(
             is MatchCardState.AnimalHabitatCard ->
                 s.copy(attemptsLeft = newCount, answerState = AnswerState.Wrong, lastWrongId = wrongId)
             is MatchCardState.LetterAnimalCard ->
+                s.copy(attemptsLeft = newCount, answerState = AnswerState.Wrong, lastWrongId = wrongId)
+            is MatchCardState.VisualImageCard ->
                 s.copy(attemptsLeft = newCount, answerState = AnswerState.Wrong, lastWrongId = wrongId)
             else -> _cardState.value
         }
@@ -532,6 +609,9 @@ class MatchViewModel @Inject constructor(
             is MatchCardState.LetterAnimalCard ->
                 s.copy(attemptsLeft = newCount, answerState = AnswerState.Idle,
                     lastWrongId = null, showCorrectWiggle = false)
+            is MatchCardState.VisualImageCard ->
+                s.copy(attemptsLeft = newCount, answerState = AnswerState.Idle,
+                    lastWrongId = null, showCorrectWiggle = false)
             else -> _cardState.value
         }
     }
@@ -539,12 +619,14 @@ class MatchViewModel @Inject constructor(
         _cardState.value = when (val s = _cardState.value) {
             is MatchCardState.AnimalHabitatCard -> s.copy(answerState = state)
             is MatchCardState.LetterAnimalCard  -> s.copy(answerState = state)
+            is MatchCardState.VisualImageCard   -> s.copy(answerState = state)
             else -> _cardState.value
         }
     }
     private fun currentAnswerState(): AnswerState = when (val s = _cardState.value) {
         is MatchCardState.AnimalHabitatCard -> s.answerState
         is MatchCardState.LetterAnimalCard  -> s.answerState
+        is MatchCardState.VisualImageCard   -> s.answerState
         else -> AnswerState.Idle
     }
 

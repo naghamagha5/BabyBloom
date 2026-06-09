@@ -36,6 +36,14 @@ object AssetPathResolver {
         return "learning_content/visual/$mood/$contentId.png"
     }
 
+    fun matchOptionImagePathFor(
+        contentId: String,
+        isCalmMode: Boolean
+    ): String {
+        val fileName = "match_${contentId}_object"
+        return visualImagePathFor(fileName, isCalmMode)
+    }
+
     fun androidAssetUri(assetPath: String): String = "file:///android_asset/$assetPath"
 
     fun backgroundMusicPath(): String = "activities/audio/background_music.ogg"
@@ -85,6 +93,11 @@ object AssetPathResolver {
         "LETTER_NAME"  -> "name of letters"
         "LETTER_SOUND" -> "sound of letters"
         else           -> category.lowercase()
+    }
+
+    private fun visualImagePathFor(fileName: String, isCalmMode: Boolean): String {
+        val mood = if (isCalmMode) "calm" else "active"
+        return "learning_content/visual/$mood/$fileName.png"
     }
 
     fun countQuestionAudioPath(subjectId: String): String {

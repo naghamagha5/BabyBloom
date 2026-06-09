@@ -232,7 +232,8 @@ class SessionPlannerService @Inject constructor(
                 stepsForContent(
                     content = content,
                     allContent = allContent,
-                    phase = SessionPhase.LEARNING
+                    phase = SessionPhase.LEARNING,
+                    profile = profile
                 )
             }
             val testSteps = interleaveTestSteps(
@@ -240,7 +241,8 @@ class SessionPlannerService @Inject constructor(
                     stepsForContent(
                         content = content,
                         allContent = allContent,
-                        phase = SessionPhase.TEST
+                        phase = SessionPhase.TEST,
+                        profile = profile
                     )
                 }
             )
@@ -258,7 +260,8 @@ class SessionPlannerService @Inject constructor(
                     stepsForContent(
                         content = content,
                         allContent = allContent,
-                        phase = SessionPhase.TEST
+                        phase = SessionPhase.TEST,
+                        profile = profile
                     )
                 }
             )
@@ -277,7 +280,8 @@ class SessionPlannerService @Inject constructor(
                         stepsForContent(
                             content = content,
                             allContent = allContent,
-                            phase = SessionPhase.TEST
+                            phase = SessionPhase.TEST,
+                            profile = profile
                         )
                     }
             )
@@ -409,7 +413,8 @@ class SessionPlannerService @Inject constructor(
     private suspend fun stepsForContent(
         content: LearningContent,
         allContent: List<LearningContent>,
-        phase: SessionPhase
+        phase: SessionPhase,
+        profile: ChildProfile
     ): List<ActivityLaunchStep> {
         val allowedPrefixes = activityPrefixesFor(content.category, phase)
         val allActivities = activityRepository.getAll()
@@ -417,6 +422,16 @@ class SessionPlannerService @Inject constructor(
             .filter { activity ->
                 allowedPrefixes.any { prefix -> activity.id.startsWith(prefix) }
             }
+            .sortedWith(
+                compareByDescending<com.babybloom.domain.model.Activity> { activity ->
+                    if (phase == SessionPhase.LEARNING) modalityPreferenceScore(activity, profile)
+                    else 0f
+                }.thenBy { activity ->
+                    allowedPrefixes.indexOfFirst { prefix -> activity.id.startsWith(prefix) }
+                        .takeIf { it >= 0 }
+                        ?: Int.MAX_VALUE
+                }
+            )
             .mapNotNull { activity ->
                 val activityWithContent = activityRepository.getActivityWithContent(activity.id)
                     ?: return@mapNotNull null
@@ -435,15 +450,26 @@ class SessionPlannerService @Inject constructor(
                     isTest = phase == SessionPhase.TEST
                 )
             }
-            .sortedBy { step ->
-                allowedPrefixes.indexOfFirst { prefix -> step.activityId.startsWith(prefix) }
-                    .takeIf { it >= 0 }
-                    ?: Int.MAX_VALUE
-            }
             .distinctBy { step ->
                 allowedPrefixes.firstOrNull { prefix -> step.activityId.startsWith(prefix) }
                     ?: step.activityId
             }
+    }
+
+    private fun modalityPreferenceScore(
+        activity: com.babybloom.domain.model.Activity,
+        profile: ChildProfile
+    ): Float {
+        val percentages = mapOf(
+            "VISUAL" to profile.visualPreferencePercent,
+            "AUDIO" to profile.audioPreferencePercent,
+            "INTERACTIVE" to profile.interactivePreferencePercent
+        )
+        val weights = AlgorithmWeights.ACTIVITY_MODALITY_WEIGHTS[activity.activityType]
+            ?: mapOf(activity.modality to 1f)
+        return weights.entries.sumOf { (modality, weight) ->
+            ((percentages[modality] ?: 0f) * weight).toDouble()
+        }.toFloat()
     }
 
     private fun activityPrefixesFor(
@@ -469,12 +495,12 @@ class SessionPlannerService @Inject constructor(
                 SessionPhase.TEST -> listOf("speech_numbers", "count_", "drag_numbers", "trace_numbers")
             }
             CATEGORY_SHAPE -> when (phase) {
-                SessionPhase.LEARNING -> listOf("story_shapes", "drag_shapes", "trace_shapes")
-                SessionPhase.TEST -> listOf("speech_shapes", "drag_shapes", "trace_shapes")
+                SessionPhase.LEARNING -> listOf("story_shapes", "drag_shapes", "trace_shapes", "match_shapes")
+                SessionPhase.TEST -> listOf("speech_shapes", "drag_shapes", "trace_shapes", "match_shapes")
             }
             CATEGORY_COLOR -> when (phase) {
-                SessionPhase.LEARNING -> listOf("story_colors", "drag_colors")
-                SessionPhase.TEST -> listOf("speech_colors", "drag_colors")
+                SessionPhase.LEARNING -> listOf("story_colors", "drag_colors", "match_colors")
+                SessionPhase.TEST -> listOf("speech_colors", "drag_colors", "match_colors")
             }
             else -> emptyList()
         }

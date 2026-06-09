@@ -278,6 +278,7 @@ class ActivityViewModel @Inject constructor(
                 _uiState.value = current.copy(sessionRemainingMs = remaining)
                 saveNormalSessionProgress(remaining)
                 if (remaining <= 0) {
+                    updateProfileForCompletedNormalTestSteps(current.sessionSettings.childId)
                     sessionRepository.endSession(
                         this@ActivityViewModel.sessionId,
                         System.currentTimeMillis()
@@ -400,6 +401,9 @@ class ActivityViewModel @Inject constructor(
                     ?: resolveQueueDecisionWithoutAlgorithm()
                 val (completedScore, completedTotal) =
                     if (decision is SessionDecision.SessionComplete) {
+                        if (!current.sessionSettings.isAssessment) {
+                            updateProfileForCompletedNormalTestSteps(current.sessionSettings.childId)
+                        }
                         sessionRepository.endSession(
                             this@ActivityViewModel.sessionId,
                             System.currentTimeMillis()
@@ -574,6 +578,31 @@ class ActivityViewModel @Inject constructor(
         val results = activityResultRepository.getForSession(sessionId)
         val correct = results.sumOf { it.correctCount }
         return correct to results.size
+    }
+
+    private suspend fun updateProfileForCompletedNormalTestSteps(childId: Long) {
+        val profile = childProfileRepository.getByChildId(childId) ?: return
+        val testStepKeys = sessionQueue
+            .filter { it.isTest }
+            .map { "${it.activityId}:${it.contentId.orEmpty()}" }
+            .toSet()
+        if (testStepKeys.isEmpty()) {
+            childProfileRepository.upsert(
+                algorithmEngine.updateModalityPreferencesFromSession(emptyList(), profile)
+            )
+            return
+        }
+
+        val signals = activityResultRepository.getForSession(sessionId)
+            .filter { result -> "${result.activityId}:${result.contentId}" in testStepKeys }
+            .mapNotNull { result ->
+                val activity = activityRepository.getById(result.activityId) ?: return@mapNotNull null
+                ActivitySignal.from(result, activity)
+            }
+
+        childProfileRepository.upsert(
+            algorithmEngine.updateModalityPreferencesFromSession(signals, profile)
+        )
     }
 
     private suspend fun saveNormalSessionProgress(remainingMs: Long) {

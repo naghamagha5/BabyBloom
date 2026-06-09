@@ -117,6 +117,15 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_11_12 = object : Migration(11, 12) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE child_profiles ADD COLUMN visualPreferencePercent REAL NOT NULL DEFAULT 33.34")
+            db.execSQL("ALTER TABLE child_profiles ADD COLUMN audioPreferencePercent REAL NOT NULL DEFAULT 33.33")
+            db.execSQL("ALTER TABLE child_profiles ADD COLUMN interactivePreferencePercent REAL NOT NULL DEFAULT 33.33")
+            db.execSQL("ALTER TABLE child_profiles ADD COLUMN overallProgressPercent REAL NOT NULL DEFAULT 0")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
@@ -125,7 +134,7 @@ object DatabaseModule {
             AppDatabase::class.java,
             "babybloom_db"
         )
-            .addMigrations(MIGRATION_9_10, MIGRATION_10_11)
+            .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
             .fallbackToDestructiveMigration()
             .build()
     }
