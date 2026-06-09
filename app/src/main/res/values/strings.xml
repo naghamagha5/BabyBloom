@@ -434,6 +434,14 @@
     <string name="drag_cage_instruction">اسْحَب %1$s مِني و ضعني في القَفَص</string>
     <string name="drag_shape_instruction">اسْحَب الشكل إلى مكانه الصحيح</string>
 
+    <!-- Listen And Choose Game -->
+    <string name="listen_choose_instruction_letter">اِسْتَمِعْ جَيِّدًا وَاخْتَرِ الحَرْفَ الصَّحِيحَ</string>
+    <string name="listen_choose_instruction_animal">اِسْتَمِعْ جَيِّدًا وَاخْتَرِ الحَيَوَانَ الصَّحِيحَ</string>
+    <string name="listen_choose_instruction_number">اِسْتَمِعْ جَيِّدًا وَاخْتَرِ الرَّقْمَ الصَّحِيحَ</string>
+    <string name="listen_choose_instruction_color">اِسْتَمِعْ جَيِّدًا وَاخْتَرِ اللَّوْنَ الصَّحِيحَ</string>
+    <string name="listen_choose_instruction_shape">اِسْتَمِعْ جَيِّدًا وَاخْتَرِ الشَّكْلَ الصَّحِيحَ</string>
+    <string name="listen_choose_replay_label">استمع جيدًا</string>
+
     <!-- Good Job Screen -->
     <string name="good_job_text">أحسنت يا بطل!</string>
 
