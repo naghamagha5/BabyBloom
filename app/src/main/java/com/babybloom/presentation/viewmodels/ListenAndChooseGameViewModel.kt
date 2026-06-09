@@ -328,7 +328,7 @@ class ListenAndChooseGameViewModel @Inject constructor(
 
         _state.value = current.copy(
             selectedOptionId = selectedOptionId,
-            revealedCorrectId = current.correctId,
+            revealedCorrectId = null,
             answerFeedback = ListenAnswerFeedback.WRONG,
             isAudioLocked = true
         )
@@ -358,7 +358,7 @@ class ListenAndChooseGameViewModel @Inject constructor(
         val generation = loadGeneration
 
         _state.value = current.copy(
-            revealedCorrectId = current.correctId,
+            revealedCorrectId = null,
             isAnswered = true,
             isCorrect = false,
             attemptsUsed = attempts,

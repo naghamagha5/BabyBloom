@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -25,13 +26,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -44,6 +52,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
 import com.babybloom.R
 import com.babybloom.domain.model.ActivityContent
 import com.babybloom.presentation.viewmodels.ListenAnswerFeedback
@@ -199,13 +211,25 @@ private fun ListenChoices(
             contentAlignment = Alignment.Center
         ) {
             state.options.firstOrNull()?.let { option ->
-                ListenChoiceCard(
-                    option = option,
-                    state = state,
-                    enabled = !state.isAnswered && !state.isAudioLocked,
-                    modifier = Modifier.fillMaxWidth(0.52f),
-                    onClick = onOptionClick
-                )
+                Box(modifier = Modifier.fillMaxWidth(0.52f)) {
+                    ListenChoiceCard(
+                        option = option,
+                        state = state,
+                        enabled = !state.isAnswered && !state.isAudioLocked,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onOptionClick
+                    )
+                    if (!state.isTest &&
+                        !state.isAnswered &&
+                        state.answerFeedback == ListenAnswerFeedback.IDLE
+                    ) {
+                        HandTapHint(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .offset(y = (-18).dp)
+                        )
+                    }
+                }
             }
         }
     }
@@ -255,16 +279,42 @@ private fun ListenChoiceCard(
         isSelectedWrong -> colors.wrong
         else -> colors.accent.copy(alpha = 0.2f)
     }
+    val baseBg = colors.background
+    val overlayBg = colors.accent.copy(alpha = 0.08f)
     val cardBg = when {
-        isCorrectReveal -> colors.correct.copy(alpha = 0.16f)
-        isSelectedWrong -> colors.wrong.copy(alpha = 0.16f)
-        else -> Color.White
+        isCorrectReveal -> colors.correct.copy(alpha = 0.18f)
+        isSelectedWrong -> colors.wrong.copy(alpha = 0.18f)
+        else -> baseBg
     }
+    val shakeAnim = remember { Animatable(0f) }
+    LaunchedEffect(isSelectedWrong) {
+        if (isSelectedWrong) {
+            repeat(6) {
+                shakeAnim.animateTo(
+                    if (it % 2 == 0) 12f else -12f,
+                    animationSpec = tween(55, easing = LinearEasing)
+                )
+            }
+            shakeAnim.animateTo(0f, animationSpec = tween(60))
+        } else {
+            shakeAnim.snapTo(0f)
+        }
+    }
+    val cardScale by animateFloatAsState(
+        targetValue = if (isCorrectReveal) 1.03f else 1f,
+        animationSpec = spring(),
+        label = "listen_choice_scale"
+    )
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(24.dp))
+            .graphicsLayer {
+                translationX = shakeAnim.value
+                scaleX = cardScale
+                scaleY = cardScale
+            }
             .clickable(enabled = enabled) { onClick(option.id) },
         shape = RoundedCornerShape(24.dp),
         color = cardBg,
@@ -274,6 +324,7 @@ private fun ListenChoiceCard(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(overlayBg)
                 .border(2.dp, borderColor, RoundedCornerShape(24.dp))
                 .padding(18.dp),
             contentAlignment = Alignment.Center
@@ -282,6 +333,35 @@ private fun ListenChoiceCard(
                 asset = option.imageAsset,
                 contentId = option.id,
                 label = option.labelAr,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+@Composable
+private fun HandTapHint(modifier: Modifier = Modifier) {
+    val composition by rememberLottieComposition(
+        LottieCompositionSpec.RawRes(R.raw.hand_tap)
+    )
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations = Int.MAX_VALUE
+    )
+    Box(
+        modifier = modifier.size(58.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        if (composition != null) {
+            LottieAnimation(
+                composition = composition,
+                progress = { progress },
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Image(
+                painter = painterResource(R.drawable.front_hand),
+                contentDescription = null,
                 modifier = Modifier.fillMaxSize()
             )
         }
