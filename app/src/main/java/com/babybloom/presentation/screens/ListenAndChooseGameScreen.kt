@@ -28,12 +28,14 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,6 +71,7 @@ import com.babybloom.ui.theme.TraceBadgeText
 import com.babybloom.ui.theme.dragColorForContentId
 import com.babybloom.util.AssetPathResolver
 import com.babybloom.util.ImageAsset
+import kotlinx.coroutines.delay
 
 @Composable
 fun ListenAndChooseGameScreen(
@@ -193,6 +196,28 @@ private fun ListenChoices(
     state: ListenAndChooseGameState,
     onOptionClick: (String) -> Unit
 ) {
+    var showTapHint by remember(state.contentId, state.attemptsUsed, state.isTest) { mutableStateOf(false) }
+
+    LaunchedEffect(
+        state.contentId,
+        state.attemptsUsed,
+        state.isAudioLocked,
+        state.isAnswered,
+        state.isTest,
+        state.answerFeedback
+    ) {
+        showTapHint = false
+        if (!state.isTest &&
+            !state.isAnswered &&
+            !state.isAudioLocked &&
+            state.answerFeedback == ListenAnswerFeedback.IDLE
+        ) {
+            showTapHint = true
+            delay(3_000)
+            showTapHint = false
+        }
+    }
+
     if (state.isTest) {
         val firstRow = state.options.take(2)
         val secondRow = state.options.drop(2).take(2)
@@ -221,12 +246,13 @@ private fun ListenChoices(
                     )
                     if (!state.isTest &&
                         !state.isAnswered &&
-                        state.answerFeedback == ListenAnswerFeedback.IDLE
+                        state.answerFeedback == ListenAnswerFeedback.IDLE &&
+                        showTapHint
                     ) {
                         HandTapHint(
                             modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .offset(y = (-18).dp)
+                                .align(Alignment.BottomEnd)
+                                .padding(end = 10.dp, bottom = 10.dp)
                         )
                     }
                 }
