@@ -102,19 +102,20 @@ class AssessmentPlannerService @Inject constructor(
 
     private fun activityIdsFor(category: AssessmentCategory, level: Int): List<String> =
         when (category) {
-            AssessmentCategory.COLORS -> listOf("drag_colors_d$level")
+            AssessmentCategory.COLORS -> listOf("match_colors_d$level")
             AssessmentCategory.SHAPES -> listOf("trace_shapes_d$level")
             AssessmentCategory.NUMBERS -> listOf(
                 "count_d$level",
                 "drag_numbers_d$level"
             )
             AssessmentCategory.LETTERS -> listOf(
-                "drag_letters_d$level",
+                "listen_and_choose_letters_d$level",
                 "match_letters_d$level",
                 "trace_letters_d$level"
             )
             AssessmentCategory.ANIMALS -> listOf(
-                "speech_animals_d$level"
+                "speech_animals_d$level",
+                "listen_and_choose_animals_d$level"
             )
         }
 }
