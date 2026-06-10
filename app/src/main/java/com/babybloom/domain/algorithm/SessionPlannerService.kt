@@ -18,13 +18,13 @@ class SessionPlannerService @Inject constructor(
     private val algorithmEngine: AdaptiveAlgorithmEngine
 ) {
     private val activityPriority = mapOf(
-        "STORY" to 0,
-        "SPEECH" to 1,
+        "STORY"             to 0,
+        "SPEECH"            to 1,
         "LISTEN_AND_CHOOSE" to 2,
-        "DRAG" to 3,
-        "MATCH" to 4,
-        "COUNT" to 5,
-        "TRACE" to 6
+        "DRAG"              to 3,
+        "MATCH"             to 4,
+        "COUNT"             to 5,
+        "TRACE"             to 6
     )
 
     /**
@@ -479,29 +479,30 @@ class SessionPlannerService @Inject constructor(
     ): List<String> =
         when (category) {
             CATEGORY_LETTER -> when (phase) {
-                SessionPhase.LEARNING -> listOf("story_letters", "match_letters", "trace_letters")
+                SessionPhase.LEARNING -> listOf("story_letters", "match_letters", "trace_letters","listen_and_choose_letters")
                 SessionPhase.TEST -> listOf(
                     "speech_letters_",
                     "speech_letters_sounds",
                     "match_letters",
-                    "trace_letters"
+                    "trace_letters",
+                    "listen_and_choose_letters"
                 )
             }
             CATEGORY_ANIMAL -> when (phase) {
-                SessionPhase.LEARNING -> listOf("story_animals", "drag_letters", "match_animals")
-                SessionPhase.TEST -> listOf("speech_animals", "drag_letters", "match_animals")
+                SessionPhase.LEARNING -> listOf("story_animals", "drag_letters", "match_animals","listen_and_choose_animals")
+                SessionPhase.TEST -> listOf("speech_animals", "drag_letters", "match_animals", "listen_and_choose_animals")
             }
             CATEGORY_NUMBER -> when (phase) {
-                SessionPhase.LEARNING -> listOf("story_numbers", "count_", "drag_numbers", "trace_numbers")
-                SessionPhase.TEST -> listOf("speech_numbers", "count_", "drag_numbers", "trace_numbers")
+                SessionPhase.LEARNING -> listOf("story_numbers", "count_", "drag_numbers", "trace_numbers","listen_and_choose_numbers")
+                SessionPhase.TEST -> listOf("speech_numbers", "count_", "drag_numbers", "trace_numbers", "listen_and_choose_numbers")
             }
             CATEGORY_SHAPE -> when (phase) {
-                SessionPhase.LEARNING -> listOf("story_shapes", "drag_shapes", "trace_shapes", "match_shapes")
-                SessionPhase.TEST -> listOf("speech_shapes", "drag_shapes", "trace_shapes", "match_shapes")
+                SessionPhase.LEARNING -> listOf("story_shapes", "drag_shapes", "trace_shapes", "match_shapes","listen_and_choose_shapes")
+                SessionPhase.TEST -> listOf("speech_shapes", "drag_shapes", "trace_shapes", "match_shapes", "listen_and_choose_shapes")
             }
             CATEGORY_COLOR -> when (phase) {
-                SessionPhase.LEARNING -> listOf("story_colors", "drag_colors", "match_colors")
-                SessionPhase.TEST -> listOf("speech_colors", "drag_colors", "match_colors")
+                SessionPhase.LEARNING -> listOf("story_colors", "drag_colors", "match_colors", "listen_and_choose_colors")
+                SessionPhase.TEST -> listOf("speech_colors", "drag_colors", "match_colors", "listen_and_choose_colors")
             }
             else -> emptyList()
         }

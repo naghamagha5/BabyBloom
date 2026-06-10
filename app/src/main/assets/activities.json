@@ -121,6 +121,30 @@
     ]
   },
   {
+    "id": "match_shapes_d1",
+    "title": "طَابِق الشَّكْل",
+    "description": "اخْتَر الصُّورَة الَّتِي لَهَا نَفْس الشَّكْل",
+    "modality": "VISUAL",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 1,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"SHAPE_TO_OBJECT\",\"optionsCount\":4}",
+    "contentIds": ["shape_circle"]
+  },
+  {
+    "id": "match_colors_d1",
+    "title": "طَابِق اللَّوْن",
+    "description": "اخْتَر اللَّوْن المُطَابِق",
+    "modality": "VISUAL",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 1,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"COLOR_TO_COLOR\",\"optionsCount\":4}",
+    "contentIds": ["color_red", "color_blue"]
+  },
+  {
     "id": "count_d1",
     "title": "عُدّ مع بيبي بلوم",
     "description": "عُدّ الصور واختر العدد الصحيح",
@@ -545,6 +569,30 @@
       "animal_llama",
       "animal_tiger"
     ]
+  },
+  {
+    "id": "match_shapes_d2",
+    "title": "طَابِق الشَّكْل",
+    "description": "اخْتَر الصُّورَة الَّتِي لَهَا نَفْس الشَّكْل",
+    "modality": "VISUAL",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 2,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"SHAPE_TO_OBJECT\",\"optionsCount\":4}",
+    "contentIds": ["shape_square"]
+  },
+  {
+    "id": "match_colors_d2",
+    "title": "طَابِق اللَّوْن",
+    "description": "اخْتَر اللَّوْن المُطَابِق",
+    "modality": "VISUAL",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 2,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"COLOR_TO_COLOR\",\"optionsCount\":4}",
+    "contentIds": ["color_yellow", "color_green", "color_black", "color_white"]
   },
   {
     "id": "count_d2",
@@ -977,6 +1025,30 @@
     ]
   },
   {
+    "id": "match_shapes_d3",
+    "title": "طَابِق الشَّكْل",
+    "description": "اخْتَر الصُّورَة الَّتِي لَهَا نَفْس الشَّكْل",
+    "modality": "VISUAL",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 3,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"SHAPE_TO_OBJECT\",\"optionsCount\":4}",
+    "contentIds": ["shape_triangle"]
+  },
+  {
+    "id": "match_colors_d3",
+    "title": "طَابِق اللَّوْن",
+    "description": "اخْتَر اللَّوْن المُطَابِق",
+    "modality": "VISUAL",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 3,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"COLOR_TO_COLOR\",\"optionsCount\":4}",
+    "contentIds": ["color_orange", "color_pink", "color_brown"]
+  },
+  {
     "id": "count_d3",
     "title": "عُدّ مع بيبي بلوم",
     "description": "عُدّ الصور واختر العدد الصحيح",
@@ -1403,6 +1475,30 @@
       "animal_deer",
       "animal_giraffe"
     ]
+  },
+  {
+    "id": "match_shapes_d4",
+    "title": "طَابِق الشَّكْل",
+    "description": "اخْتَر الصُّورَة الَّتِي لَهَا نَفْس الشَّكْل",
+    "modality": "VISUAL",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 4,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"SHAPE_TO_OBJECT\",\"optionsCount\":4}",
+    "contentIds": ["shape_rectangle"]
+  },
+  {
+    "id": "match_colors_d4",
+    "title": "طَابِق اللَّوْن",
+    "description": "اخْتَر اللَّوْن المُطَابِق",
+    "modality": "VISUAL",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 4,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"COLOR_TO_COLOR\",\"optionsCount\":4}",
+    "contentIds": ["color_purple"]
   },
   {
     "id": "count_d4",
@@ -1921,101 +2017,5 @@
       "letter_tah",
       "letter_ghain"
     ]
-  },
-  {
-    "id": "match_shapes_d1",
-    "title": "طَابِق الشَّكْل",
-    "description": "اخْتَر الصُّورَة الَّتِي لَهَا نَفْس الشَّكْل",
-    "modality": "VISUAL",
-    "skillArea": "MOTOR",
-    "difficultyLevel": 1,
-    "activityType": "MATCH",
-    "isActive": true,
-    "configJson": "{\"matchType\":\"SHAPE_TO_OBJECT\",\"optionsCount\":4}",
-    "contentIds": ["shape_circle"]
-  },
-  {
-    "id": "match_colors_d1",
-    "title": "طَابِق اللَّوْن",
-    "description": "اخْتَر اللَّوْن المُطَابِق",
-    "modality": "VISUAL",
-    "skillArea": "MOTOR",
-    "difficultyLevel": 1,
-    "activityType": "MATCH",
-    "isActive": true,
-    "configJson": "{\"matchType\":\"COLOR_TO_COLOR\",\"optionsCount\":4}",
-    "contentIds": ["color_red", "color_blue"]
-  },
-  {
-    "id": "match_shapes_d2",
-    "title": "طَابِق الشَّكْل",
-    "description": "اخْتَر الصُّورَة الَّتِي لَهَا نَفْس الشَّكْل",
-    "modality": "VISUAL",
-    "skillArea": "MOTOR",
-    "difficultyLevel": 2,
-    "activityType": "MATCH",
-    "isActive": true,
-    "configJson": "{\"matchType\":\"SHAPE_TO_OBJECT\",\"optionsCount\":4}",
-    "contentIds": ["shape_square"]
-  },
-  {
-    "id": "match_colors_d2",
-    "title": "طَابِق اللَّوْن",
-    "description": "اخْتَر اللَّوْن المُطَابِق",
-    "modality": "VISUAL",
-    "skillArea": "MOTOR",
-    "difficultyLevel": 2,
-    "activityType": "MATCH",
-    "isActive": true,
-    "configJson": "{\"matchType\":\"COLOR_TO_COLOR\",\"optionsCount\":4}",
-    "contentIds": ["color_yellow", "color_green", "color_black", "color_white"]
-  },
-  {
-    "id": "match_shapes_d3",
-    "title": "طَابِق الشَّكْل",
-    "description": "اخْتَر الصُّورَة الَّتِي لَهَا نَفْس الشَّكْل",
-    "modality": "VISUAL",
-    "skillArea": "MOTOR",
-    "difficultyLevel": 3,
-    "activityType": "MATCH",
-    "isActive": true,
-    "configJson": "{\"matchType\":\"SHAPE_TO_OBJECT\",\"optionsCount\":4}",
-    "contentIds": ["shape_triangle"]
-  },
-  {
-    "id": "match_colors_d3",
-    "title": "طَابِق اللَّوْن",
-    "description": "اخْتَر اللَّوْن المُطَابِق",
-    "modality": "VISUAL",
-    "skillArea": "MOTOR",
-    "difficultyLevel": 3,
-    "activityType": "MATCH",
-    "isActive": true,
-    "configJson": "{\"matchType\":\"COLOR_TO_COLOR\",\"optionsCount\":4}",
-    "contentIds": ["color_orange", "color_pink", "color_brown"]
-  },
-  {
-    "id": "match_shapes_d4",
-    "title": "طَابِق الشَّكْل",
-    "description": "اخْتَر الصُّورَة الَّتِي لَهَا نَفْس الشَّكْل",
-    "modality": "VISUAL",
-    "skillArea": "MOTOR",
-    "difficultyLevel": 4,
-    "activityType": "MATCH",
-    "isActive": true,
-    "configJson": "{\"matchType\":\"SHAPE_TO_OBJECT\",\"optionsCount\":4}",
-    "contentIds": ["shape_rectangle"]
-  },
-  {
-    "id": "match_colors_d4",
-    "title": "طَابِق اللَّوْن",
-    "description": "اخْتَر اللَّوْن المُطَابِق",
-    "modality": "VISUAL",
-    "skillArea": "MOTOR",
-    "difficultyLevel": 4,
-    "activityType": "MATCH",
-    "isActive": true,
-    "configJson": "{\"matchType\":\"COLOR_TO_COLOR\",\"optionsCount\":4}",
-    "contentIds": ["color_purple"]
   }
 ]
