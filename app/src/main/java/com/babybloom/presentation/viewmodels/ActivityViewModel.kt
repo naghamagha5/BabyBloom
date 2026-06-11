@@ -402,22 +402,26 @@ class ActivityViewModel @Inject constructor(
             val nextIndex = current.currentIndex + 1
 
             if (nextIndex >= current.activityWithContent.contentItems.size) {
-                val decision = lastAlgorithmOutput?.let { resolveDecision(it) }
-                    ?: resolveQueueDecisionWithoutAlgorithm()
-                val (completedScore, completedTotal) =
-                    if (decision is SessionDecision.SessionComplete) {
-                        if (!current.sessionSettings.isAssessment) {
-                            updateProfileForCompletedNormalTestSteps(current.sessionSettings.childId)
-                        }
+                val isAssessment = current.sessionSettings.isAssessment
+                val decision = if (isAssessment) {
+                    null
+                } else {
+                    lastAlgorithmOutput?.let { resolveDecision(it) }
+                        ?: resolveQueueDecisionWithoutAlgorithm()
+                }
+                val (completedScore, completedTotal) = when {
+                    isAssessment -> newScore to current.activityWithContent.contentItems.size
+                    decision is SessionDecision.SessionComplete -> {
+                        updateProfileForCompletedNormalTestSteps(current.sessionSettings.childId)
                         sessionRepository.endSession(
                             this@ActivityViewModel.sessionId,
                             System.currentTimeMillis()
                         )
                         normalSessionProgressStore.clear()
                         getSessionScore()
-                    } else {
-                        newScore to current.activityWithContent.contentItems.size
                     }
+                    else -> newScore to current.activityWithContent.contentItems.size
+                }
                 _uiState.value = ActivityUiState.Completed(
                     completedScore,
                     completedTotal,

@@ -59,6 +59,11 @@ private enum class AssessmentDomain {
     MOTOR
 }
 
+private data class LevelKey(
+    val category: AssessmentCategory,
+    val level: Int
+)
+
 private data class CategoryState(
     val category: AssessmentCategory,
     var currentLevel: Int,
@@ -91,6 +96,7 @@ class AssessmentViewModel @Inject constructor(
     private companion object {
         const val SCORED_ITEM_CAP = 20
         const val ASSESSMENT_TOTAL_DISPLAY = 23
+        const val LIMITED_POOL_REVISIT_GAP = 2
     }
 
     private val _uiState = MutableStateFlow<AssessmentUiState>(AssessmentUiState.Loading)
@@ -108,7 +114,10 @@ class AssessmentViewModel @Inject constructor(
     private var warmUpIndex: Int = 0
     private var categoryStates: LinkedHashMap<AssessmentCategory, CategoryState> = linkedMapOf()
     private val probeRecords = mutableListOf<ProbeRecord>()
+    private val warmUpContentIds = mutableSetOf<String>()
     private val usedContentIds = mutableSetOf<String>()
+    private val usedProbeKeys = mutableSetOf<String>()
+    private val levelContentPools = mutableMapOf<LevelKey, MutableSet<String>>()
     private val domainCounts = mutableMapOf<AssessmentDomain, Int>()
 
     fun startAssessment(childId: Long) {
@@ -140,7 +149,10 @@ class AssessmentViewModel @Inject constructor(
             warmUpQueue = assessmentPlannerService.buildWarmUpSequence()
             categoryStates = initialCategoryStates()
             probeRecords.clear()
+            warmUpContentIds.clear()
             usedContentIds.clear()
+            usedProbeKeys.clear()
+            levelContentPools.clear()
             domainCounts.clear()
             warmUpIndex = 0
             displayIndex = 0
@@ -232,7 +244,12 @@ class AssessmentViewModel @Inject constructor(
 
     private fun showStep(step: AssessmentLaunchStep) {
         currentStep = step
-        step.contentId?.let { usedContentIds.add(it) }
+        if (step.isWarmUp) {
+            step.contentId?.let(warmUpContentIds::add)
+        } else {
+            step.contentId?.let(usedContentIds::add)
+            usedProbeKeys.add(probeKey(step))
+        }
         _uiState.value = AssessmentUiState.Playing(
             currentActivityId = step.activityId,
             currentContentId = step.contentId,
@@ -244,17 +261,46 @@ class AssessmentViewModel @Inject constructor(
     }
 
     private suspend fun findUnusedStep(categoryState: CategoryState): AssessmentLaunchStep? {
-        repeat(24) {
-            val step = assessmentPlannerService.nextProbe(
-                category = categoryState.category,
-                level = categoryState.currentLevel,
-                probeIndex = categoryState.probeCount++
-            ) ?: return null
+        val levelKey = LevelKey(categoryState.category, categoryState.currentLevel)
+        val contentPool = levelContentPools.getOrPut(levelKey) { linkedSetOf() }
+        val availableSteps = assessmentPlannerService
+            .availableProbes(categoryState.category, categoryState.currentLevel)
+            .filterNot { step -> step.contentId != null && step.contentId in warmUpContentIds }
 
-            val contentId = step.contentId
-            if (contentId == null || contentId !in usedContentIds) return step
+        if (availableSteps.isEmpty()) return null
+
+        val availableContentIds = availableSteps.mapNotNull { it.contentId }.distinct()
+        val maxDistinctContentIds = availableContentIds.size.coerceAtMost(3)
+        val allowsContentReuse = availableContentIds.size in 1..2
+
+        if (contentPool.size < maxDistinctContentIds) {
+            availableContentIds
+                .filter { it !in usedContentIds && it !in contentPool }
+                .take(maxDistinctContentIds - contentPool.size)
+                .forEach(contentPool::add)
         }
-        return null
+
+        if (contentPool.isEmpty()) {
+            availableContentIds.take(maxDistinctContentIds).forEach(contentPool::add)
+        }
+
+        val eligibleSteps = availableSteps.filter { step ->
+            step.contentId == null || step.contentId in contentPool
+        }
+        if (eligibleSteps.isEmpty()) return null
+
+        val offset = categoryState.probeCount++
+        val rotatedEligibleSteps = eligibleSteps.rotate(offset)
+
+        rotatedEligibleSteps.firstOrNull { step ->
+            val contentId = step.contentId
+            probeKey(step) !in usedProbeKeys &&
+                (contentId == null || contentId !in usedContentIds)
+        }?.let { return it }
+
+        if (!allowsContentReuse) return null
+
+        return rotatedEligibleSteps.firstOrNull()
     }
 
     private fun updateStaircase(
@@ -461,10 +507,19 @@ class AssessmentViewModel @Inject constructor(
             AssessmentCategory.ANIMALS to CategoryState(AssessmentCategory.ANIMALS, currentLevel = 1)
         )
 
-    private fun pickNextCategory(): CategoryState? {
+    private suspend fun pickNextCategory(): CategoryState? {
         val activeStates = categoryStates.values
             .filter { it.status == StaircaseStatus.TESTING }
         if (activeStates.isEmpty()) return null
+
+        val limitedPoolInProgress = activeStates
+            .filter {
+                it.currentLevelOutcomes.isNotEmpty() &&
+                    hasLimitedContentPool(it.category, it.currentLevel) &&
+                    canRevisitLimitedPool(it)
+            }
+            .minWithOrNull(compareBy<CategoryState> { it.lastProbeOrder }.thenBy { it.category.ordinal })
+        if (limitedPoolInProgress != null) return limitedPoolInProgress
 
         val domain = listOf(AssessmentDomain.LANGUAGE, AssessmentDomain.NUMERACY, AssessmentDomain.MOTOR)
             .filter { domain ->
@@ -501,6 +556,35 @@ class AssessmentViewModel @Inject constructor(
             AssessmentDomain.LANGUAGE -> 10
             AssessmentDomain.NUMERACY -> 6
             AssessmentDomain.MOTOR -> 4
+        }
+
+    private suspend fun hasLimitedContentPool(
+        category: AssessmentCategory,
+        level: Int
+    ): Boolean {
+        val availableContentIds = assessmentPlannerService.availableContentIds(category, level)
+            .filterNot { it in warmUpContentIds }
+        return availableContentIds.size in 1..2
+    }
+
+    private fun canRevisitLimitedPool(state: CategoryState): Boolean =
+        probeOrder - state.lastProbeOrder >= LIMITED_POOL_REVISIT_GAP
+
+    private fun <T> List<T>.rotate(offset: Int): List<T> {
+        if (isEmpty()) return this
+        val start = offset.mod(size)
+        return drop(start) + take(start)
+    }
+
+    private fun probeKey(step: AssessmentLaunchStep): String =
+        buildString {
+            append(step.category?.name ?: "WARM_UP")
+            append('|')
+            append(step.level)
+            append('|')
+            append(step.activityId)
+            append('|')
+            append(step.contentId ?: "NO_CONTENT")
         }
 
 }
