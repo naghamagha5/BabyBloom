@@ -26,4 +26,7 @@ class LevelMasteryRepositoryImpl @Inject constructor(
 
     override suspend fun getMasteredCount(childId: Long, skillArea: String, level: Int): Int =
         dao.get(childId, skillArea, level)?.masteredCount ?: 0
+
+    override suspend fun deleteAllForChild(childId: Long) =
+        dao.deleteAllForChild(childId)
 }

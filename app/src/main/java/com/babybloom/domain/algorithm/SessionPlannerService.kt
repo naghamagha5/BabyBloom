@@ -7,6 +7,7 @@ import com.babybloom.domain.model.LearningContent
 import com.babybloom.domain.model.SessionPhase
 import com.babybloom.domain.repository.ActivityRepository
 import com.babybloom.domain.repository.ActivityResultRepository
+import com.babybloom.domain.repository.LevelMasteryRepository
 import com.babybloom.domain.repository.LearningContentRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,7 +17,8 @@ class SessionPlannerService @Inject constructor(
     private val activityRepository: ActivityRepository,
     private val learningContentRepository: LearningContentRepository,
     private val activityResultRepository: ActivityResultRepository,
-    private val algorithmEngine: AdaptiveAlgorithmEngine
+    private val algorithmEngine: AdaptiveAlgorithmEngine,
+    private val levelMasteryRepository: LevelMasteryRepository
 ) {
     private val activityPriority = mapOf(
         "STORY"             to 0,
@@ -209,12 +211,14 @@ class SessionPlannerService @Inject constructor(
         val passedContentIds = latestScoreByContent
             .filterValues { it >= AlgorithmWeights.CONTENT_PASS_THRESHOLD }
             .keys
+        val assessmentPassedContentIds = assessmentPassedContentIds(profile.childId, allContent)
+        val masteredContentIds = passedContentIds + assessmentPassedContentIds
 
         val revisionContentQueue = selectRevisionContentIds(
             contentById = contentById,
             resultHistory = resultHistory,
             scoreByResultId = scoreByResultId,
-            passedContentIds = passedContentIds,
+            passedContentIds = masteredContentIds,
             excludedContentIds = emptySet(),
             limit = Int.MAX_VALUE
         )
@@ -223,7 +227,7 @@ class SessionPlannerService @Inject constructor(
         val learningBatches = buildLearningBatches(
             allContent = allContent,
             resultHistory = resultHistory,
-            passedContentIds = passedContentIds
+            passedContentIds = masteredContentIds
         )
 
         val queue = mutableListOf<ActivityLaunchStep>()
@@ -549,6 +553,27 @@ class SessionPlannerService @Inject constructor(
         val score: Float,
         val lastPassed: Long
     )
+
+    private suspend fun assessmentPassedContentIds(
+        childId: Long,
+        allContent: List<LearningContent>
+    ): Set<String> {
+        val masteredByCategory = levelMasteryRepository.getAllForChild(childId)
+            .groupBy { it.skillArea }
+            .mapValues { (_, rows) ->
+                rows
+                    .filter { it.masteredCount > 0 }
+                    .maxOfOrNull { it.level }
+                    ?: 0
+            }
+
+        return allContent
+            .filter { content ->
+                val masteredLevel = masteredByCategory[content.category] ?: 0
+                content.difficultyLevel <= masteredLevel
+            }
+            .mapTo(mutableSetOf()) { it.id }
+    }
 
     private suspend fun algorithmScore(result: com.babybloom.domain.model.ActivityResult): Float {
         val activity = activityRepository.getById(result.activityId) ?: return result.score

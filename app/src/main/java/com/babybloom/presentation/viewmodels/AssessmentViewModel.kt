@@ -3,6 +3,7 @@ package com.babybloom.presentation.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babybloom.data.local.entity.AssessmentResultEntity
+import com.babybloom.data.local.entity.LevelMasteryEntity
 import com.babybloom.domain.algorithm.AssessmentCategory
 import com.babybloom.domain.algorithm.AssessmentLaunchStep
 import com.babybloom.domain.algorithm.AssessmentPlannerService
@@ -16,6 +17,7 @@ import com.babybloom.domain.repository.ActivityResultRepository
 import com.babybloom.domain.repository.AssessmentRepository
 import com.babybloom.domain.repository.ChildProfileRepository
 import com.babybloom.domain.repository.ChildRepository
+import com.babybloom.domain.repository.LevelMasteryRepository
 import com.babybloom.domain.repository.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -90,7 +92,8 @@ class AssessmentViewModel @Inject constructor(
     private val childProfileRepository: ChildProfileRepository,
     private val childRepository: ChildRepository,
     private val sessionRepository: SessionRepository,
-    private val activityResultRepository: ActivityResultRepository
+    private val activityResultRepository: ActivityResultRepository,
+    private val levelMasteryRepository: LevelMasteryRepository
 ) : ViewModel() {
 
     private companion object {
@@ -231,7 +234,7 @@ class AssessmentViewModel @Inject constructor(
 
                 if (step == null) {
                     nextCategory.status = StaircaseStatus.CONVERGED
-                    nextCategory.ceilingLevel = (nextCategory.currentLevel - 1).coerceIn(1, 5)
+                    nextCategory.ceilingLevel = (nextCategory.currentLevel - 1).coerceIn(0, 5)
                     continue
                 }
 
@@ -335,7 +338,7 @@ class AssessmentViewModel @Inject constructor(
 
     private fun converge(state: CategoryState, ceilingLevel: Int) {
         state.status = StaircaseStatus.CONVERGED
-        state.ceilingLevel = ceilingLevel.coerceIn(1, 5)
+        state.ceilingLevel = ceilingLevel.coerceIn(0, 5)
         state.currentLevelOutcomes.clear()
     }
 
@@ -346,6 +349,7 @@ class AssessmentViewModel @Inject constructor(
             val result = buildAssessmentResult(hitItemCap)
             val profile = buildProfileFromResult(result)
             childProfileRepository.upsert(profile)
+            seedAssessmentMastery(result)
 
             assessmentRepository.save(
                 AssessmentResultEntity(
@@ -365,6 +369,27 @@ class AssessmentViewModel @Inject constructor(
         }
     }
 
+    private suspend fun seedAssessmentMastery(result: AssessmentResult) {
+        levelMasteryRepository.deleteAllForChild(childId)
+
+        categoryAssessmentSkillAreas().forEach { (category, skillArea) ->
+            val passedLevel = result.categoryLevels[category.name.lowercase()]
+                ?.level
+                ?.coerceAtLeast(0)
+                ?: 0
+            for (level in 1..passedLevel) {
+                levelMasteryRepository.upsert(
+                    LevelMasteryEntity(
+                        childId = childId,
+                        skillArea = skillArea,
+                        level = level,
+                        masteredCount = 1
+                    )
+                )
+            }
+        }
+    }
+
     private suspend fun buildAssessmentResult(hitItemCap: Boolean): AssessmentResult {
         val categoryLevels = categoryStates.mapValues { (_, state) ->
             val confidence = when (state.status) {
@@ -373,7 +398,7 @@ class AssessmentViewModel @Inject constructor(
                 StaircaseStatus.TESTING -> Confidence.PARTIAL
             }
             CategoryAssessment(
-                level = (state.ceilingLevel ?: state.currentLevel).coerceIn(1, 5),
+                level = resolvedCategoryLevel(state),
                 confidence = confidence
             )
         }.mapKeys { it.key.name.lowercase() }
@@ -394,14 +419,17 @@ class AssessmentViewModel @Inject constructor(
     }
 
     private fun buildProfileFromResult(result: AssessmentResult): ChildProfile {
-        fun categoryLevel(category: AssessmentCategory): Int =
-            result.categoryLevels[category.name.lowercase()]?.level ?: 1
+        fun assessedCategoryLevel(category: AssessmentCategory): Int =
+            result.categoryLevels[category.name.lowercase()]?.level ?: 0
 
-        val languageLevel = ((categoryLevel(AssessmentCategory.LETTERS) + categoryLevel(AssessmentCategory.ANIMALS)) / 2f)
+        fun learnableCategoryLevel(category: AssessmentCategory): Int =
+            assessedCategoryLevel(category).coerceAtLeast(1)
+
+        val languageLevel = ((learnableCategoryLevel(AssessmentCategory.LETTERS) + learnableCategoryLevel(AssessmentCategory.ANIMALS)) / 2f)
             .roundToInt()
             .coerceIn(1, 5)
-        val numeracyLevel = categoryLevel(AssessmentCategory.NUMBERS)
-        val motorLevel = ((categoryLevel(AssessmentCategory.COLORS) + categoryLevel(AssessmentCategory.SHAPES)) / 2f)
+        val numeracyLevel = learnableCategoryLevel(AssessmentCategory.NUMBERS)
+        val motorLevel = ((learnableCategoryLevel(AssessmentCategory.COLORS) + learnableCategoryLevel(AssessmentCategory.SHAPES)) / 2f)
             .roundToInt()
             .coerceIn(1, 5)
 
@@ -439,6 +467,13 @@ class AssessmentViewModel @Inject constructor(
             assessmentCompleted = true
         )
     }
+
+    private fun resolvedCategoryLevel(state: CategoryState): Int =
+        when (state.status) {
+            StaircaseStatus.CONVERGED -> (state.ceilingLevel ?: state.currentLevel).coerceIn(0, 5)
+            StaircaseStatus.PARTIAL,
+            StaircaseStatus.TESTING -> (state.currentLevel - 1).coerceIn(0, 5)
+        }
 
     private fun computeGlobalLevel(): Int {
         val recordsByLevel = probeRecords.groupBy { it.level }
@@ -586,5 +621,14 @@ class AssessmentViewModel @Inject constructor(
             append('|')
             append(step.contentId ?: "NO_CONTENT")
         }
+
+    private fun categoryAssessmentSkillAreas(): Map<AssessmentCategory, String> =
+        mapOf(
+            AssessmentCategory.LETTERS to "LETTER_NAME",
+            AssessmentCategory.ANIMALS to "ANIMAL",
+            AssessmentCategory.NUMBERS to "NUMBER",
+            AssessmentCategory.COLORS to "COLOR",
+            AssessmentCategory.SHAPES to "SHAPE"
+        )
 
 }

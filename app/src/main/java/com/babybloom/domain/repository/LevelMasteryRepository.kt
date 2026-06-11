@@ -9,4 +9,5 @@ interface LevelMasteryRepository {
     suspend fun getAllForChild(childId: Long): List<LevelMasteryEntity>
     suspend fun incrementMastered(childId: Long, skillArea: String, level: Int)
     suspend fun getMasteredCount(childId: Long, skillArea: String, level: Int): Int
+    suspend fun deleteAllForChild(childId: Long)
 }
