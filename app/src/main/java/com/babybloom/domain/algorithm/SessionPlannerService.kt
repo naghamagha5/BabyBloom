@@ -4,6 +4,7 @@ import com.babybloom.data.local.entity.ActivityRecommendationEntity
 import com.babybloom.domain.model.ActivityLaunchStep
 import com.babybloom.domain.model.ChildProfile
 import com.babybloom.domain.model.LearningContent
+import com.babybloom.domain.model.SessionPhase
 import com.babybloom.domain.repository.ActivityRepository
 import com.babybloom.domain.repository.ActivityResultRepository
 import com.babybloom.domain.repository.LearningContentRepository
@@ -227,8 +228,7 @@ class SessionPlannerService @Inject constructor(
 
         val queue = mutableListOf<ActivityLaunchStep>()
         val usedTestStepKeys = mutableSetOf<String>()
-        var revisionIndex = 0
-        learningBatches.forEach { learningContentItems ->
+        learningBatches.firstOrNull()?.let { learningContentItems ->
             val learningSteps = learningContentItems.flatMap { content ->
                 stepsForContent(
                     content = content,
@@ -251,17 +251,14 @@ class SessionPlannerService @Inject constructor(
             val uniqueTestSteps = testSteps.filter { usedTestStepKeys.add(it.exactStepKey()) }
             val currentLearningIds = learningContentItems.map { it.id }.toSet()
             val revisionBatch = revisionContentQueue
-                .drop(revisionIndex)
                 .filter { it.id !in currentLearningIds }
-                .take(AlgorithmWeights.REVISION_CONTENT_COUNT)
-            revisionIndex += revisionBatch.size
 
             val revisionSteps = interleaveTestSteps(
                 revisionBatch.map { content ->
                     stepsForContent(
                         content = content,
                         allContent = allContent,
-                        phase = SessionPhase.TEST,
+                        phase = SessionPhase.REVISION,
                         profile = profile
                     )
                 }
@@ -276,12 +273,11 @@ class SessionPlannerService @Inject constructor(
         if (queue.isEmpty() && revisionContentQueue.isNotEmpty()) {
             queue += interleaveTestSteps(
                 revisionContentQueue
-                    .take(AlgorithmWeights.REVISION_CONTENT_COUNT)
                     .map { content ->
                         stepsForContent(
                             content = content,
                             allContent = allContent,
-                            phase = SessionPhase.TEST,
+                            phase = SessionPhase.REVISION,
                             profile = profile
                         )
                     }
@@ -397,16 +393,15 @@ class SessionPlannerService @Inject constructor(
             .mapNotNull { contentId ->
                 val history = resultHistory[contentId].orEmpty()
                 val latest = history.maxByOrNull { it.timestamp } ?: return@mapNotNull null
-                val firstSeen = history.minOfOrNull { it.timestamp } ?: latest.timestamp
                 RevisionCandidate(
                     contentId = contentId,
                     score = scoreByResultId[latest.id] ?: latest.score,
-                    firstSeen = firstSeen
+                    lastPassed = latest.timestamp
                 )
             }
             .sortedWith(
-                compareBy<RevisionCandidate> { it.score }
-                    .thenBy { it.firstSeen }
+                compareBy<RevisionCandidate> { it.lastPassed }
+                    .thenBy { it.score }
             )
             .take(limit)
             .map { it.contentId }
@@ -419,9 +414,14 @@ class SessionPlannerService @Inject constructor(
     ): List<ActivityLaunchStep> {
         val allowedPrefixes = activityPrefixesFor(content.category, phase)
         val allActivities = activityRepository.getAll()
-        return allActivities
+        val candidates = allActivities
             .filter { activity ->
                 allowedPrefixes.any { prefix -> activity.id.startsWith(prefix) }
+            }
+            .filter { activity ->
+                phase != SessionPhase.LEARNING ||
+                    activity.activityType == "STORY" ||
+                    activity.modality == profile.dominantModality
             }
             .sortedWith(
                 compareByDescending<com.babybloom.domain.model.Activity> { activity ->
@@ -448,13 +448,20 @@ class SessionPlannerService @Inject constructor(
                 ActivityLaunchStep(
                     activityId = activity.id,
                     contentId = matchingItem.contentId,
-                    isTest = phase == SessionPhase.TEST
+                    isTest = phase != SessionPhase.LEARNING,
+                    phase = phase
                 )
             }
             .distinctBy { step ->
                 allowedPrefixes.firstOrNull { prefix -> step.activityId.startsWith(prefix) }
                     ?: step.activityId
             }
+
+        if (phase != SessionPhase.LEARNING) return candidates
+        val storySteps = candidates.filter { step ->
+            allActivities.firstOrNull { it.id == step.activityId }?.activityType == "STORY"
+        }
+        return storySteps + candidates.filterNot { it in storySteps }
     }
 
     private fun modalityPreferenceScore(
@@ -480,7 +487,7 @@ class SessionPlannerService @Inject constructor(
         when (category) {
             CATEGORY_LETTER -> when (phase) {
                 SessionPhase.LEARNING -> listOf("story_letters", "match_letters", "trace_letters","listen_and_choose_letters")
-                SessionPhase.TEST -> listOf(
+                SessionPhase.TEST, SessionPhase.REVISION -> listOf(
                     "speech_letters_",
                     "speech_letters_sounds",
                     "match_letters",
@@ -490,19 +497,19 @@ class SessionPlannerService @Inject constructor(
             }
             CATEGORY_ANIMAL -> when (phase) {
                 SessionPhase.LEARNING -> listOf("story_animals", "drag_letters", "match_animals","listen_and_choose_animals")
-                SessionPhase.TEST -> listOf("speech_animals", "drag_letters", "match_animals", "listen_and_choose_animals")
+                SessionPhase.TEST, SessionPhase.REVISION -> listOf("speech_animals", "drag_letters", "match_animals", "listen_and_choose_animals")
             }
             CATEGORY_NUMBER -> when (phase) {
                 SessionPhase.LEARNING -> listOf("story_numbers", "count_", "drag_numbers", "trace_numbers","listen_and_choose_numbers")
-                SessionPhase.TEST -> listOf("speech_numbers", "count_", "drag_numbers", "trace_numbers", "listen_and_choose_numbers")
+                SessionPhase.TEST, SessionPhase.REVISION -> listOf("speech_numbers", "count_", "drag_numbers", "trace_numbers", "listen_and_choose_numbers")
             }
             CATEGORY_SHAPE -> when (phase) {
                 SessionPhase.LEARNING -> listOf("story_shapes", "drag_shapes", "trace_shapes", "match_shapes","listen_and_choose_shapes")
-                SessionPhase.TEST -> listOf("speech_shapes", "drag_shapes", "trace_shapes", "match_shapes", "listen_and_choose_shapes")
+                SessionPhase.TEST, SessionPhase.REVISION -> listOf("speech_shapes", "drag_shapes", "trace_shapes", "match_shapes", "listen_and_choose_shapes")
             }
             CATEGORY_COLOR -> when (phase) {
                 SessionPhase.LEARNING -> listOf("story_colors", "drag_colors", "match_colors", "listen_and_choose_colors")
-                SessionPhase.TEST -> listOf("speech_colors", "drag_colors", "match_colors", "listen_and_choose_colors")
+                SessionPhase.TEST, SessionPhase.REVISION -> listOf("speech_colors", "drag_colors", "match_colors", "listen_and_choose_colors")
             }
             else -> emptyList()
         }
@@ -540,7 +547,7 @@ class SessionPlannerService @Inject constructor(
     private data class RevisionCandidate(
         val contentId: String,
         val score: Float,
-        val firstSeen: Long
+        val lastPassed: Long
     )
 
     private suspend fun algorithmScore(result: com.babybloom.domain.model.ActivityResult): Float {
@@ -549,13 +556,8 @@ class SessionPlannerService @Inject constructor(
         return algorithmEngine.computeItemScore(signal)
     }
 
-    private enum class SessionPhase {
-        LEARNING,
-        TEST
-    }
-
     private fun ActivityLaunchStep.exactStepKey(): String =
-        "${activityId}:${contentId.orEmpty()}:${isTest}"
+        "${activityId}:${contentId.orEmpty()}:${phase.name}"
 
     private companion object {
         const val CATEGORY_LETTER = "LETTER_NAME"

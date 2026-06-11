@@ -23,6 +23,7 @@ import com.babybloom.domain.repository.ChildProfileRepository
 import com.babybloom.domain.repository.ChildRepository
 import com.babybloom.domain.repository.InteractionEventRepository
 import com.babybloom.domain.repository.LevelMasteryRepository
+import com.babybloom.domain.repository.LearningContentRepository
 import com.babybloom.domain.repository.SessionRepository
 import com.babybloom.domain.repository.UserRepository
 import com.babybloom.util.attention.AttentionDetector
@@ -86,6 +87,7 @@ class ActivityViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val interactionEventRepository: InteractionEventRepository,
     private val levelMasteryRepository: LevelMasteryRepository,
+    private val learningContentRepository: LearningContentRepository,
     private val algorithmEngine: AdaptiveAlgorithmEngine,
     private val speechRecognitionManager: SpeechRecognitionManager,
     private val appSoundSettings: AppSoundSettings,
@@ -155,7 +157,10 @@ class ActivityViewModel @Inject constructor(
             currentStep = ActivityLaunchStep(
                 activityId = activityId,
                 contentId  = contentId,
-                isTest     = effectiveIsTest
+                isTest     = effectiveIsTest,
+                phase      = stepInQueue?.phase
+                    ?: if (effectiveIsTest) com.babybloom.domain.model.SessionPhase.TEST
+                    else com.babybloom.domain.model.SessionPhase.LEARNING
             )
             sessionQueue = if (queue.isEmpty()) listOfNotNull(currentStep) else queue
 
@@ -283,7 +288,7 @@ class ActivityViewModel @Inject constructor(
                         this@ActivityViewModel.sessionId,
                         System.currentTimeMillis()
                     )
-                    normalSessionProgressStore.clear()
+                    saveNormalSessionProgress(0L)
                     val (sessionScore, sessionTotal) = getSessionScore()
                     _uiState.value = ActivityUiState.Completed(
                         sessionScore,
@@ -342,8 +347,8 @@ class ActivityViewModel @Inject constructor(
         viewModelScope.launch {
             val activityId = current.activityWithContent.activity.id
 
-            activityResultRepository.saveResult(
-                ActivityResult(
+            if (current.sessionSettings.isTest) {
+                activityResultRepository.saveResult(ActivityResult(
                     sessionId        = sessionId,
                     childId          = current.sessionSettings.childId,
                     activityId       = activityId,
@@ -356,8 +361,8 @@ class ActivityViewModel @Inject constructor(
                     speechConfidence = speechConfidence,
                     touchQualityScore = touchQualityScore,
                     attentionScore   = attentionScore
-                )
-            )
+                ))
+            }
 
             if (!current.sessionSettings.isAssessment && current.sessionSettings.isTest) {
                 val activity = activityRepository.getById(activityId) ?: return@launch
@@ -380,7 +385,7 @@ class ActivityViewModel @Inject constructor(
                 val profile = childProfileRepository.getByChildId(current.sessionSettings.childId)
                 if (profile != null) {
                     val output = algorithmEngine.processActivityResult(signal, profile)
-                    childProfileRepository.upsert(output.updatedProfile)
+                    childProfileRepository.upsert(refreshContentProgress(output.updatedProfile))
                     lastAlgorithmOutput = output
 
                     if (algorithmEngine.computeItemScore(signal) >= AlgorithmWeights.LEVEL_UP_THRESHOLD) {
@@ -505,6 +510,8 @@ class ActivityViewModel @Inject constructor(
         if (current != null && !current.sessionSettings.isAssessment) {
             viewModelScope.launch {
                 saveNormalSessionProgress(current.sessionRemainingMs)
+                updateProfileForCompletedNormalTestSteps(current.sessionSettings.childId)
+                sessionRepository.endSession(sessionId, System.currentTimeMillis())
             }
         }
         appSoundSettings.stopSession()
@@ -588,7 +595,9 @@ class ActivityViewModel @Inject constructor(
             .toSet()
         if (testStepKeys.isEmpty()) {
             childProfileRepository.upsert(
-                algorithmEngine.updateModalityPreferencesFromSession(emptyList(), profile)
+                refreshContentProgress(
+                    algorithmEngine.updateModalityPreferencesFromSession(emptyList(), profile)
+                )
             )
             return
         }
@@ -600,9 +609,21 @@ class ActivityViewModel @Inject constructor(
                 ActivitySignal.from(result, activity)
             }
 
-        childProfileRepository.upsert(
-            algorithmEngine.updateModalityPreferencesFromSession(signals, profile)
-        )
+        val modalityProfile = algorithmEngine.updateModalityPreferencesFromSession(signals, profile)
+        childProfileRepository.upsert(refreshContentProgress(modalityProfile))
+    }
+
+    private suspend fun refreshContentProgress(profile: com.babybloom.domain.model.ChildProfile): com.babybloom.domain.model.ChildProfile {
+        val allContent = listOf("LETTER_NAME", "ANIMAL", "NUMBER", "COLOR", "SHAPE")
+            .flatMap { learningContentRepository.getByCategory(it) }
+        val latestByContent = activityResultRepository.getByChild(profile.childId)
+            .filter { it.contentId.isNotBlank() }
+            .groupBy { it.contentId.removeSuffix("_s") }
+            .mapValues { (_, history) -> history.maxByOrNull { it.timestamp } }
+        val learnedIds = latestByContent
+            .filterValues { result -> result != null && result.score >= AlgorithmWeights.CONTENT_PASS_THRESHOLD }
+            .keys
+        return algorithmEngine.applyContentProgress(profile, allContent, learnedIds)
     }
 
     private suspend fun saveNormalSessionProgress(remainingMs: Long) {

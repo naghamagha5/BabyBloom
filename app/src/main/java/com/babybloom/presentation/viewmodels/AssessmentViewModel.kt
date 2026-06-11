@@ -362,6 +362,10 @@ class AssessmentViewModel @Inject constructor(
         val visual = result.modalityScores[Modality.VISUAL] ?: 0.5f
         val audio = result.modalityScores[Modality.AUDIO] ?: 0.5f
         val interactive = result.modalityScores[Modality.INTERACTIVE] ?: 0.5f
+        val modalityTotal = (visual + audio + interactive).takeIf { it > 0f } ?: 1f
+        val visualPercent = visual / modalityTotal * 100f
+        val audioPercent = audio / modalityTotal * 100f
+        val interactivePercent = 100f - visualPercent - audioPercent
 
         val weakSkills = buildList {
             if (languageLevel <= 1) add("LANGUAGE")
@@ -374,6 +378,9 @@ class AssessmentViewModel @Inject constructor(
             visualScore = visual,
             audioScore = audio,
             gameScore = interactive,
+            visualPreferencePercent = visualPercent,
+            audioPreferencePercent = audioPercent,
+            interactivePreferencePercent = interactivePercent,
             languageLevel = languageLevel,
             numeracyLevel = numeracyLevel,
             motorLevel = motorLevel,
@@ -407,11 +414,18 @@ class AssessmentViewModel @Inject constructor(
             val dbResult = dbResults.lastOrNull {
                 it.activityId == record.activityId && it.contentId == record.contentId
             }
-            val correctness = if (record.isCorrect) 1f else 0f
-            val speed = (6_000f / (dbResult?.duration ?: 6_000L).coerceAtLeast(1).toFloat())
-                .coerceIn(0f, 1f)
-            val certainty = (1f / (dbResult?.attempts ?: 1).coerceAtLeast(1)).coerceIn(0f, 1f)
-            val score = (correctness * 0.7f + speed * 0.2f + certainty * 0.1f).coerceIn(0f, 1f)
+            val multimodalSignals = buildList {
+                add(dbResult?.attentionScore ?: 0.5f)
+                if (record.activityId.startsWith("speech_")) {
+                    dbResult?.speechConfidence?.let(::add)
+                }
+                if (record.activityId.startsWith("trace_") ||
+                    record.activityId.startsWith("drag_") ||
+                    record.activityId.startsWith("match_")) {
+                    dbResult?.touchQualityScore?.let(::add)
+                }
+            }
+            val score = multimodalSignals.average().toFloat().coerceIn(0f, 1f)
             modalityWeights(record.activityId).forEach { (modality, weight) ->
                 weightedScores[modality] = (weightedScores[modality] ?: 0f) + score * weight
                 weights[modality] = (weights[modality] ?: 0f) + weight

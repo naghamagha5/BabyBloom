@@ -2,6 +2,7 @@ package com.babybloom.domain.algorithm
 
 import com.babybloom.domain.model.ActivitySignal
 import com.babybloom.domain.model.ChildProfile
+import com.babybloom.domain.model.LearningContent
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -9,6 +10,9 @@ import org.junit.Test
 class AdaptiveAlgorithmEngineTest {
 
     private lateinit var engine: AdaptiveAlgorithmEngine
+
+    private fun content(id: String, category: String, level: Int) =
+        LearningContent(id, id, category, level, 1)
     private lateinit var freshProfile: ChildProfile
 
     @Before
@@ -459,5 +463,56 @@ class AdaptiveAlgorithmEngineTest {
         val after2 = engine.processActivityResult(signal("LANGUAGE", "MATCH"), after1).updatedProfile
         assertEquals(1, after1.totalActivitiesCompleted)
         assertEquals(2, after2.totalActivitiesCompleted)
+    }
+
+    @Test
+    fun `content progress uses learned count out of all learning content`() {
+        val allContent = (1..80).map { index ->
+            content("content_$index", "LETTER_NAME", ((index - 1) % 5) + 1)
+        }
+        val updated = engine.applyContentProgress(
+            freshProfile,
+            allContent,
+            (1..9).map { "content_$it" }.toSet()
+        )
+
+        assertEquals(11.25f, updated.overallProgressPercent, 0.001f)
+    }
+
+    @Test
+    fun `skill percentages use category difficulty levels`() {
+        val allContent = listOf(
+            content("letter", "LETTER_NAME", 2),
+            content("animal", "ANIMAL", 3),
+            content("number", "NUMBER", 4),
+            content("color", "COLOR", 2),
+            content("shape", "SHAPE", 4)
+        )
+        val updated = engine.applyContentProgress(
+            freshProfile,
+            allContent,
+            allContent.map { it.id }.toSet()
+        )
+
+        assertEquals(0.5f, updated.languageProgress, 0.001f)
+        assertEquals(1f, updated.numeracyProgress, 0.001f)
+        assertEquals(0.75f, updated.motorProgress, 0.001f)
+    }
+
+    @Test
+    fun `failed revision can remove learned content and lower overall progress`() {
+        val allContent = listOf(
+            content("letter", "LETTER_NAME", 1),
+            content("animal", "ANIMAL", 1)
+        )
+        val before = engine.applyContentProgress(
+            freshProfile,
+            allContent,
+            setOf("letter", "animal")
+        )
+        val after = engine.applyContentProgress(before, allContent, setOf("letter"))
+
+        assertEquals(100f, before.overallProgressPercent, 0.001f)
+        assertEquals(50f, after.overallProgressPercent, 0.001f)
     }
 }

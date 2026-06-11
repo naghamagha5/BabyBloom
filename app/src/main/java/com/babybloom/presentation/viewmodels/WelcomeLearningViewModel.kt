@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.babybloom.di.NormalSessionProgressStore
 import com.babybloom.domain.algorithm.SessionPlannerService
 import com.babybloom.domain.model.ActivityLaunchStep
+import com.babybloom.domain.model.SessionPhase
 import com.babybloom.domain.repository.ChildProfileRepository
 import com.babybloom.domain.repository.ChildRepository
 import com.babybloom.domain.repository.SessionRepository
@@ -66,50 +67,83 @@ class WelcomeLearningViewModel @Inject constructor(
     fun prepareSession() {
         viewModelScope.launch {
             val child = childRepository.getById(childId) ?: return@launch
+            val profile = childProfileRepository.getByChildId(childId) ?: return@launch
+            val freshQueue = sessionPlannerService.buildSessionSequence(profile)
             val savedProgress = normalSessionProgressStore.getForChild(childId)
             if (savedProgress != null) {
                 val savedSession = sessionRepository.getSessionById(savedProgress.sessionId)
-                val isActiveNormalSession = savedSession != null &&
-                        savedSession.endTime == null &&
-                        !savedSession.isAssessment
-                val durationMs = child.sessionDurationMinutes * 60_000L
-                val savedRemainingMs = savedProgress.remainingMs
-                    ?: savedSession?.let { durationMs - (System.currentTimeMillis() - it.startTime) }
-                val hasTimeRemaining = savedRemainingMs != null && savedRemainingMs > 0L
                 val savedQueue = SessionQueueCodec.decode(savedProgress.encodedQueue)
                 val savedStep = savedQueue.getOrNull(savedProgress.stepIndex)
 
-                if (isActiveNormalSession && hasTimeRemaining && savedStep != null) {
+                if (savedSession?.endTime == null && savedSession?.isAssessment == false) {
+                    sessionRepository.endSession(savedProgress.sessionId, System.currentTimeMillis())
+                }
+
+                if (savedStep != null) {
+                    val (resumeQueue, resumeIndex) = when (savedStep.phase) {
+                        SessionPhase.LEARNING -> savedQueue to
+                            savedQueue.indexOfFirst { it.phase == SessionPhase.LEARNING }.coerceAtLeast(0)
+                        SessionPhase.TEST -> savedQueue to savedProgress.stepIndex
+                        SessionPhase.REVISION -> {
+                            val alreadyRevised = savedQueue
+                                .take(savedProgress.stepIndex)
+                                .filter { it.phase == SessionPhase.REVISION }
+                                .mapNotNull { it.contentId?.removeSuffix("_s") }
+                                .toSet()
+                            if (alreadyRevised.size >= 3) {
+                                freshQueue to 0
+                            } else {
+                                val required = 3 - alreadyRevised.size
+                                val continuation = revisionContinuation(
+                                    savedQueue.drop(savedProgress.stepIndex),
+                                    alreadyRevised,
+                                    required
+                                )
+                                (continuation + freshQueue) to 0
+                            }
+                        }
+                    }
                     _uiState.update { state ->
                         state.copy(
-                            sessionQueue = savedQueue,
-                            encodedQueue = savedProgress.encodedQueue,
-                            sessionId = savedProgress.sessionId,
-                            stepIndex = savedProgress.stepIndex
+                            sessionQueue = resumeQueue,
+                            encodedQueue = SessionQueueCodec.encode(resumeQueue),
+                            sessionId = 0L,
+                            stepIndex = resumeIndex
                         )
                     }
+                    normalSessionProgressStore.clear()
                     return@launch
-                }
-                if (isActiveNormalSession && !hasTimeRemaining) {
-                    sessionRepository.endSession(
-                        savedProgress.sessionId,
-                        System.currentTimeMillis()
-                    )
                 }
                 normalSessionProgressStore.clear()
             }
 
-            val profile = childProfileRepository.getByChildId(childId) ?: return@launch
-            val queue = sessionPlannerService.buildSessionSequence(profile)
-
             _uiState.update { state ->
                 state.copy(
-                    sessionQueue = queue,
-                    encodedQueue = SessionQueueCodec.encode(queue),
+                    sessionQueue = freshQueue,
+                    encodedQueue = SessionQueueCodec.encode(freshQueue),
                     sessionId = 0L,
                     stepIndex = 0
                 )
             }
         }
+    }
+
+    private fun revisionContinuation(
+        remaining: List<ActivityLaunchStep>,
+        alreadyRevised: Set<String>,
+        requiredNewIds: Int
+    ): List<ActivityLaunchStep> {
+        if (requiredNewIds <= 0) return emptyList()
+        val seen = alreadyRevised.toMutableSet()
+        var newIds = 0
+        var endExclusive = 0
+        remaining.forEachIndexed { index, step ->
+            if (step.phase != SessionPhase.REVISION) return@forEachIndexed
+            val id = step.contentId?.removeSuffix("_s")
+            if (id != null && seen.add(id)) newIds++
+            endExclusive = index + 1
+            if (newIds >= requiredNewIds) return remaining.take(endExclusive)
+        }
+        return remaining.filter { it.phase == SessionPhase.REVISION }
     }
 }

@@ -6,6 +6,7 @@ import com.babybloom.domain.model.AiInsightPayload
 import com.babybloom.domain.model.AlgorithmOutput
 import com.babybloom.domain.model.ChildProfile
 import com.babybloom.domain.model.SessionDecision
+import com.babybloom.domain.model.LearningContent
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -204,12 +205,6 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
             "AUDIO" to 0f,
             "INTERACTIVE" to 0f
         )
-        val modalityWeights = mutableMapOf(
-            "VISUAL" to 0f,
-            "AUDIO" to 0f,
-            "INTERACTIVE" to 0f
-        )
-
         signals.forEach { signal ->
             val engagement = computeEngagementScore(signal)
             val weights = AlgorithmWeights.ACTIVITY_MODALITY_WEIGHTS[signal.activityType]
@@ -217,14 +212,11 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
 
             weights.forEach { (modality, weight) ->
                 weightedEngagement[modality] = (weightedEngagement[modality] ?: 0f) + engagement * weight
-                modalityWeights[modality] = (modalityWeights[modality] ?: 0f) + weight
             }
         }
 
-        val sessionScores = weightedEngagement.mapValues { (modality, score) ->
-            val totalWeight = modalityWeights[modality] ?: 0f
-            if (totalWeight == 0f) null else (score / totalWeight).coerceIn(0f, 1f)
-        }
+        val sessionPercentages = normalizeToPercentages(weightedEngagement)
+        val sessionScores = sessionPercentages.mapValues { (_, percent) -> percent / 100f }
 
         val oldFractions = mapOf(
             "VISUAL" to currentProfile.visualPreferencePercent / 100f,
@@ -249,6 +241,44 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
             gameScore = interactive / 100f,
             dominantModality = computeDominantModality(visual, audio, interactive),
             overallProgressPercent = computeOverallProgressPercent(currentProfile),
+            lastUpdated = System.currentTimeMillis()
+        )
+    }
+
+    /** Applies the canonical content-based progress rules to a profile snapshot. */
+    fun applyContentProgress(
+        currentProfile: ChildProfile,
+        allContent: List<LearningContent>,
+        learnedContentIds: Set<String>
+    ): ChildProfile {
+        fun categoryLevel(category: String, maxLevel: Int): Int = allContent
+            .asSequence()
+            .filter { it.category == category && it.id in learnedContentIds }
+            .maxOfOrNull { it.difficultyLevel }
+            ?.coerceIn(0, maxLevel)
+            ?: 0
+
+        val alphabet = categoryLevel("LETTER_NAME", 5)
+        val animals = categoryLevel("ANIMAL", 5)
+        val numbers = categoryLevel("NUMBER", 4)
+        val colors = categoryLevel("COLOR", 4)
+        val shapes = categoryLevel("SHAPE", 4)
+
+        val languageScore = (alphabet + animals) / 10f
+        val numeracyScore = numbers / 4f
+        val motorScore = (colors + shapes) / 8f
+        val totalContent = allContent.size.coerceAtLeast(1)
+        val learnedCount = allContent.count { it.id in learnedContentIds }
+
+        return currentProfile.copy(
+            languageLevel = kotlin.math.round((alphabet + animals) / 2f).toInt().coerceIn(0, 5),
+            numeracyLevel = numbers,
+            motorLevel = kotlin.math.round((colors + shapes) / 2f).toInt().coerceIn(0, 4),
+            languageProgress = languageScore,
+            numeracyProgress = numeracyScore,
+            motorProgress = motorScore,
+            overallProgressPercent = learnedCount.toFloat() / totalContent * 100f,
+            weakSkillAreas = computeWeakSkills(languageScore, numeracyScore, motorScore),
             lastUpdated = System.currentTimeMillis()
         )
     }
@@ -319,23 +349,20 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
             "LANGUAGE" -> {
                 val newProg  = emaUpdate(profile.languageProgress, itemScore)
                 val newLevel = resolveLevel("LANGUAGE", languageLevel, newProg)
-                val finalProg = if (newLevel != languageLevel) 0f else newProg
                 SkillState(newLevel, numeracyLevel, motorLevel,
-                    finalProg, profile.numeracyProgress, profile.motorProgress)
+                    newProg, profile.numeracyProgress, profile.motorProgress)
             }
             "NUMERACY" -> {
                 val newProg  = emaUpdate(profile.numeracyProgress, itemScore)
                 val newLevel = resolveLevel("NUMERACY", numeracyLevel, newProg)
-                val finalProg = if (newLevel != numeracyLevel) 0f else newProg
                 SkillState(languageLevel, newLevel, motorLevel,
-                    profile.languageProgress, finalProg, profile.motorProgress)
+                    profile.languageProgress, newProg, profile.motorProgress)
             }
             "MOTOR" -> {
                 val newProg  = emaUpdate(profile.motorProgress, itemScore)
                 val newLevel = resolveLevel("MOTOR", motorLevel, newProg)
-                val finalProg = if (newLevel != motorLevel) 0f else newProg
                 SkillState(languageLevel, numeracyLevel, newLevel,
-                    profile.languageProgress, profile.numeracyProgress, finalProg)
+                    profile.languageProgress, profile.numeracyProgress, newProg)
             }
             else -> SkillState(
                 languageLevel, numeracyLevel, motorLevel,
@@ -345,14 +372,9 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
     }
 
     private fun computeEngagementScore(signal: ActivitySignal): Float {
-        val speed = (signal.expectedDurationMs.toFloat() /
-                signal.durationMs.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f)
-        val attempts = (1f / signal.attempts.coerceAtLeast(1)).coerceIn(0f, 1f)
         val signals = buildList {
             add(signal.attentionScore ?: 0.5f)
-            add(speed)
-            add(attempts)
-            if (signal.activityType == "DRAG" || signal.activityType == "TRACE") {
+            if (signal.activityType in setOf("DRAG", "TRACE", "MATCH")) {
                 signal.touchQualityScore?.let(::add)
             }
             if (signal.activityType == "SPEECH") {
