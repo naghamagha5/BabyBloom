@@ -703,7 +703,7 @@ class SessionPlannerService @Inject constructor(
         "${activityId}:${contentId.orEmpty()}:${phase.name}"
 
     private companion object {
-        const val CATEGORY_LETTER = "LETTER"
+        const val CATEGORY_LETTER = "LETTER_NAME"
         const val CATEGORY_ANIMAL = "ANIMAL"
         const val CATEGORY_NUMBER = "NUMBER"
         const val CATEGORY_COLOR = "COLOR"

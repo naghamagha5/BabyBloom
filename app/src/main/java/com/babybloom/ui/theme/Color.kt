@@ -229,3 +229,13 @@ val GameActiveSwatch5  = Color(0xFF0683FC)  // bright periwinkle
 val GameActiveBackground = Color(0xFFFFFFFF) // pure white              → card & screen BG
 val GameActiveWrong      = Color(0xFFFF0606) // pure red                → wrong answer
 val GameActiveCorrect    = Color(0xFF00FF0D) // pure green              → correct answer
+
+// ── Progress bar – Active palette ────────────────────────────────────────────────
+val ProgressActiveSwatch1  = Color(0xFF0FD187)
+val ProgressActiveSwatch2  = Color(0xFF56F277)
+val ProgressActiveSwatch3  = Color(0xFF08F30E)
+
+// ── Progress bar – Calm palette ──────────────────────────────────────────
+val ProgressCalmSwatch1  = Color(0xFF91CCA6)
+val ProgressCalmSwatch2  = Color(0xFF88DC8D)
+val ProgressCalmSwatch3  = Color(0xFFA8E7AE)
