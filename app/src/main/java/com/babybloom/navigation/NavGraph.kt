@@ -26,6 +26,7 @@ import com.babybloom.presentation.screens.LandingScreen
 import com.babybloom.presentation.screens.LoginScreen
 import com.babybloom.presentation.screens.ParentShell
 import com.babybloom.presentation.screens.RegisterScreen
+import com.babybloom.presentation.screens.SetParentPinScreen
 import com.babybloom.presentation.screens.WelcomeLearningScreen
 import com.babybloom.util.SessionQueueCodec
 import kotlinx.coroutines.flow.combine
@@ -35,6 +36,7 @@ object Routes {
     const val LANDING            = "landing"
     const val LOGIN              = "login"
     const val REGISTER           = "register"
+    const val SET_PARENT_PIN     = "set_parent_pin"
     const val CHANGE_PASSWORD    = "change_password"
     const val ADD_CHILD          = "add_child"
     const val HOME               = "home"
@@ -106,13 +108,23 @@ fun BabyBloomNavGraph(
         composable(Routes.REGISTER) {
             RegisterScreen(
                 onCreateAccount = {
-                    navController.navigate(Routes.ADD_CHILD) {
+                    navController.navigate(Routes.SET_PARENT_PIN) {
                         popUpTo(Routes.REGISTER) { inclusive = true }
                     }
                 },
                 onLoginClick = {
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(Routes.REGISTER) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(Routes.SET_PARENT_PIN) {
+            SetParentPinScreen(
+                onPinSaved = {
+                    navController.navigate(Routes.ADD_CHILD) {
+                        popUpTo(Routes.SET_PARENT_PIN) { inclusive = true }
                     }
                 }
             )
