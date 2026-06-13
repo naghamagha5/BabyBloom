@@ -126,6 +126,16 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_12_13 = object : Migration(12, 13) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE level_mastery ADD COLUMN contentId TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE level_mastery ADD COLUMN contentScore REAL")
+            db.execSQL("DROP INDEX IF EXISTS index_level_mastery_childId_skillArea_level")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_level_mastery_childId_skillArea_level_contentId ON level_mastery(childId, skillArea, level, contentId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_level_mastery_childId_contentId ON level_mastery(childId, contentId)")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
@@ -134,7 +144,7 @@ object DatabaseModule {
             AppDatabase::class.java,
             "babybloom_db"
         )
-            .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+            .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
             .fallbackToDestructiveMigration()
             .build()
     }

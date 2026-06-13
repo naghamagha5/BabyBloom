@@ -487,8 +487,8 @@ class SessionPlannerService @Inject constructor(
         passedContentIds: Set<String>,
         excludedContentIds: Set<String>,
         limit: Int
-    ): List<String> =
-        passedContentIds
+    ): List<String> {
+        val prioritizedCandidates = passedContentIds
             .filter { it !in excludedContentIds && contentById.containsKey(it) }
             .mapNotNull { contentId ->
                 val mastery = contentMasteryByContent[contentId] ?: return@mapNotNull null
@@ -502,8 +502,23 @@ class SessionPlannerService @Inject constructor(
                 compareBy<RevisionCandidate> { it.lastPassed }
                     .thenBy { it.score }
             )
+        if (prioritizedCandidates.isEmpty()) return emptyList()
+
+        val newestLastPassed = prioritizedCandidates.maxOf { it.lastPassed }
+        val cooledCandidates = prioritizedCandidates.filter { candidate ->
+            newestLastPassed - candidate.lastPassed > AlgorithmWeights.REVISION_RECENT_COOLDOWN_MS
+        }
+
+        val selectionPool = if (cooledCandidates.isNotEmpty()) {
+            cooledCandidates
+        } else {
+            prioritizedCandidates
+        }
+
+        return selectionPool
             .take(limit)
             .map { it.contentId }
+    }
 
     private suspend fun stepsForContent(
         content: LearningContent,

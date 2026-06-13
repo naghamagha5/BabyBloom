@@ -3,6 +3,7 @@ package com.babybloom.presentation.viewmodels
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.babybloom.di.NormalSessionProgress
 import com.babybloom.di.NormalSessionProgressStore
 import com.babybloom.domain.algorithm.SessionPlannerService
 import com.babybloom.domain.model.ActivityLaunchStep
@@ -29,6 +30,11 @@ data class WelcomeLearningUiState(
     val sessionId: Long = 0L,
     val stepIndex: Int = 0
 )
+
+internal object NormalSessionResumePlanner {
+    fun shouldResume(savedProgress: NormalSessionProgress): Boolean =
+        savedProgress.remainingMs != 0L
+}
 
 internal object RevisionContinuationPlanner {
     fun remainingOnly(remaining: List<ActivityLaunchStep>): List<ActivityLaunchStep> =
@@ -125,6 +131,19 @@ internal object RevisionContinuationPlanner {
             .filterNot { step -> (step.targetContentId ?: step.contentId)?.removeSuffix("_s") in replayContentIds }
         return beforeRevision + replayBatch + freshRevision
     }
+
+    fun prependRemainingBatchBeforeLearning(
+        freshQueue: List<ActivityLaunchStep>,
+        remainingBatch: List<ActivityLaunchStep>,
+        replayContentIds: Set<String>
+    ): List<ActivityLaunchStep> {
+        if (remainingBatch.isEmpty()) return freshQueue
+        val filteredFreshQueue = freshQueue.filterNot { step ->
+            step.phase == SessionPhase.REVISION &&
+                (step.targetContentId ?: step.contentId)?.removeSuffix("_s") in replayContentIds
+        }
+        return remainingBatch + filteredFreshQueue
+    }
 }
 
 @HiltViewModel
@@ -178,32 +197,29 @@ class WelcomeLearningViewModel @Inject constructor(
 
                 if (savedStep != null) {
                     val (resumeQueue, resumeIndex) = when (savedStep.phase) {
-                        SessionPhase.LEARNING -> savedQueue to
-                            savedQueue.indexOfFirst { it.phase == SessionPhase.LEARNING }.coerceAtLeast(0)
+                        SessionPhase.LEARNING -> freshQueue to 0
                         SessionPhase.TEST -> savedQueue to savedProgress.stepIndex
                         SessionPhase.REVISION -> {
-                            if (RevisionContinuationPlanner.isFirstBatch(savedQueue, savedProgress.stepIndex)) {
-                                val remainingRevision = revisionCurrentBatchContinuation(
-                                    fullQueue = savedQueue,
-                                    stepIndex = savedProgress.stepIndex
-                                )
-                                if (remainingRevision.isEmpty()) freshQueue to 0
-                                else (remainingRevision + freshQueue) to 0
+                            if (!RevisionContinuationPlanner.isFirstBatch(savedQueue, savedProgress.stepIndex)) {
+                                freshQueue to 0
                             } else {
-                                val batchContentIds = RevisionContinuationPlanner.currentBatchContentIds(
-                                    fullQueue = savedQueue,
-                                    currentStepIndex = savedProgress.stepIndex
-                                )
-                                val replayBatch = sessionPlannerService.buildRevisionStepsForContentIds(
-                                    profile = profile,
-                                    contentIds = batchContentIds
-                                )
-                                val mergedQueue = RevisionContinuationPlanner.prependReplayBatchToFreshQueue(
+                            val remainingRevision = revisionCurrentBatchContinuation(
+                                fullQueue = savedQueue,
+                                stepIndex = savedProgress.stepIndex
+                            )
+                            val batchContentIds = RevisionContinuationPlanner.currentBatchContentIds(
+                                fullQueue = savedQueue,
+                                currentStepIndex = savedProgress.stepIndex
+                            ).toSet()
+                            if (remainingRevision.isNotEmpty()) {
+                                RevisionContinuationPlanner.prependRemainingBatchBeforeLearning(
                                     freshQueue = freshQueue,
-                                    replayBatch = replayBatch,
-                                    replayContentIds = batchContentIds.toSet()
+                                    remainingBatch = remainingRevision,
+                                    replayContentIds = batchContentIds
                                 )
-                                mergedQueue to 0
+                            } else {
+                                freshQueue
+                            } to 0
                             }
                         }
                     }

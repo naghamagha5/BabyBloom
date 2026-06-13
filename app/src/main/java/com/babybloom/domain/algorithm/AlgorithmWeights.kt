@@ -46,6 +46,7 @@ object AlgorithmWeights {
     const val WEAK_SKILL_ACTIVITY_RATIO = 0.50f  // 50% of session targets weak skills
     const val SESSION_ACTIVITY_COUNT    = 4       // activities per regular session
     const val REVISION_CONTENT_COUNT    = 3       // passed content IDs revised after the learning tests
+    const val REVISION_RECENT_COOLDOWN_MS = 1_000L
 
     // ── Assessment ─────────────────────────────────────────────────────────
     const val ASSESSMENT_ACTIVITIES_PER_SKILL = 2
