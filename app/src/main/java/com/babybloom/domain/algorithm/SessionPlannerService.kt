@@ -530,19 +530,23 @@ class SessionPlannerService @Inject constructor(
         val allActivities = activityRepository.getAll()
         val candidates = allActivities
             .filter { activity ->
-                allowedPrefixes.any { prefix -> activity.id.startsWith(prefix) }
+                allowedPrefixes.any { prefix -> matchesAllowedFamily(activity.id, prefix) }
             }
             .filter { activity ->
                 phase != SessionPhase.LEARNING ||
-                    activity.activityType == "STORY" ||
-                    activity.modality == profile.dominantModality
+                        activity.activityType == "STORY" ||
+                        activity.modality == profile.dominantModality
             }
             .sortedWith(
                 compareByDescending<com.babybloom.domain.model.Activity> { activity ->
                     if (phase == SessionPhase.LEARNING) modalityPreferenceScore(activity, profile)
                     else 0f
                 }.thenBy { activity ->
-                    allowedPrefixes.indexOfFirst { prefix -> activity.id.startsWith(prefix) }
+                    allowedPrefixes.indexOfFirst { prefix -> matchesAllowedFamily(activity.id, prefix) }
+                        .takeIf { it >= 0 }
+                        ?: Int.MAX_VALUE
+                }.thenBy { activity ->
+                    kotlin.math.abs(activity.difficultyLevel - content.difficultyLevel)
                         .takeIf { it >= 0 }
                         ?: Int.MAX_VALUE
                 }
@@ -568,8 +572,7 @@ class SessionPlannerService @Inject constructor(
                 )
             }
             .distinctBy { step ->
-                allowedPrefixes.firstOrNull { prefix -> step.activityId.startsWith(prefix) }
-                    ?: step.activityId
+                activityFamily(step.activityId)
             }
 
         if (phase != SessionPhase.LEARNING) return candidates
@@ -641,6 +644,17 @@ class SessionPlannerService @Inject constructor(
         return content.id
     }
 
+    private fun activityFamily(activityId: String): String =
+        activityId.replace(Regex("_d\\d+$"), "")
+
+    private fun matchesAllowedFamily(
+        activityId: String,
+        allowedPrefix: String
+    ): Boolean {
+        val normalizedAllowedFamily = allowedPrefix.removeSuffix("_")
+        return activityFamily(activityId) == normalizedAllowedFamily
+    }
+
     private fun interleaveTestSteps(
         groupedSteps: List<List<ActivityLaunchStep>>
     ): List<ActivityLaunchStep> {
@@ -689,7 +703,7 @@ class SessionPlannerService @Inject constructor(
         "${activityId}:${contentId.orEmpty()}:${phase.name}"
 
     private companion object {
-        const val CATEGORY_LETTER = "LETTER_NAME"
+        const val CATEGORY_LETTER = "LETTER"
         const val CATEGORY_ANIMAL = "ANIMAL"
         const val CATEGORY_NUMBER = "NUMBER"
         const val CATEGORY_COLOR = "COLOR"
