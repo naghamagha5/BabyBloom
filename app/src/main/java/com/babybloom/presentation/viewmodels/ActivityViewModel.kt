@@ -152,6 +152,7 @@ class ActivityViewModel @Inject constructor(
     private var currentStepIndex: Int = 0
     private var currentStep: ActivityLaunchStep? = null
     private var lastAlgorithmOutput: AlgorithmOutput? = null
+    private var pendingCompletion: ActivityUiState.Completed? = null
 
     // ── Load ──────────────────────────────────────────────────────────────────
 
@@ -332,7 +333,7 @@ class ActivityViewModel @Inject constructor(
                     )
                     saveNormalSessionProgress(0L)
                     val (sessionScore, sessionTotal) = getSessionScore()
-                    _uiState.value = ActivityUiState.Completed(
+                    publishCompletion(current, ActivityUiState.Completed(
                         sessionScore,
                         sessionTotal,
                         sessionId  = this@ActivityViewModel.sessionId,
@@ -342,7 +343,7 @@ class ActivityViewModel @Inject constructor(
                             ?.contentId,
                         stepIndex  = currentStepIndex,
                         decision   = null
-                    )
+                    ))
                     break
                 }
                 delay(1_000)
@@ -461,7 +462,7 @@ class ActivityViewModel @Inject constructor(
                     }
                     else -> newScore to current.activityWithContent.contentItems.size
                 }
-                _uiState.value = ActivityUiState.Completed(
+                publishCompletion(current, ActivityUiState.Completed(
                     completedScore,
                     completedTotal,
                     sessionId  = this@ActivityViewModel.sessionId,
@@ -471,7 +472,7 @@ class ActivityViewModel @Inject constructor(
                         ?.contentId,
                     stepIndex  = currentStepIndex,
                     decision   = decision
-                )
+                ))
             } else {
                 attentionTracker.reset()
                 _uiState.value = current.copy(
@@ -529,6 +530,17 @@ class ActivityViewModel @Inject constructor(
 
     // ── Parent Lock ───────────────────────────────────────────────────────────
 
+    private fun publishCompletion(
+        current: ActivityUiState.Playing,
+        completed: ActivityUiState.Completed
+    ) {
+        if (current.showParentLock) {
+            pendingCompletion = completed
+        } else {
+            _uiState.value = completed
+        }
+    }
+
     fun requestExit() {
         val current = _uiState.value as? ActivityUiState.Playing ?: return
         if (current.sessionSettings.hasParentPin) {
@@ -540,7 +552,8 @@ class ActivityViewModel @Inject constructor(
 
     fun dismissParentLock() {
         val current = _uiState.value as? ActivityUiState.Playing ?: return
-        _uiState.value = current.copy(showParentLock = false)
+        _uiState.value = pendingCompletion ?: current.copy(showParentLock = false)
+        pendingCompletion = null
     }
 
     fun stopSoundSession() {
