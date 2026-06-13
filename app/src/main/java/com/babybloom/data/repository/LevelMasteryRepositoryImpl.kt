@@ -21,6 +21,12 @@ class LevelMasteryRepositoryImpl @Inject constructor(
     override suspend fun getAllForChild(childId: Long): List<LevelMasteryEntity> =
         dao.getAllForChild(childId)
 
+    override suspend fun getByContentId(childId: Long, contentId: String): LevelMasteryEntity? =
+        dao.getByContentId(childId, contentId)
+
+    override suspend fun getContentScoresForChild(childId: Long): List<LevelMasteryEntity> =
+        dao.getContentScoresForChild(childId)
+
     override suspend fun incrementMastered(childId: Long, skillArea: String, level: Int) =
         dao.incrementMastered(childId, skillArea, level)
 

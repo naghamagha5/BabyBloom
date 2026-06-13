@@ -199,28 +199,22 @@ class SessionPlannerService @Inject constructor(
         val resultHistory = results
             .filter { it.contentId.isNotBlank() }
             .groupBy { it.contentId.removeSuffix("_s") }
-        val scoreByResultId = results.associate { result ->
-            result.id to algorithmScore(result)
-        }
-        val latestScoreByContent = resultHistory.mapValues { (_, contentResults) ->
-            contentResults
-                .maxByOrNull { it.timestamp }
-                ?.let { scoreByResultId[it.id] }
-                ?: 0f
-        }
-        val passedContentIds = latestScoreByContent
-            .filterValues { it >= AlgorithmWeights.CONTENT_PASS_THRESHOLD }
+        val contentMasteryRows = levelMasteryRepository.getContentScoresForChild(profile.childId)
+        val persistedScoresByContent = contentMasteryRows
+            .filter { it.contentId.isNotBlank() && it.contentScore != null }
+            .associateBy { it.contentId }
+        val passedContentIds = persistedScoresByContent
+            .filterValues { (it.contentScore ?: 0f) > AlgorithmWeights.CONTENT_PASS_THRESHOLD }
             .keys
         val assessmentPassedContentIds = assessmentPassedContentIds(profile.childId, allContent)
         val masteredContentIds = passedContentIds + assessmentPassedContentIds
 
         val revisionContentQueue = selectRevisionContentIds(
             contentById = contentById,
-            resultHistory = resultHistory,
-            scoreByResultId = scoreByResultId,
+            contentMasteryByContent = persistedScoresByContent,
             passedContentIds = masteredContentIds,
             excludedContentIds = emptySet(),
-            limit = Int.MAX_VALUE
+            limit = AlgorithmWeights.REVISION_CONTENT_COUNT
         )
             .mapNotNull { contentById[it] }
 
@@ -291,6 +285,109 @@ class SessionPlannerService @Inject constructor(
 
         return queue
             .distinctBy { it.exactStepKey() }
+    }
+
+    suspend fun buildRevisionSteps(
+        profile: ChildProfile,
+        excludedContentIds: Set<String>,
+        limit: Int = AlgorithmWeights.REVISION_CONTENT_COUNT,
+        fallbackToAllWhenEmpty: Boolean = true
+    ): List<ActivityLaunchStep> {
+        val allContent = listOf(
+            learningContentRepository.getByCategory(CATEGORY_LETTER),
+            learningContentRepository.getByCategory(CATEGORY_ANIMAL),
+            learningContentRepository.getByCategory(CATEGORY_NUMBER),
+            learningContentRepository.getByCategory(CATEGORY_COLOR),
+            learningContentRepository.getByCategory(CATEGORY_SHAPE)
+        ).flatten()
+        if (allContent.isEmpty()) return emptyList()
+
+        val contentById = allContent.associateBy { it.id }
+        val contentMasteryRows = levelMasteryRepository.getContentScoresForChild(profile.childId)
+        val persistedScoresByContent = contentMasteryRows
+            .filter { it.contentId.isNotBlank() && it.contentScore != null }
+            .associateBy { it.contentId }
+        val passedContentIds = persistedScoresByContent
+            .filterValues { (it.contentScore ?: 0f) > AlgorithmWeights.CONTENT_PASS_THRESHOLD }
+            .keys + assessmentPassedContentIds(profile.childId, allContent)
+
+        val prioritizedIds = selectRevisionContentIds(
+            contentById = contentById,
+            contentMasteryByContent = persistedScoresByContent,
+            passedContentIds = passedContentIds,
+            excludedContentIds = excludedContentIds,
+            limit = limit
+        ).ifEmpty {
+            if (fallbackToAllWhenEmpty && excludedContentIds.isNotEmpty()) {
+                selectRevisionContentIds(
+                    contentById = contentById,
+                    contentMasteryByContent = persistedScoresByContent,
+                    passedContentIds = passedContentIds,
+                    excludedContentIds = emptySet(),
+                    limit = limit
+                )
+            } else {
+                emptyList()
+            }
+        }
+
+        return interleaveTestSteps(
+            prioritizedIds
+                .mapNotNull { contentById[it] }
+                .map { content ->
+                    stepsForContent(
+                        content = content,
+                        allContent = allContent,
+                        phase = SessionPhase.REVISION,
+                        profile = profile
+                    )
+                }
+        ).distinctBy { it.exactStepKey() }
+    }
+
+    suspend fun buildRevisionStepsForContent(
+        profile: ChildProfile,
+        contentId: String
+    ): List<ActivityLaunchStep> {
+        val allContent = listOf(
+            learningContentRepository.getByCategory(CATEGORY_LETTER),
+            learningContentRepository.getByCategory(CATEGORY_ANIMAL),
+            learningContentRepository.getByCategory(CATEGORY_NUMBER),
+            learningContentRepository.getByCategory(CATEGORY_COLOR),
+            learningContentRepository.getByCategory(CATEGORY_SHAPE)
+        ).flatten()
+        val content = allContent.firstOrNull { it.id == contentId } ?: return emptyList()
+        return stepsForContent(
+            content = content,
+            allContent = allContent,
+            phase = SessionPhase.REVISION,
+            profile = profile
+        ).distinctBy { it.exactStepKey() }
+    }
+
+    suspend fun buildRevisionStepsForContentIds(
+        profile: ChildProfile,
+        contentIds: List<String>
+    ): List<ActivityLaunchStep> {
+        val allContent = listOf(
+            learningContentRepository.getByCategory(CATEGORY_LETTER),
+            learningContentRepository.getByCategory(CATEGORY_ANIMAL),
+            learningContentRepository.getByCategory(CATEGORY_NUMBER),
+            learningContentRepository.getByCategory(CATEGORY_COLOR),
+            learningContentRepository.getByCategory(CATEGORY_SHAPE)
+        ).flatten()
+        val contentById = allContent.associateBy { it.id }
+        return interleaveTestSteps(
+            contentIds.mapNotNull { contentId ->
+                val content = contentById[contentId] ?: return@mapNotNull null
+                stepsForContent(
+                    content = content,
+                    allContent = allContent,
+                    phase = SessionPhase.REVISION,
+                    profile = profile
+                )
+            }
+        ).distinctBy { it.exactStepKey() }
     }
 
     private fun buildLearningBatches(
@@ -386,8 +483,7 @@ class SessionPlannerService @Inject constructor(
 
     private fun selectRevisionContentIds(
         contentById: Map<String, LearningContent>,
-        resultHistory: Map<String, List<com.babybloom.domain.model.ActivityResult>>,
-        scoreByResultId: Map<Long, Float>,
+        contentMasteryByContent: Map<String, com.babybloom.data.local.entity.LevelMasteryEntity>,
         passedContentIds: Set<String>,
         excludedContentIds: Set<String>,
         limit: Int
@@ -395,12 +491,11 @@ class SessionPlannerService @Inject constructor(
         passedContentIds
             .filter { it !in excludedContentIds && contentById.containsKey(it) }
             .mapNotNull { contentId ->
-                val history = resultHistory[contentId].orEmpty()
-                val latest = history.maxByOrNull { it.timestamp } ?: return@mapNotNull null
+                val mastery = contentMasteryByContent[contentId] ?: return@mapNotNull null
                 RevisionCandidate(
                     contentId = contentId,
-                    score = scoreByResultId[latest.id] ?: latest.score,
-                    lastPassed = latest.timestamp
+                    score = mastery.contentScore ?: 0f,
+                    lastPassed = mastery.lastUpdated
                 )
             }
             .sortedWith(
@@ -452,6 +547,7 @@ class SessionPlannerService @Inject constructor(
                 ActivityLaunchStep(
                     activityId = activity.id,
                     contentId = matchingItem.contentId,
+                    targetContentId = content.id,
                     isTest = phase != SessionPhase.LEARNING,
                     phase = phase
                 )
@@ -490,30 +586,29 @@ class SessionPlannerService @Inject constructor(
     ): List<String> =
         when (category) {
             CATEGORY_LETTER -> when (phase) {
-                SessionPhase.LEARNING -> listOf("story_letters", "match_letters", "trace_letters","listen_and_choose_letters")
+                SessionPhase.LEARNING -> listOf("story_letters", "match_letters", "trace_letters","listen_choose_letters")
                 SessionPhase.TEST, SessionPhase.REVISION -> listOf(
-                    "speech_letters_",
-                    "speech_letters_sounds",
+                    "speech_letters",
                     "match_letters",
                     "trace_letters",
-                    "listen_and_choose_letters"
+                    "listen_choose_letters"
                 )
             }
             CATEGORY_ANIMAL -> when (phase) {
-                SessionPhase.LEARNING -> listOf("story_animals", "drag_letters", "match_animals","listen_and_choose_animals")
-                SessionPhase.TEST, SessionPhase.REVISION -> listOf("speech_animals", "drag_letters", "match_animals", "listen_and_choose_animals")
+                SessionPhase.LEARNING -> listOf("story_animals", "drag_letters", "match_animals","listen_choose_animals")
+                SessionPhase.TEST, SessionPhase.REVISION -> listOf("speech_animals", "drag_letters", "match_animals", "listen_choose_animals")
             }
             CATEGORY_NUMBER -> when (phase) {
-                SessionPhase.LEARNING -> listOf("story_numbers", "count_", "drag_numbers", "trace_numbers","listen_and_choose_numbers")
-                SessionPhase.TEST, SessionPhase.REVISION -> listOf("speech_numbers", "count_", "drag_numbers", "trace_numbers", "listen_and_choose_numbers")
+                SessionPhase.LEARNING -> listOf("story_numbers", "count_", "drag_numbers", "trace_numbers","listen_choose_numbers")
+                SessionPhase.TEST, SessionPhase.REVISION -> listOf("speech_numbers", "count_", "drag_numbers", "trace_numbers", "listen_choose_numbers")
             }
             CATEGORY_SHAPE -> when (phase) {
-                SessionPhase.LEARNING -> listOf("story_shapes", "drag_shapes", "trace_shapes", "match_shapes","listen_and_choose_shapes")
-                SessionPhase.TEST, SessionPhase.REVISION -> listOf("speech_shapes", "drag_shapes", "trace_shapes", "match_shapes", "listen_and_choose_shapes")
+                SessionPhase.LEARNING -> listOf("story_shapes", "drag_shapes", "trace_shapes", "match_shapes","listen_choose_shapes")
+                SessionPhase.TEST, SessionPhase.REVISION -> listOf("speech_shapes", "drag_shapes", "trace_shapes", "match_shapes", "listen_choose_shapes")
             }
             CATEGORY_COLOR -> when (phase) {
-                SessionPhase.LEARNING -> listOf("story_colors", "drag_colors", "match_colors", "listen_and_choose_colors")
-                SessionPhase.TEST, SessionPhase.REVISION -> listOf("speech_colors", "drag_colors", "match_colors", "listen_and_choose_colors")
+                SessionPhase.LEARNING -> listOf("story_colors", "drag_colors", "match_colors", "listen_choose_colors")
+                SessionPhase.TEST, SessionPhase.REVISION -> listOf("speech_colors", "drag_colors", "match_colors", "listen_choose_colors")
             }
             else -> emptyList()
         }
@@ -573,12 +668,6 @@ class SessionPlannerService @Inject constructor(
                 content.difficultyLevel <= masteredLevel
             }
             .mapTo(mutableSetOf()) { it.id }
-    }
-
-    private suspend fun algorithmScore(result: com.babybloom.domain.model.ActivityResult): Float {
-        val activity = activityRepository.getById(result.activityId) ?: return result.score
-        val signal = com.babybloom.domain.model.ActivitySignal.from(result, activity)
-        return algorithmEngine.computeItemScore(signal)
     }
 
     private fun ActivityLaunchStep.exactStepKey(): String =

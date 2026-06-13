@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface ActivityResultRepository {
     suspend fun saveResult(result: ActivityResult): Long
+    suspend fun updateScore(resultId: Long, score: Float)
     suspend fun getBySession(sessionId: Long): List<ActivityResult>
     suspend fun getByChild(childId: Long): List<ActivityResult>
     suspend fun getRecentBySkillArea(

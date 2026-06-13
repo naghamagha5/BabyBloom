@@ -18,6 +18,7 @@ import com.babybloom.domain.repository.AssessmentRepository
 import com.babybloom.domain.repository.ChildProfileRepository
 import com.babybloom.domain.repository.ChildRepository
 import com.babybloom.domain.repository.LevelMasteryRepository
+import com.babybloom.domain.repository.LearningContentRepository
 import com.babybloom.domain.repository.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -93,7 +94,8 @@ class AssessmentViewModel @Inject constructor(
     private val childRepository: ChildRepository,
     private val sessionRepository: SessionRepository,
     private val activityResultRepository: ActivityResultRepository,
-    private val levelMasteryRepository: LevelMasteryRepository
+    private val levelMasteryRepository: LevelMasteryRepository,
+    private val learningContentRepository: LearningContentRepository
 ) : ViewModel() {
 
     private companion object {
@@ -371,6 +373,7 @@ class AssessmentViewModel @Inject constructor(
 
     private suspend fun seedAssessmentMastery(result: AssessmentResult) {
         levelMasteryRepository.deleteAllForChild(childId)
+        val seededAt = System.currentTimeMillis()
 
         categoryAssessmentSkillAreas().forEach { (category, skillArea) ->
             val passedLevel = result.categoryLevels[category.name.lowercase()]
@@ -387,8 +390,35 @@ class AssessmentViewModel @Inject constructor(
                     )
                 )
             }
+
+            val passedContent = learningContentRepository
+                .getByCategory(learningCategoryFor(category))
+                .filter { it.difficultyLevel <= passedLevel }
+                .sortedBy { it.learningOrder }
+
+            passedContent.forEachIndexed { index, content ->
+                levelMasteryRepository.upsert(
+                    LevelMasteryEntity(
+                        childId = childId,
+                        skillArea = skillArea,
+                        level = content.difficultyLevel,
+                        contentId = content.id,
+                        contentScore = 0f,
+                        lastUpdated = seededAt + index
+                    )
+                )
+            }
         }
     }
+
+    private fun learningCategoryFor(category: AssessmentCategory): String =
+        when (category) {
+            AssessmentCategory.LETTERS -> "LETTER_NAME"
+            AssessmentCategory.ANIMALS -> "ANIMAL"
+            AssessmentCategory.NUMBERS -> "NUMBER"
+            AssessmentCategory.COLORS -> "COLOR"
+            AssessmentCategory.SHAPES -> "SHAPE"
+        }
 
     private suspend fun buildAssessmentResult(hitItemCap: Boolean): AssessmentResult {
         val categoryLevels = categoryStates.mapValues { (_, state) ->

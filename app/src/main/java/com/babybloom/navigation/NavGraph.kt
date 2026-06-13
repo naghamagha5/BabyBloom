@@ -42,6 +42,7 @@ object Routes {
     const val WELCOME_LEARNING   = "welcome_learning"   // ← new
     const val ASSESSMENT         = "assessment"
     const val ACTIVITY_SHELL     = "activity_shell"
+    const val TEST               = "test"               // ← for testing DragGame
 }
 
 @Composable
@@ -271,8 +272,8 @@ fun BabyBloomNavGraph(
                                 buildString {
                                     append("${Routes.ACTIVITY_SHELL}/${decision.activityId}/$effectiveSessionId/$childId")
                                     append("?contentId=${Uri.encode(decision.contentId.orEmpty())}")
-                                    append("&queue=${Uri.encode(queueArg.orEmpty())}")
-                                    append("&stepIndex=$stepIndex")
+                                    append("&queue=${Uri.encode(decision.encodedQueue ?: queueArg.orEmpty())}")
+                                    append("&stepIndex=${decision.stepIndex ?: stepIndex}")
                                 }
                             ) {
                                 popUpTo(backStackEntry.destination.id) { inclusive = true }
@@ -283,8 +284,8 @@ fun BabyBloomNavGraph(
                                 buildString {
                                     append("${Routes.ACTIVITY_SHELL}/${decision.activityId}/$effectiveSessionId/$childId")
                                     append("?contentId=${Uri.encode(decision.contentId.orEmpty())}")
-                                    append("&queue=${Uri.encode(queueArg.orEmpty())}")
-                                    append("&stepIndex=${stepIndex + 1}")
+                                    append("&queue=${Uri.encode(decision.encodedQueue ?: queueArg.orEmpty())}")
+                                    append("&stepIndex=${decision.stepIndex ?: (stepIndex + 1)}")
                                 }
                             ) {
                                 popUpTo(backStackEntry.destination.id) { inclusive = true }
