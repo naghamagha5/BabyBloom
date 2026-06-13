@@ -659,6 +659,38 @@ class ActivityViewModel @Inject constructor(
         val activeStep = currentStep
         if (
             activeStep != null &&
+            activeStep.phase == com.babybloom.domain.model.SessionPhase.TEST &&
+            sessionRemainingMs > 0L
+        ) {
+            val profile = childProfileRepository.getByChildId(childId)
+            if (profile != null) {
+                val usedRevisionIds = sessionQueue
+                    .filter { it.phase == com.babybloom.domain.model.SessionPhase.REVISION }
+                    .mapNotNull { (it.targetContentId ?: it.contentId)?.removeSuffix("_s") }
+                    .toSet()
+                val additionalSteps = sessionPlannerService.buildRevisionSteps(
+                    profile = profile,
+                    excludedContentIds = usedRevisionIds,
+                    limit = AlgorithmWeights.REVISION_CONTENT_COUNT,
+                    fallbackToAllWhenEmpty = true
+                )
+                if (additionalSteps.isNotEmpty()) {
+                    sessionQueue = sessionQueue + additionalSteps
+                    val appendedNext = sessionQueue.getOrNull(currentStepIndex + 1)
+                    if (appendedNext != null) {
+                        return SessionDecision.Next(
+                            activityId = appendedNext.activityId,
+                            contentId = appendedNext.contentId,
+                            encodedQueue = SessionQueueCodec.encode(sessionQueue),
+                            stepIndex = currentStepIndex + 1
+                        )
+                    }
+                }
+            }
+        }
+
+        if (
+            activeStep != null &&
             activeStep.phase == com.babybloom.domain.model.SessionPhase.REVISION &&
             sessionRemainingMs > 0L
         ) {
