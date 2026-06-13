@@ -719,9 +719,12 @@ class ActivityViewModel @Inject constructor(
                 ActivitySignal.from(result, activity)
             }
         val modalityProfile = algorithmEngine.updateModalityPreferencesFromSession(signals, profile)
-        val completedTestResults = sessionResults.filter { result ->
-            "${result.activityId}:${result.contentId}" in testStepKeys
-        }
+        val allChildResults = activityResultRepository.getByChild(childId)
+        val completedTestResults = latestCompletedTestResults(
+            childId = childId,
+            testStepKeys = testStepKeys,
+            allChildResults = allChildResults
+        )
         val isTestPartComplete = testStepKeys.isNotEmpty() &&
             completedTestResults
                 .map { "${it.activityId}:${it.contentId}" }
@@ -802,6 +805,32 @@ class ActivityViewModel @Inject constructor(
                     latestResultTimestamp = contentResults.maxOfOrNull { it.timestamp } ?: 0L
                 )
             }
+
+    private suspend fun latestCompletedTestResults(
+        childId: Long,
+        testStepKeys: Set<String>,
+        allChildResults: List<ActivityResult>
+    ): List<ActivityResult> {
+        if (testStepKeys.isEmpty()) return emptyList()
+
+        val contentThresholds = testStepKeys
+            .mapNotNull { key ->
+                val contentId = key.substringAfter(':', "").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                val normalizedContentId = contentId.removeSuffix("_s")
+                normalizedContentId to (levelMasteryRepository.getByContentId(childId, normalizedContentId)?.lastUpdated ?: 0L)
+            }
+            .toMap()
+
+        return allChildResults
+            .filter { result ->
+                val stepKey = "${result.activityId}:${result.contentId}"
+                if (stepKey !in testStepKeys) return@filter false
+                val normalizedContentId = result.contentId.removeSuffix("_s")
+                result.timestamp > (contentThresholds[normalizedContentId] ?: 0L)
+            }
+            .groupBy { "${it.activityId}:${it.contentId}" }
+            .mapNotNull { (_, rows) -> rows.maxByOrNull { it.timestamp } }
+    }
 
     private suspend fun persistTestContentScores(
         childId: Long,
