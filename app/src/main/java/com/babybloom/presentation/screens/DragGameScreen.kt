@@ -110,6 +110,7 @@ private val SHAPE_TILE_SIZE                = 180.dp
 private val SHAPE_OUTLINE_SLOT_SIZE        = 190.dp
 private val SHAPE_DROP_RADIUS_DP           = 115.dp
 private val SHAPE_INSTRUCTION_SIZE_SP      = 18
+private const val SHAPE_DRAG_SCALE_ACTIVE  = 1.12f
 
 // ── Drag/animation constants ──────────────────────────────────────────────────
 private const val DRAG_SCALE_ACTIVE        = 1.25f
@@ -142,6 +143,14 @@ private val activeShapeSwatches = listOf(
 private fun shapeColorForIndex(index: Int, isCalmMode: Boolean): Color {
     val swatches = if (isCalmMode) calmShapeSwatches else activeShapeSwatches
     return swatches[index % swatches.size]
+}
+
+private fun <T> shapeGridRows(items: List<T>): List<List<T>> = when {
+    items.size >= 4 -> listOf(items.take(2), items.drop(2).take(2))
+    items.size == 3 -> listOf(items.take(1), items.drop(1))
+    items.size == 2 -> listOf(items)
+    items.size == 1 -> listOf(items)
+    else -> emptyList()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -177,9 +186,133 @@ private fun DragInstructionBadge(text: String, accentColor: Color = TraceBadgeTe
     }
 }
 
+@Composable
+private fun DragTargetNumberIcon(targetCount: Int, modifier: Modifier = Modifier.size(44.dp)) {
+    val colors = LocalGameColorScheme.current
+    val context = LocalContext.current
+    val asset = remember(targetCount, colors.isCalmMode) {
+        AssetPathResolver.imageAssetFor(
+            contentId = "number_$targetCount",
+            category = "NUMBER",
+            isCalmMode = colors.isCalmMode
+        )
+    }
+
+    when (asset) {
+        is ImageAsset.SvgDrawable -> {
+            val drawableId = remember(asset.drawableName) {
+                context.resources.getIdentifier(
+                    asset.drawableName,
+                    "drawable",
+                    context.packageName
+                )
+            }
+            if (drawableId != 0) {
+                Box(
+                    modifier = modifier,
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(drawableId),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit,
+                        colorFilter = ColorFilter.tint(colors.accent)
+                    )
+                }
+            }
+        }
+
+        is ImageAsset.PngAsset -> {
+            Box(
+                modifier = modifier,
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(AssetPathResolver.androidAssetUri(asset.path))
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DragTargetNumberBadge(number: String, targetCount: Int) {
+    val colors = LocalGameColorScheme.current
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(colors.background)
+            .border(1.5.dp, colors.accent.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            DragTargetNumberIcon(targetCount = targetCount)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = number,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = colors.accent,
+                textAlign = TextAlign.Center,
+                style = LocalTextStyle.current.copy(textDirection = TextDirection.Rtl)
+            )
+        }
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Color name badge for test layout
 // ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun DragTargetNumberRevealCard(label: String, targetCount: Int) {
+    val colors = LocalGameColorScheme.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(0.72f)
+            .shadow(18.dp, RoundedCornerShape(28.dp), clip = false)
+            .clip(RoundedCornerShape(28.dp))
+            .background(colors.background)
+            .border(3.dp, colors.accent.copy(alpha = 0.45f), RoundedCornerShape(28.dp))
+            .padding(horizontal = 28.dp, vertical = 32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                DragTargetNumberIcon(
+                    targetCount = targetCount,
+                    modifier = Modifier.size(120.dp)
+                )
+            }
+            Spacer(Modifier.height(20.dp))
+            Text(
+                text = label,
+                fontSize = 34.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = colors.accent,
+                textAlign = TextAlign.Center,
+                style = LocalTextStyle.current.copy(textDirection = TextDirection.Rtl)
+            )
+        }
+    }
+}
+
 @Composable
 private fun ColorNameBadge(label: String, colorId: String) {
     val displayColor = dragColorForContentId(colorId)
@@ -498,7 +631,7 @@ private fun ColorToPaintGame(
                     ColorShapeCanvas(
                         state        = state,
                         penStrokePts = penStrokePts,
-                        activeColor  = if (penHasVisitedColorBox.value) activeColor else null,
+                        activeColor  = if (penHasVisitedColorBox.value || state.isCorrect) activeColor else null,
                         colors       = colors
                     )
                 }
@@ -556,7 +689,7 @@ private fun ColorToPaintGame(
                         penBoxDp       = COLOR_GAME_PEN_BOX_H,
                         isAnswered     = state.isAnswered,
                         resetKey       = strokeKey,
-                        fillColor      = if (penHasVisitedColorBox.value) activeColor else null,
+                        fillColor      = if (penHasVisitedColorBox.value || state.isCorrect) activeColor else null,
                         // Wobble hint is suppressed while dragging so rotation
                         // doesn't fight the finger position.
                         hintRotation   = if (state.hintColorId != null && !isColorPenDragging)
@@ -1420,19 +1553,39 @@ private fun AnimalsToCageGame(
         }
     }
 
+    if (state.showTargetNumberCard) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            DragTargetNumberRevealCard(
+                label = state.currentLabel,
+                targetCount = state.targetCount
+            )
+        }
+        return
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
 
         Column(
             modifier            = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
-                modifier         = Modifier
+            Column(
+                modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 4.dp, bottom = 2.dp),
-                contentAlignment = Alignment.Center
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 DragInstructionBadge(text = state.instructionText)
+                Spacer(Modifier.height(8.dp))
+                DragTargetNumberBadge(
+                    number = state.targetNumeral,
+                    targetCount = state.targetCount
+                )
             }
 
             BoxWithConstraints(
@@ -1488,7 +1641,7 @@ private fun AnimalsToCageGame(
                                         onDragMove    = { pos -> viewModel.onTouchPoint(pos) },
                                         onDragFinished = {
                                             isAnimalDragging = false
-                                            viewModel.onTouchEnd()
+                                            viewModel.onCageAnimalDragReleased()
                                         },
                                         onDropped     = { dropPx ->
                                             if ((dropPx - cageCenterPx.value).getDistance() < dropRadiusPx) {
@@ -1787,11 +1940,11 @@ private fun ShapeToOutlineGame(
                         hintRotation   = if (tileOption.shapeId == state.hintShapeId) hintAnim.value else 0f,
                         onDragMove     = { viewModel.onTouchPoint(it) },
                         onDragStarted  = {
-                            viewModel.onTouchStart()
+                            viewModel.onShapeTileDragStarted()
                             isShapeDragging = true
                         },
                         onDragEnded    = {
-                            viewModel.onTouchEnd()
+                            viewModel.onShapeTileDragReleased()
                             isShapeDragging = false
                         },
                         onPositioned   = { center -> tileCenter = center },
@@ -1847,11 +2000,11 @@ private fun ShapeToOutlineGame(
                         hintRotation = if (tileOption.shapeId == state.hintShapeId) hintAnim.value else 0f,
                         onDragMove   = { viewModel.onTouchPoint(it) },
                         onDragStarted = {
-                            viewModel.onTouchStart()
+                            viewModel.onShapeTileDragStarted()
                             isShapeDragging = true
                         },
                         onDragEnded   = {
-                            viewModel.onTouchEnd()
+                            viewModel.onShapeTileDragReleased()
                             isShapeDragging = false
                         },
                         onDropped    = { shapeId, dropPx ->
@@ -1913,51 +2066,47 @@ private fun ShapeOutlineSlotsTriangle(
     shapeColorMap   : Map<String, Color>,
     slotCenters     : MutableMap<String, Offset>
 ) {
-    val slots = outlineSlots.take(3)
-    Column(
-        modifier            = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        if (slots.isNotEmpty()) {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                ShapeOutlineSlot(
-                    slotShapeId    = slots[0],
-                    droppedShapeId = droppedShapes[slots[0]],
-                    isCorrect      = isCorrect,
-                    isWrong        = wrongDropSlotId == slots[0],
-                    isAnswered     = isAnswered,
-                    shapeOptions   = shapeOptions,
-                    shapeColorMap  = shapeColorMap,
-                    modifier       = Modifier.onGloballyPositioned { coords ->
-                        val pos = coords.positionInRoot()
-                        val sz  = coords.size
-                        slotCenters[slots[0]] = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
+    val slots = outlineSlots.take(4)
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val rowSpacing = 12.dp
+        val horizontalPadding = 16.dp
+        val rows = shapeGridRows(slots)
+        val maxColumns = rows.maxOfOrNull { it.size } ?: 1
+        val computedBottomSlotSize =
+            ((maxWidth - horizontalPadding * 2 - rowSpacing * (maxColumns - 1)) / maxColumns)
+                .coerceAtMost(SHAPE_OUTLINE_SLOT_SIZE)
+        val slotSize = computedBottomSlotSize.coerceAtLeast(128.dp)
+
+        Column(
+            modifier            = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            for (rowSlots in rows) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = horizontalPadding),
+                    horizontalArrangement = Arrangement.spacedBy(rowSpacing, Alignment.CenterHorizontally),
+                    verticalAlignment     = Alignment.CenterVertically
+                ) {
+                    for (slotId in rowSlots) {
+                        ShapeOutlineSlot(
+                            slotShapeId    = slotId,
+                            droppedShapeId = droppedShapes[slotId],
+                            isCorrect      = isCorrect,
+                            isWrong        = wrongDropSlotId == slotId,
+                            isAnswered     = isAnswered,
+                            shapeOptions   = shapeOptions,
+                            shapeColorMap  = shapeColorMap,
+                            slotSize       = slotSize,
+                            modifier       = Modifier.onGloballyPositioned { coords ->
+                                val pos = coords.positionInRoot()
+                                val sz  = coords.size
+                                slotCenters[slotId] = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
+                            }
+                        )
                     }
-                )
-            }
-        }
-        if (slots.size > 1) {
-            Row(
-                modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                verticalAlignment     = Alignment.CenterVertically
-            ) {
-                for (slotId in slots.drop(1)) {
-                    ShapeOutlineSlot(
-                        slotShapeId    = slotId,
-                        droppedShapeId = droppedShapes[slotId],
-                        isCorrect      = isCorrect,
-                        isWrong        = wrongDropSlotId == slotId,
-                        isAnswered     = isAnswered,
-                        shapeOptions   = shapeOptions,
-                        shapeColorMap  = shapeColorMap,
-                        modifier       = Modifier.onGloballyPositioned { coords ->
-                            val pos = coords.positionInRoot()
-                            val sz  = coords.size
-                            slotCenters[slotId] = Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f)
-                        }
-                    )
                 }
             }
         }
@@ -2014,6 +2163,7 @@ private fun ShapeOutlineSlot(
     isAnswered     : Boolean,
     shapeOptions   : List<ShapeOption>,
     shapeColorMap  : Map<String, Color>,
+    slotSize       : Dp = SHAPE_OUTLINE_SLOT_SIZE,
     modifier       : Modifier = Modifier
 ) {
     val colors = LocalGameColorScheme.current
@@ -2025,7 +2175,7 @@ private fun ShapeOutlineSlot(
 
     Box(
         modifier = modifier
-            .size(SHAPE_OUTLINE_SLOT_SIZE)
+            .size(slotSize)
             .clip(RoundedCornerShape(20.dp))
             .background(
                 if (bgColor == Color.Transparent) colors.background.copy(alpha = 0.72f) else bgColor
@@ -2071,7 +2221,7 @@ private fun DraggableShapeTile(
     var sizePx     by remember { mutableStateOf(Offset.Zero) }
 
     val scale by animateFloatAsState(
-        targetValue   = if (isDragging) DRAG_SCALE_ACTIVE else DRAG_SCALE_DEFAULT,
+        targetValue   = if (isDragging) SHAPE_DRAG_SCALE_ACTIVE else DRAG_SCALE_DEFAULT,
         animationSpec = spring(stiffness = Spring.StiffnessMedium),
         label         = "shapeTileScale"
     )

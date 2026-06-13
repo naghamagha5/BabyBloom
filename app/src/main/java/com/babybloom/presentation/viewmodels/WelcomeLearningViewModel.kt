@@ -12,6 +12,7 @@ import com.babybloom.domain.repository.ChildProfileRepository
 import com.babybloom.domain.repository.ChildRepository
 import com.babybloom.domain.repository.SessionRepository
 import com.babybloom.util.SessionQueueCodec
+import com.babybloom.util.speech.SpeechRecognitionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,7 +29,8 @@ data class WelcomeLearningUiState(
     val sessionQueue: List<ActivityLaunchStep> = emptyList(),
     val encodedQueue: String = "",
     val sessionId: Long = 0L,
-    val stepIndex: Int = 0
+    val stepIndex: Int = 0,
+    val showSpeechInternetDialog: Boolean = false
 )
 
 internal object NormalSessionResumePlanner {
@@ -153,6 +155,7 @@ class WelcomeLearningViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val sessionPlannerService: SessionPlannerService,
     private val normalSessionProgressStore: NormalSessionProgressStore,
+    private val speechRecognitionManager: SpeechRecognitionManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -178,6 +181,20 @@ class WelcomeLearningViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun onScreenReady() {
+        if (!speechRecognitionManager.isOnline()) {
+            _uiState.update { state ->
+                state.copy(showSpeechInternetDialog = true)
+            }
+            return
+        }
+
+        _uiState.update { state ->
+            state.copy(showSpeechInternetDialog = false)
+        }
+        prepareSession()
     }
 
     fun prepareSession() {
@@ -228,7 +245,8 @@ class WelcomeLearningViewModel @Inject constructor(
                             sessionQueue = resumeQueue,
                             encodedQueue = SessionQueueCodec.encode(resumeQueue),
                             sessionId = 0L,
-                            stepIndex = resumeIndex
+                            stepIndex = resumeIndex,
+                            showSpeechInternetDialog = false
                         )
                     }
                     normalSessionProgressStore.clear()
@@ -242,9 +260,16 @@ class WelcomeLearningViewModel @Inject constructor(
                     sessionQueue = freshQueue,
                     encodedQueue = SessionQueueCodec.encode(freshQueue),
                     sessionId = 0L,
-                    stepIndex = 0
+                    stepIndex = 0,
+                    showSpeechInternetDialog = false
                 )
             }
+        }
+    }
+
+    fun dismissSpeechInternetDialog() {
+        _uiState.update { state ->
+            state.copy(showSpeechInternetDialog = false)
         }
     }
 

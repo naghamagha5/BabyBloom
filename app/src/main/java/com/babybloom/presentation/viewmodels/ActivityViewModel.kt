@@ -152,6 +152,7 @@ class ActivityViewModel @Inject constructor(
     private var currentStepIndex: Int = 0
     private var currentStep: ActivityLaunchStep? = null
     private var lastAlgorithmOutput: AlgorithmOutput? = null
+    private var speechOfflineSkipInProgress: Boolean = false
     private var pendingCompletion: ActivityUiState.Completed? = null
 
     // ── Load ──────────────────────────────────────────────────────────────────
@@ -168,7 +169,10 @@ class ActivityViewModel @Inject constructor(
     ) {
         loadJob?.cancel()
         val requestId = ++loadRequestId
-        _uiState.value = ActivityUiState.Loading
+        speechOfflineSkipInProgress = false
+        if (_uiState.value is ActivityUiState.Loading) {
+            _uiState.value = ActivityUiState.Loading
+        }
         loadJob = viewModelScope.launch {
             lastAlgorithmOutput = null
             currentStepIndex = stepIndex
@@ -293,12 +297,15 @@ class ActivityViewModel @Inject constructor(
                     durationMs = settings.sessionDurationMs,
                     startedAtMs = realSessionStartMs
                 )
+            val showOfflineSpeechBanner = data.activity.activityType == "SPEECH" &&
+                !speechRecognitionManager.isOnline()
 
             _uiState.value = ActivityUiState.Playing(
                 activityWithContent = data,
                 stepIndex           = stepIndex,
                 sessionSettings     = settings,
-                sessionRemainingMs  = sessionRemainingMs
+                sessionRemainingMs  = sessionRemainingMs,
+                showOfflineSpeechBanner = showOfflineSpeechBanner
             )
             if (!isAssessment) {
                 saveNormalSessionProgress(sessionRemainingMs)
@@ -478,10 +485,50 @@ class ActivityViewModel @Inject constructor(
                 _uiState.value = current.copy(
                     currentIndex  = nextIndex,
                     score         = newScore,
-                    totalAttempts = current.totalAttempts + attempts
+                    totalAttempts = current.totalAttempts + attempts,
+                    showOfflineSpeechBanner = false
                 )
             }
         }
+    }
+
+    fun onSpeechOfflineDetected() {
+        val current = _uiState.value as? ActivityUiState.Playing ?: return
+        if (current.activityWithContent.activity.activityType != "SPEECH") return
+        if (speechOfflineSkipInProgress) return
+        if (current.showOfflineSpeechBanner) return
+        _uiState.value = current.copy(showOfflineSpeechBanner = true)
+    }
+
+    fun skipSpeechActivityOffline() {
+        val current = _uiState.value as? ActivityUiState.Playing ?: return
+        val activity = current.activityWithContent.activity
+        val currentItem = current.activityWithContent.contentItems
+            .getOrNull(current.currentIndex)
+            ?: return
+        if (activity.activityType != "SPEECH" || !current.showOfflineSpeechBanner) return
+        if (speechOfflineSkipInProgress) return
+        speechOfflineSkipInProgress = true
+
+        viewModelScope.launch {
+            interactionEventRepository.saveEvent(
+                InteractionEvent(
+                    sessionId = sessionId,
+                    childId = current.sessionSettings.childId,
+                    activityId = activity.id,
+                    eventType = "SPEECH_OFFLINE_SKIPPED",
+                    eventData = """{"contentId":"${currentItem.contentId}"}"""
+                )
+            )
+        }
+
+        onAnswerSubmitted(
+            isCorrect = false,
+            contentId = currentItem.contentId,
+            responseTimeMs = 0L,
+            attempts = 1,
+            speechConfidence = null
+        )
     }
 
     // ── Attention Tracking ────────────────────────────────────────────────────

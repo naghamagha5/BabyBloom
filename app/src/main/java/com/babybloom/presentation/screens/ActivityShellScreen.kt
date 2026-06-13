@@ -8,14 +8,23 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.babybloom.domain.model.ActivityLaunchStep
@@ -24,8 +33,19 @@ import com.babybloom.R
 import com.babybloom.presentation.components.AttentionCameraOverlay
 import com.babybloom.presentation.viewmodels.ActivityUiState
 import com.babybloom.presentation.viewmodels.ActivityViewModel
+import com.babybloom.ui.theme.GameActiveSwatch1
+import com.babybloom.ui.theme.GameActiveBackground
+import com.babybloom.ui.theme.GameActiveSwatch2
+import com.babybloom.ui.theme.GameActiveSwatch3
+import com.babybloom.ui.theme.GameCalmBackground
+import com.babybloom.ui.theme.GameCalmSwatch1
+import com.babybloom.ui.theme.GameCalmSwatch3
+import com.babybloom.ui.theme.GameCalmSwatch2
 import com.babybloom.ui.theme.LocalGameColorScheme
+import com.babybloom.ui.theme.DarkPurple
+import com.babybloom.ui.theme.TextSecondary
 import com.babybloom.ui.theme.gameColorSchemeFor
+import kotlinx.coroutines.delay
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ActivityShellScreen.kt
@@ -78,7 +98,7 @@ fun ActivityShellScreen(
                     state.contentId == contentId &&
                     state.stepIndex == stepIndex
             if (!isCurrentCompletion) {
-                ActivityLoadingScreen()
+                ActivityTransitionScreen()
                 return
             }
 
@@ -94,7 +114,7 @@ fun ActivityShellScreen(
                         state.decision
                     )
                 }
-                ActivityLoadingScreen()
+                ActivityTransitionScreen()
             } else {
                 GoodJobScreen(
                     score      = state.score,
@@ -123,7 +143,7 @@ fun ActivityShellScreen(
                     state.stepIndex == stepIndex &&
                     (contentId == null || currentItem.contentId == contentId)
             if (!isCurrentActivity) {
-                ActivityLoadingScreen()
+                ActivityTransitionScreen()
                 return
             }
 
@@ -143,6 +163,25 @@ fun ActivityShellScreen(
                     isCalmMode = settings.isCalmMode,
                     seed       = colorSeed
                 )
+            }
+            val progressBrush = remember(settings.isCalmMode) {
+                if (settings.isCalmMode) {
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            GameCalmSwatch2,
+                            GameCalmSwatch3,
+                            GameCalmSwatch1
+                        )
+                    )
+                } else {
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            GameActiveSwatch2,
+                            GameActiveSwatch3,
+                            GameActiveSwatch1
+                        )
+                    )
+                }
             }
 
             val backgroundRes = if (settings.isCalmMode)
@@ -209,7 +248,7 @@ fun ActivityShellScreen(
                                         .fillMaxHeight()
                                         .fillMaxWidth(progress.coerceIn(0f, 1f))
                                         .clip(RoundedCornerShape(50))
-                                        .background(gameColors.correct)
+                                        .background(progressBrush)
                                 )
                             }
 
@@ -248,11 +287,6 @@ fun ActivityShellScreen(
                     ) {
                         Column(modifier = Modifier.fillMaxSize()) {
 
-                            if (state.showOfflineSpeechBanner) {
-                                OfflineSpeechBanner()
-                                Spacer(Modifier.height(8.dp))
-                            }
-
                             // ── Game router ───────────────────────────────
                             // Every game screen can now call:
                             //   val colors = LocalGameColorScheme.current
@@ -272,19 +306,30 @@ fun ActivityShellScreen(
                                     }
                                 )
 
-                                "SPEECH" -> SpeechScreen(
-                                    currentItem = currentItem,
-                                    isCalmMode  = settings.isCalmMode,
-                                    onComplete  = { elapsedMs, attempts, confidence, isCorrect ->
-                                        viewModel.onAnswerSubmitted(
-                                            isCorrect        = isCorrect,
-                                            contentId        = currentItem.contentId,
-                                            responseTimeMs   = elapsedMs,
-                                            attempts         = attempts,
-                                            speechConfidence = confidence
+                                "SPEECH" -> {
+                                    if (state.showOfflineSpeechBanner) {
+                                        LaunchedEffect(currentItem.contentId, state.stepIndex) {
+                                            delay(3_000)
+                                            viewModel.skipSpeechActivityOffline()
+                                        }
+                                        OfflineSpeechFallbackContent(isCalmMode = settings.isCalmMode)
+                                    } else {
+                                        SpeechScreen(
+                                            currentItem = currentItem,
+                                            isCalmMode  = settings.isCalmMode,
+                                            onComplete  = { elapsedMs, attempts, confidence, isCorrect ->
+                                                viewModel.onAnswerSubmitted(
+                                                    isCorrect        = isCorrect,
+                                                    contentId        = currentItem.contentId,
+                                                    responseTimeMs   = elapsedMs,
+                                                    attempts         = attempts,
+                                                    speechConfidence = confidence
+                                                )
+                                            },
+                                            onOffline = viewModel::onSpeechOfflineDetected
                                         )
                                     }
-                                )
+                                }
 
                                 "MATCH" -> MatchScreen(
                                     contentItems = state.activityWithContent.contentItems,
@@ -444,6 +489,11 @@ fun ActivityLoadingScreen() {
 }
 
 @Composable
+private fun ActivityTransitionScreen() {
+    Box(Modifier.fillMaxSize())
+}
+
+@Composable
 fun ActivityErrorScreen(message: String, onExit: () -> Unit) {
     Column(
         modifier            = Modifier
@@ -463,18 +513,105 @@ fun ActivityErrorScreen(message: String, onExit: () -> Unit) {
 }
 
 @Composable
-fun OfflineSpeechBanner() {
+private fun OfflineSpeechFallbackContent(isCalmMode: Boolean) {
+    val backgroundColor = if (isCalmMode) GameCalmBackground else GameActiveBackground
+    val accentColor = if (isCalmMode) GameCalmSwatch1 else GameActiveSwatch1
+
     Box(
-        modifier         = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.errorContainer)
-            .padding(8.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundColor),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text  = "وضع الكلام يحتاج إنترنت",
-            color = MaterialTheme.colorScheme.onErrorContainer
-        )
+        Column(
+            modifier = Modifier.padding(horizontal = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(CircleShape)
+                    .background(accentColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WifiOff,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+
+            Text(
+                text = stringResource(R.string.session_speech_fallback_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp,
+                color = DarkPurple,
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = stringResource(R.string.session_speech_fallback_subtitle),
+                style = MaterialTheme.typography.bodyLarge,
+                fontSize = 16.sp,
+                color = TextSecondary,
+                lineHeight = 26.sp,
+                textAlign = TextAlign.Center
+            )
+
+            OfflineCountdownBar(
+                durationMs = 3_000L,
+                accentColor = accentColor
+            )
+        }
+    }
+}
+
+@Composable
+private fun OfflineCountdownBar(durationMs: Long, accentColor: Color) {
+    var progress by remember(durationMs) { mutableStateOf(1f) }
+
+    LaunchedEffect(durationMs) {
+        val steps = 60
+        val stepDelay = (durationMs / steps).coerceAtLeast(1L)
+        repeat(steps) { index ->
+            progress = 1f - ((index + 1).toFloat() / steps.toFloat())
+            delay(stepDelay)
+        }
+        progress = 0f
+    }
+
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.session_speech_fallback_countdown),
+                style = MaterialTheme.typography.bodySmall,
+                fontSize = 13.sp,
+                color = TextSecondary,
+                textAlign = TextAlign.Center
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(accentColor.copy(alpha = 0.2f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                        .clip(RoundedCornerShape(50))
+                        .background(accentColor)
+                )
+            }
+        }
     }
 }
 

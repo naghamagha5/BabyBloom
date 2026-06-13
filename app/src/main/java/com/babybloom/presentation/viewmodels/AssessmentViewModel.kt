@@ -20,6 +20,7 @@ import com.babybloom.domain.repository.ChildRepository
 import com.babybloom.domain.repository.LevelMasteryRepository
 import com.babybloom.domain.repository.LearningContentRepository
 import com.babybloom.domain.repository.SessionRepository
+import com.babybloom.util.speech.SpeechRecognitionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,7 +33,8 @@ sealed class AssessmentUiState {
     object Loading : AssessmentUiState()
     data class Intro(
         val childName: String,
-        val isCalmMode: Boolean
+        val isCalmMode: Boolean,
+        val showSpeechInternetDialog: Boolean = false
     ) : AssessmentUiState()
     data class Playing(
         val currentActivityId: String,
@@ -94,6 +96,7 @@ class AssessmentViewModel @Inject constructor(
     private val childRepository: ChildRepository,
     private val sessionRepository: SessionRepository,
     private val activityResultRepository: ActivityResultRepository,
+    private val speechRecognitionManager: SpeechRecognitionManager,
     private val levelMasteryRepository: LevelMasteryRepository,
     private val learningContentRepository: LearningContentRepository
 ) : ViewModel() {
@@ -139,7 +142,8 @@ class AssessmentViewModel @Inject constructor(
             }
             _uiState.value = AssessmentUiState.Intro(
                 childName = child.name,
-                isCalmMode = child.uiTheme
+                isCalmMode = child.uiTheme,
+                showSpeechInternetDialog = !speechRecognitionManager.isOnline()
             )
         }
     }
@@ -148,6 +152,15 @@ class AssessmentViewModel @Inject constructor(
         viewModelScope.launch {
             val child = childRepository.getById(childId) ?: run {
                 _uiState.value = AssessmentUiState.Error("Child not found")
+                return@launch
+            }
+
+            if (!speechRecognitionManager.isOnline()) {
+                _uiState.value = AssessmentUiState.Intro(
+                    childName = child.name,
+                    isCalmMode = child.uiTheme,
+                    showSpeechInternetDialog = true
+                )
                 return@launch
             }
 
@@ -179,6 +192,11 @@ class AssessmentViewModel @Inject constructor(
 
             advanceToNextStep()
         }
+    }
+
+    fun dismissSpeechInternetDialog() {
+        val current = _uiState.value as? AssessmentUiState.Intro ?: return
+        _uiState.value = current.copy(showSpeechInternetDialog = false)
     }
 
     fun onActivityComplete(score: Int, total: Int) {
