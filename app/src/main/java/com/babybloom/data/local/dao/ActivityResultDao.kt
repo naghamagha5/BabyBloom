@@ -12,6 +12,9 @@ interface ActivityResultDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(result: ActivityResultEntity): Long
 
+    @Query("UPDATE activity_results SET score = :score WHERE id = :resultId")
+    suspend fun updateScore(resultId: Long, score: Float)
+
     @Query("""
         SELECT COALESCE(a.title, ar.activityId) AS activityTitle,
                ar.score,

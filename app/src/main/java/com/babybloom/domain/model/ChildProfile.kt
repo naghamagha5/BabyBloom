@@ -8,6 +8,11 @@ data class ChildProfile(
     val audioScore: Float = 0.5f,
     val gameScore: Float = 0.5f,
 
+    // Modality engagement percentages — should sum to 100.
+    val visualPreferencePercent: Float = 33.34f,
+    val audioPreferencePercent: Float = 33.33f,
+    val interactivePreferencePercent: Float = 33.33f,
+
     // Skill levels — 1 to 5
     val languageLevel: Int = 1,
     val numeracyLevel: Int = 1,
@@ -26,6 +31,7 @@ data class ChildProfile(
 
     val totalSessionCount: Int = 0,
     val totalActivitiesCompleted: Int = 0,
+    val overallProgressPercent: Float = 0f,
     val assessmentCompleted: Boolean = false,
     val lastUpdated: Long = System.currentTimeMillis()
 ) {

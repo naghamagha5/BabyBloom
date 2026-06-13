@@ -6,6 +6,7 @@ import com.babybloom.domain.model.AiInsightPayload
 import com.babybloom.domain.model.AlgorithmOutput
 import com.babybloom.domain.model.ChildProfile
 import com.babybloom.domain.model.SessionDecision
+import com.babybloom.domain.model.LearningContent
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -28,10 +29,11 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
             langProgress, numerProgress, motorProgress) =
             updateSkillLevels(signal, itemScore, currentProfile)
 
-        val (newVisual, newAudio, newGame) =
-            updateModalityScores(signal, itemScore, currentProfile)
-
-        val dominantModality = computeDominantModality(newVisual, newAudio, newGame)
+        val dominantModality = computeDominantModality(
+            currentProfile.visualPreferencePercent,
+            currentProfile.audioPreferencePercent,
+            currentProfile.interactivePreferencePercent
+        )
 
         val weakSkills = computeWeakSkills(langProgress, numerProgress, motorProgress)
 
@@ -47,9 +49,12 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
         )
 
         val updatedProfile = currentProfile.copy(
-            visualScore              = newVisual,
-            audioScore               = newAudio,
-            gameScore                = newGame,
+            visualScore              = currentProfile.visualPreferencePercent / 100f,
+            audioScore               = currentProfile.audioPreferencePercent / 100f,
+            gameScore                = currentProfile.interactivePreferencePercent / 100f,
+            visualPreferencePercent  = currentProfile.visualPreferencePercent,
+            audioPreferencePercent   = currentProfile.audioPreferencePercent,
+            interactivePreferencePercent = currentProfile.interactivePreferencePercent,
             languageLevel            = langLevel,
             numeracyLevel            = numerLevel,
             motorLevel               = motorLevel,
@@ -59,6 +64,14 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
             dominantModality         = dominantModality,
             weakSkillAreas           = weakSkills,
             totalActivitiesCompleted = currentProfile.totalActivitiesCompleted + 1,
+            overallProgressPercent   = computeOverallProgressPercent(
+                langLevel,
+                numerLevel,
+                motorLevel,
+                langProgress,
+                numerProgress,
+                motorProgress
+            ),
             lastUpdated              = System.currentTimeMillis()
         )
 
@@ -171,6 +184,105 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
     fun buildAiPayloadFromProfile(profile: ChildProfile): AiInsightPayload =
         buildAiPayload(profile, null, null)
 
+    /**
+     * Updates modality preference from completed normal-session test/revision
+     * steps only. Correctness is intentionally ignored; this measures
+     * engagement, not competence.
+     */
+    fun updateModalityPreferencesFromSession(
+        signals: List<ActivitySignal>,
+        currentProfile: ChildProfile
+    ): ChildProfile {
+        if (signals.isEmpty()) {
+            return currentProfile.copy(
+                overallProgressPercent = computeOverallProgressPercent(currentProfile),
+                lastUpdated = System.currentTimeMillis()
+            )
+        }
+
+        val weightedEngagement = mutableMapOf(
+            "VISUAL" to 0f,
+            "AUDIO" to 0f,
+            "INTERACTIVE" to 0f
+        )
+        signals.forEach { signal ->
+            val engagement = computeEngagementScore(signal)
+            val weights = AlgorithmWeights.ACTIVITY_MODALITY_WEIGHTS[signal.activityType]
+                ?: mapOf(signal.modality to 1f)
+
+            weights.forEach { (modality, weight) ->
+                weightedEngagement[modality] = (weightedEngagement[modality] ?: 0f) + engagement * weight
+            }
+        }
+
+        val sessionPercentages = normalizeToPercentages(weightedEngagement)
+        val sessionScores = sessionPercentages.mapValues { (_, percent) -> percent / 100f }
+
+        val oldFractions = mapOf(
+            "VISUAL" to currentProfile.visualPreferencePercent / 100f,
+            "AUDIO" to currentProfile.audioPreferencePercent / 100f,
+            "INTERACTIVE" to currentProfile.interactivePreferencePercent / 100f
+        )
+        val smoothedFractions = oldFractions.mapValues { (modality, oldValue) ->
+            val sessionValue = sessionScores[modality] ?: oldValue
+            emaUpdate(oldValue, sessionValue)
+        }
+        val percentages = normalizeToPercentages(smoothedFractions)
+        val visual = percentages["VISUAL"] ?: 33.34f
+        val audio = percentages["AUDIO"] ?: 33.33f
+        val interactive = percentages["INTERACTIVE"] ?: 33.33f
+
+        return currentProfile.copy(
+            visualPreferencePercent = visual,
+            audioPreferencePercent = audio,
+            interactivePreferencePercent = interactive,
+            visualScore = visual / 100f,
+            audioScore = audio / 100f,
+            gameScore = interactive / 100f,
+            dominantModality = computeDominantModality(visual, audio, interactive),
+            overallProgressPercent = computeOverallProgressPercent(currentProfile),
+            lastUpdated = System.currentTimeMillis()
+        )
+    }
+
+    /** Applies the canonical content-based progress rules to a profile snapshot. */
+    fun applyContentProgress(
+        currentProfile: ChildProfile,
+        allContent: List<LearningContent>,
+        learnedContentIds: Set<String>
+    ): ChildProfile {
+        fun categoryLevel(category: String, maxLevel: Int): Int = allContent
+            .asSequence()
+            .filter { it.category == category && it.id in learnedContentIds }
+            .maxOfOrNull { it.difficultyLevel }
+            ?.coerceIn(0, maxLevel)
+            ?: 0
+
+        val alphabet = categoryLevel("LETTER_NAME", 5)
+        val animals = categoryLevel("ANIMAL", 5)
+        val numbers = categoryLevel("NUMBER", 4)
+        val colors = categoryLevel("COLOR", 4)
+        val shapes = categoryLevel("SHAPE", 4)
+
+        val languageScore = (alphabet + animals) / 10f
+        val numeracyScore = numbers / 4f
+        val motorScore = (colors + shapes) / 8f
+        val totalContent = allContent.size.coerceAtLeast(1)
+        val learnedCount = allContent.count { it.id in learnedContentIds }
+
+        return currentProfile.copy(
+            languageLevel = kotlin.math.round((alphabet + animals) / 2f).toInt().coerceIn(0, 5),
+            numeracyLevel = numbers,
+            motorLevel = kotlin.math.round((colors + shapes) / 2f).toInt().coerceIn(0, 4),
+            languageProgress = languageScore,
+            numeracyProgress = numeracyScore,
+            motorProgress = motorScore,
+            overallProgressPercent = learnedCount.toFloat() / totalContent * 100f,
+            weakSkillAreas = computeWeakSkills(languageScore, numeracyScore, motorScore),
+            lastUpdated = System.currentTimeMillis()
+        )
+    }
+
     // ── Score Computation ──────────────────────────────────────────────────
 
     fun computeItemScore(signal: ActivitySignal): Float {
@@ -218,67 +330,117 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
         itemScore: Float,
         profile: ChildProfile
     ): SkillState {
-        fun resolveLevel(current: Int, progress: Float): Int {
+        val languageLevel = profile.languageLevel.coerceIn(1, maxLevelFor("LANGUAGE"))
+        val numeracyLevel = profile.numeracyLevel.coerceIn(1, maxLevelFor("NUMERACY"))
+        val motorLevel = profile.motorLevel.coerceIn(1, maxLevelFor("MOTOR"))
+
+        fun resolveLevel(skillArea: String, current: Int, progress: Float): Int {
+            val maxLevel = maxLevelFor(skillArea)
             if (profile.totalActivitiesCompleted < AlgorithmWeights.MIN_ACTIVITIES_FOR_LEVEL_CHANGE)
-                return current
+                return current.coerceIn(1, maxLevel)
             return when {
-                progress >= AlgorithmWeights.LEVEL_UP_THRESHOLD   && current < 5 -> current + 1
+                progress >= AlgorithmWeights.LEVEL_UP_THRESHOLD   && current < maxLevel -> current + 1
                 progress <= AlgorithmWeights.LEVEL_DOWN_THRESHOLD && current > 1 -> current - 1
                 else -> current
-            }
+            }.coerceIn(1, maxLevel)
         }
 
         return when (signal.skillArea) {
             "LANGUAGE" -> {
                 val newProg  = emaUpdate(profile.languageProgress, itemScore)
-                val newLevel = resolveLevel(profile.languageLevel, newProg)
-                val finalProg = if (newLevel != profile.languageLevel) 0f else newProg
-                SkillState(newLevel, profile.numeracyLevel, profile.motorLevel,
-                    finalProg, profile.numeracyProgress, profile.motorProgress)
+                val newLevel = resolveLevel("LANGUAGE", languageLevel, newProg)
+                SkillState(newLevel, numeracyLevel, motorLevel,
+                    newProg, profile.numeracyProgress, profile.motorProgress)
             }
             "NUMERACY" -> {
                 val newProg  = emaUpdate(profile.numeracyProgress, itemScore)
-                val newLevel = resolveLevel(profile.numeracyLevel, newProg)
-                val finalProg = if (newLevel != profile.numeracyLevel) 0f else newProg
-                SkillState(profile.languageLevel, newLevel, profile.motorLevel,
-                    profile.languageProgress, finalProg, profile.motorProgress)
+                val newLevel = resolveLevel("NUMERACY", numeracyLevel, newProg)
+                SkillState(languageLevel, newLevel, motorLevel,
+                    profile.languageProgress, newProg, profile.motorProgress)
             }
             "MOTOR" -> {
                 val newProg  = emaUpdate(profile.motorProgress, itemScore)
-                val newLevel = resolveLevel(profile.motorLevel, newProg)
-                val finalProg = if (newLevel != profile.motorLevel) 0f else newProg
-                SkillState(profile.languageLevel, profile.numeracyLevel, newLevel,
-                    profile.languageProgress, profile.numeracyProgress, finalProg)
+                val newLevel = resolveLevel("MOTOR", motorLevel, newProg)
+                SkillState(languageLevel, numeracyLevel, newLevel,
+                    profile.languageProgress, profile.numeracyProgress, newProg)
             }
             else -> SkillState(
-                profile.languageLevel, profile.numeracyLevel, profile.motorLevel,
+                languageLevel, numeracyLevel, motorLevel,
                 profile.languageProgress, profile.numeracyProgress, profile.motorProgress
             )
         }
     }
 
-    private fun updateModalityScores(
-        signal: ActivitySignal,
-        itemScore: Float,
-        profile: ChildProfile
-    ): Triple<Float, Float, Float> {
-        val weights = AlgorithmWeights.ACTIVITY_MODALITY_WEIGHTS[signal.activityType]
-            ?: mapOf(signal.modality to 1.0f)
+    private fun computeEngagementScore(signal: ActivitySignal): Float {
+        val signals = buildList {
+            add(signal.attentionScore ?: 0.5f)
+            if (signal.activityType in setOf("DRAG", "TRACE", "MATCH")) {
+                signal.touchQualityScore?.let(::add)
+            }
+            if (signal.activityType == "SPEECH") {
+                signal.speechConfidence?.let(::add)
+            }
+        }
+        return signals.average().toFloat().coerceIn(0f, 1f)
+    }
 
-        var newVisual = profile.visualScore
-        var newAudio  = profile.audioScore
-        var newGame   = profile.gameScore
-
-        weights["VISUAL"]?.let       { w -> newVisual = emaUpdate(profile.visualScore, itemScore * w) }
-        weights["AUDIO"]?.let        { w -> newAudio  = emaUpdate(profile.audioScore,  itemScore * w) }
-        weights["INTERACTIVE"]?.let  { w -> newGame   = emaUpdate(profile.gameScore,   itemScore * w) }
-
-        return Triple(
-            newVisual.coerceIn(0f, 1f),
-            newAudio.coerceIn(0f, 1f),
-            newGame.coerceIn(0f, 1f)
+    private fun normalizeToPercentages(values: Map<String, Float>): Map<String, Float> {
+        val visual = (values["VISUAL"] ?: 0f).coerceAtLeast(0f)
+        val audio = (values["AUDIO"] ?: 0f).coerceAtLeast(0f)
+        val interactive = (values["INTERACTIVE"] ?: 0f).coerceAtLeast(0f)
+        val total = visual + audio + interactive
+        if (total <= 0f) {
+            return mapOf("VISUAL" to 33.34f, "AUDIO" to 33.33f, "INTERACTIVE" to 33.33f)
+        }
+        val visualPercent = visual / total * 100f
+        val audioPercent = audio / total * 100f
+        val interactivePercent = 100f - visualPercent - audioPercent
+        return mapOf(
+            "VISUAL" to visualPercent.coerceIn(0f, 100f),
+            "AUDIO" to audioPercent.coerceIn(0f, 100f),
+            "INTERACTIVE" to interactivePercent.coerceIn(0f, 100f)
         )
     }
+
+    private fun computeOverallProgressPercent(profile: ChildProfile): Float =
+        computeOverallProgressPercent(
+            profile.languageLevel,
+            profile.numeracyLevel,
+            profile.motorLevel,
+            profile.languageProgress,
+            profile.numeracyProgress,
+            profile.motorProgress
+        )
+
+    private fun computeOverallProgressPercent(
+        languageLevel: Int,
+        numeracyLevel: Int,
+        motorLevel: Int,
+        languageProgress: Float,
+        numeracyProgress: Float,
+        motorProgress: Float
+    ): Float {
+        fun normalized(level: Int, progress: Float, maxLevel: Int): Float {
+            val safeLevel = level.coerceIn(1, maxLevel)
+            return ((safeLevel - 1) + progress.coerceIn(0f, 1f))
+                .div((maxLevel - 1).coerceAtLeast(1).toFloat())
+                .coerceIn(0f, 1f)
+        }
+
+        return (
+            normalized(languageLevel, languageProgress, maxLevelFor("LANGUAGE")) +
+                normalized(numeracyLevel, numeracyProgress, maxLevelFor("NUMERACY")) +
+                normalized(motorLevel, motorProgress, maxLevelFor("MOTOR"))
+            ) / 3f * 100f
+    }
+
+    private fun maxLevelFor(skillArea: String): Int =
+        when (skillArea) {
+            "LANGUAGE" -> 5
+            "NUMERACY",
+            "MOTOR" -> 4
+            else -> 5
+        }
 
     private fun computeDominantModality(v: Float, a: Float, g: Float) = when {
         v >= a && v >= g -> "VISUAL"

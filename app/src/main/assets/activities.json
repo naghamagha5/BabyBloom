@@ -1,4 +1,4 @@
-﻿[
+[
   {
     "id": "story_letters_d1",
     "title": "قِصَّة الحُرُوف",
@@ -121,6 +121,30 @@
     ]
   },
   {
+    "id": "match_shapes_d1",
+    "title": "طَابِق الشَّكْل",
+    "description": "اخْتَر الصُّورَة الَّتِي لَهَا نَفْس الشَّكْل",
+    "modality": "VISUAL",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 1,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"SHAPE_TO_OBJECT\",\"optionsCount\":4}",
+    "contentIds": ["shape_circle"]
+  },
+  {
+    "id": "match_colors_d1",
+    "title": "طَابِق اللَّوْن",
+    "description": "اخْتَر اللَّوْن المُطَابِق",
+    "modality": "VISUAL",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 1,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"COLOR_TO_COLOR\",\"optionsCount\":4}",
+    "contentIds": ["color_red", "color_blue"]
+  },
+  {
     "id": "count_d1",
     "title": "عُدّ مع بيبي بلوم",
     "description": "عُدّ الصور واختر العدد الصحيح",
@@ -195,7 +219,9 @@
       "letter_alef",
       "letter_ba",
       "letter_meem",
-      "letter_ha"
+      "letter_ha",
+      "letter_jeem",
+      "letter_dal"
     ]
   },
   {
@@ -244,6 +270,89 @@
     ]
   },
   {
+    "id": "listen_choose_letters_d1",
+    "title": "استمع واختر الحرف",
+    "description": "استمع جيدًا واختر الحرف الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 1,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"LETTER_NAME\"}",
+    "contentIds": [
+      "letter_alef",
+      "letter_ba",
+      "letter_meem",
+      "letter_ha",
+      "letter_jeem",
+      "letter_dal"
+    ]
+  },
+  {
+    "id": "listen_choose_animals_d1",
+    "title": "استمع واختر الحيوان",
+    "description": "استمع جيدًا واختر الحيوان الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 1,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"ANIMAL\"}",
+    "contentIds": [
+      "animal_lion",
+      "animal_duck",
+      "animal_goat",
+      "animal_horse",
+      "animal_camel",
+      "animal_bear"
+    ]
+  },
+  {
+    "id": "listen_choose_numbers_d1",
+    "title": "استمع واختر الرقم",
+    "description": "استمع جيدًا واختر الرقم الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 1,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"NUMBER\"}",
+    "contentIds": [
+      "number_1",
+      "number_2",
+      "number_3"
+    ]
+  },
+  {
+    "id": "listen_choose_colors_d1",
+    "title": "استمع واختر اللون",
+    "description": "استمع جيدًا واختر اللون الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 1,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"COLOR\"}",
+    "contentIds": [
+      "color_red",
+      "color_blue"
+    ]
+  },
+  {
+    "id": "listen_choose_shapes_d1",
+    "title": "استمع واختر الشكل",
+    "description": "استمع جيدًا واختر الشكل الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 1,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"SHAPE\"}",
+    "contentIds": [
+      "shape_circle"
+    ]
+  },
+  {
     "id": "speech_animals_d1",
     "title": "قُل اسْم الحَيَوَان",
     "description": "انْظُر إِلَى الصُّورَة وَقُل اسْمَهَا",
@@ -258,7 +367,8 @@
       "animal_duck",
       "animal_goat",
       "animal_horse",
-      "animal_camel"
+      "animal_camel",
+      "animal_bear"
     ]
   },
   {
@@ -464,6 +574,30 @@
     ]
   },
   {
+    "id": "match_shapes_d2",
+    "title": "طَابِق الشَّكْل",
+    "description": "اخْتَر الصُّورَة الَّتِي لَهَا نَفْس الشَّكْل",
+    "modality": "VISUAL",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 2,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"SHAPE_TO_OBJECT\",\"optionsCount\":4}",
+    "contentIds": ["shape_square"]
+  },
+  {
+    "id": "match_colors_d2",
+    "title": "طَابِق اللَّوْن",
+    "description": "اخْتَر اللَّوْن المُطَابِق",
+    "modality": "VISUAL",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 2,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"COLOR_TO_COLOR\",\"optionsCount\":4}",
+    "contentIds": ["color_yellow", "color_green", "color_black", "color_white"]
+  },
+  {
     "id": "count_d2",
     "title": "عُدّ مع بيبي بلوم",
     "description": "عُدّ الصور واختر العدد الصحيح",
@@ -584,6 +718,89 @@
     "activityType": "DRAG",
     "isActive": true,
     "configJson": "{\"dragType\":\"SHAPE_TO_OUTLINE\"}",
+    "contentIds": [
+      "shape_square"
+    ]
+  },
+  {
+    "id": "listen_choose_letters_d2",
+    "title": "استمع واختر الحرف",
+    "description": "استمع جيدًا واختر الحرف الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"LETTER_NAME\"}",
+    "contentIds": [
+      "letter_ta",
+      "letter_kha",
+      "letter_seen",
+      "letter_lam",
+      "letter_noon"
+    ]
+  },
+  {
+    "id": "listen_choose_animals_d2",
+    "title": "استمع واختر الحيوان",
+    "description": "استمع جيدًا واختر الحيوان الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"ANIMAL\"}",
+    "contentIds": [
+      "animal_crocodile",
+      "animal_sheep",
+      "animal_fish",
+      "animal_llama",
+      "animal_tiger"
+    ]
+  },
+  {
+    "id": "listen_choose_numbers_d2",
+    "title": "استمع واختر الرقم",
+    "description": "استمع جيدًا واختر الرقم الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 2,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"NUMBER\"}",
+    "contentIds": [
+      "number_4",
+      "number_5",
+      "number_6"
+    ]
+  },
+  {
+    "id": "listen_choose_colors_d2",
+    "title": "استمع واختر اللون",
+    "description": "استمع جيدًا واختر اللون الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"COLOR\"}",
+    "contentIds": [
+      "color_yellow",
+      "color_green",
+      "color_black",
+      "color_white"
+    ]
+  },
+  {
+    "id": "listen_choose_shapes_d2",
+    "title": "استمع واختر الشكل",
+    "description": "استمع جيدًا واختر الشكل الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 2,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"SHAPE\"}",
     "contentIds": [
       "shape_square"
     ]
@@ -811,6 +1028,30 @@
     ]
   },
   {
+    "id": "match_shapes_d3",
+    "title": "طَابِق الشَّكْل",
+    "description": "اخْتَر الصُّورَة الَّتِي لَهَا نَفْس الشَّكْل",
+    "modality": "VISUAL",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 3,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"SHAPE_TO_OBJECT\",\"optionsCount\":4}",
+    "contentIds": ["shape_triangle"]
+  },
+  {
+    "id": "match_colors_d3",
+    "title": "طَابِق اللَّوْن",
+    "description": "اخْتَر اللَّوْن المُطَابِق",
+    "modality": "VISUAL",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 3,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"COLOR_TO_COLOR\",\"optionsCount\":4}",
+    "contentIds": ["color_orange", "color_pink", "color_brown"]
+  },
+  {
     "id": "count_d3",
     "title": "عُدّ مع بيبي بلوم",
     "description": "عُدّ الصور واختر العدد الصحيح",
@@ -930,6 +1171,89 @@
     "activityType": "DRAG",
     "isActive": true,
     "configJson": "{\"dragType\":\"SHAPE_TO_OUTLINE\"}",
+    "contentIds": [
+      "shape_triangle"
+    ]
+  },
+  {
+    "id": "listen_choose_letters_d3",
+    "title": "استمع واختر الحرف",
+    "description": "استمع جيدًا واختر الحرف الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"LETTER_NAME\"}",
+    "contentIds": [
+      "letter_ra",
+      "letter_fa",
+      "letter_kaf",
+      "letter_qaf",
+      "letter_ya",
+      "letter_ain"
+    ]
+  },
+  {
+    "id": "listen_choose_animals_d3",
+    "title": "استمع واختر الحيوان",
+    "description": "استمع جيدًا واختر الحيوان الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"ANIMAL\"}",
+    "contentIds": [
+      "animal_shrimp",
+      "animal_elephant",
+      "animal_dog",
+      "animal_monkey",
+      "animal_dove",
+      "animal_spider"
+    ]
+  },
+  {
+    "id": "listen_choose_numbers_d3",
+    "title": "استمع واختر الرقم",
+    "description": "استمع جيدًا واختر الرقم الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 3,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"NUMBER\"}",
+    "contentIds": [
+      "number_7",
+      "number_9"
+    ]
+  },
+  {
+    "id": "listen_choose_colors_d3",
+    "title": "استمع واختر اللون",
+    "description": "استمع جيدًا واختر اللون الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"COLOR\"}",
+    "contentIds": [
+      "color_orange",
+      "color_pink",
+      "color_brown"
+    ]
+  },
+  {
+    "id": "listen_choose_shapes_d3",
+    "title": "استمع واختر الشكل",
+    "description": "استمع جيدًا واختر الشكل الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 3,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"SHAPE\"}",
     "contentIds": [
       "shape_triangle"
     ]
@@ -1156,6 +1480,30 @@
     ]
   },
   {
+    "id": "match_shapes_d4",
+    "title": "طَابِق الشَّكْل",
+    "description": "اخْتَر الصُّورَة الَّتِي لَهَا نَفْس الشَّكْل",
+    "modality": "VISUAL",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 4,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"SHAPE_TO_OBJECT\",\"optionsCount\":4}",
+    "contentIds": ["shape_rectangle"]
+  },
+  {
+    "id": "match_colors_d4",
+    "title": "طَابِق اللَّوْن",
+    "description": "اخْتَر اللَّوْن المُطَابِق",
+    "modality": "VISUAL",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 4,
+    "activityType": "MATCH",
+    "isActive": true,
+    "configJson": "{\"matchType\":\"COLOR_TO_COLOR\",\"optionsCount\":4}",
+    "contentIds": ["color_purple"]
+  },
+  {
     "id": "count_d4",
     "title": "عُدّ مع بيبي بلوم",
     "description": "عُدّ الصور واختر العدد الصحيح",
@@ -1273,6 +1621,87 @@
     "activityType": "DRAG",
     "isActive": true,
     "configJson": "{\"dragType\":\"SHAPE_TO_OUTLINE\"}",
+    "contentIds": [
+      "shape_rectangle"
+    ]
+  },
+  {
+    "id": "listen_choose_letters_d4",
+    "title": "استمع واختر الحرف",
+    "description": "استمع جيدًا واختر الحرف الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"LETTER_NAME\"}",
+    "contentIds": [
+      "letter_thal",
+      "letter_sheen",
+      "letter_waw",
+      "letter_ha2",
+      "letter_zah",
+      "letter_zay"
+    ]
+  },
+  {
+    "id": "listen_choose_animals_d4",
+    "title": "استمع واختر الحيوان",
+    "description": "استمع جيدًا واختر الحيوان الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"ANIMAL\"}",
+    "contentIds": [
+      "animal_wolf",
+      "animal_chimpanzee",
+      "animal_hoopoe",
+      "animal_rhinoceros",
+      "animal_deer",
+      "animal_giraffe"
+    ]
+  },
+  {
+    "id": "listen_choose_numbers_d4",
+    "title": "استمع واختر الرقم",
+    "description": "استمع جيدًا واختر الرقم الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "NUMERACY",
+    "difficultyLevel": 4,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"NUMBER\"}",
+    "contentIds": [
+      "number_8",
+      "number_10"
+    ]
+  },
+  {
+    "id": "listen_choose_colors_d4",
+    "title": "استمع واختر اللون",
+    "description": "استمع جيدًا واختر اللون الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"COLOR\"}",
+    "contentIds": [
+      "color_purple"
+    ]
+  },
+  {
+    "id": "listen_choose_shapes_d4",
+    "title": "استمع واختر الشكل",
+    "description": "استمع جيدًا واختر الشكل الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 4,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"SHAPE\"}",
     "contentIds": [
       "shape_rectangle"
     ]
@@ -1483,6 +1912,59 @@
       "letter_dad",
       "letter_tah",
       "letter_ghain"
+    ]
+  },
+  {
+    "id": "listen_choose_letters_d5",
+    "title": "استمع واختر الحرف",
+    "description": "استمع جيدًا واختر الحرف الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 5,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"LETTER_NAME\"}",
+    "contentIds": [
+      "letter_tha",
+      "letter_sad",
+      "letter_dad",
+      "letter_tah",
+      "letter_ghain"
+    ]
+  },
+  {
+    "id": "listen_choose_animals_d5",
+    "title": "استمع واختر الحيوان",
+    "description": "استمع جيدًا واختر الحيوان الصحيح",
+    "modality": "AUDIO",
+    "skillArea": "LANGUAGE",
+    "difficultyLevel": 5,
+    "activityType": "LISTEN_AND_CHOOSE",
+    "isActive": true,
+    "configJson": "{\"listenType\":\"ANIMAL\"}",
+    "contentIds": [
+      "animal_snake",
+      "animal_falcon",
+      "animal_frog",
+      "animal_peacock",
+      "animal_gazelle"
+    ]
+  },
+  {
+    "id": "drag_shapes_d5",
+    "title": "صَاحِب الشَّكْل بِظِلِّهِ",
+    "description": "اسْحَب الشَّكْل إِلَى مَكَانِهِ الصَّحِيح",
+    "modality": "INTERACTIVE",
+    "skillArea": "MOTOR",
+    "difficultyLevel": 5,
+    "activityType": "DRAG",
+    "isActive": true,
+    "configJson": "{\"dragType\":\"SHAPE_TO_OUTLINE\"}",
+    "contentIds": [
+      "shape_circle",
+      "shape_square",
+      "shape_triangle",
+      "shape_rectangle"
     ]
   },
   {

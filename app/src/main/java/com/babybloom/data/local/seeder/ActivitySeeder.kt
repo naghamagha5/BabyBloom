@@ -20,8 +20,6 @@ class ActivitySeeder @Inject constructor(
     private val activityContentDao: ActivityContentDao
 ) {
     suspend fun seedIfEmpty() = withContext(Dispatchers.IO) {
-        if (activityDao.count() > 0) return@withContext
-
         val json = context.assets
             .open("activities.json")
             .bufferedReader()

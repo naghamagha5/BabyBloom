@@ -405,6 +405,23 @@ fun ActivityShellScreen(
                                     }
                                 )
 
+                                "LISTEN_AND_CHOOSE" -> ListenAndChooseGameScreen(
+                                    currentItem = currentItem,
+                                    isCalmMode = settings.isCalmMode,
+                                    isTest = settings.isTest,
+                                    onComplete = { isCorrect, encodedMs ->
+                                        val attempts = (encodedMs / 100_000L).toInt()
+                                            .coerceAtLeast(1)
+                                        val responseTime = encodedMs % 100_000L
+                                        viewModel.onAnswerSubmitted(
+                                            isCorrect = isCorrect,
+                                            contentId = currentItem.contentId,
+                                            responseTimeMs = responseTime,
+                                            attempts = attempts
+                                        )
+                                    }
+                                )
+
                                 else -> GamePlaceholder("Unknown: ${activity.activityType}")
                             }
                         }

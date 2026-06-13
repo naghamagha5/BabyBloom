@@ -36,6 +36,14 @@ object AssetPathResolver {
         return "learning_content/visual/$mood/$contentId.png"
     }
 
+    fun matchOptionImagePathFor(
+        contentId: String,
+        isCalmMode: Boolean
+    ): String {
+        val fileName = "match_${contentId}_object"
+        return visualImagePathFor(fileName, isCalmMode)
+    }
+
     fun androidAssetUri(assetPath: String): String = "file:///android_asset/$assetPath"
 
     fun backgroundMusicPath(): String = "activities/audio/background_music.ogg"
@@ -62,6 +70,18 @@ object AssetPathResolver {
         return "activities/audio/drag/drag_instruction_number_$numberToken.ogg"
     }
 
+    fun listenAndChooseInstructionPath(category: String): String {
+        val suffix = when (resolveCategory(category, "")) {
+            "ANIMAL"      -> "animal"
+            "COLOR"       -> "color"
+            "NUMBER"      -> "number"
+            "SHAPE"       -> "shape"
+            "LETTER_NAME" -> "letter"
+            else          -> "letter"
+        }
+        return "activities/audio/Listen&Choose/Listen&Choose_instruction_$suffix.ogg"
+    }
+
     // ─── Private Helpers ─────────────────────────────────────────────────────
 
     private fun resolveCategory(category: String, contentId: String): String {
@@ -85,6 +105,11 @@ object AssetPathResolver {
         "LETTER_NAME"  -> "name of letters"
         "LETTER_SOUND" -> "sound of letters"
         else           -> category.lowercase()
+    }
+
+    private fun visualImagePathFor(fileName: String, isCalmMode: Boolean): String {
+        val mood = if (isCalmMode) "calm" else "active"
+        return "learning_content/visual/$mood/$fileName.png"
     }
 
     fun countQuestionAudioPath(subjectId: String): String {
