@@ -136,6 +136,41 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_13_14 = object : Migration(13, 14) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE children ADD COLUMN gender TEXT NOT NULL DEFAULT 'UNSPECIFIED'")
+            db.execSQL(
+                """
+                UPDATE children
+                SET gender = CASE
+                    WHEN LOWER(avatar) LIKE '%girl%' THEN 'FEMALE'
+                    WHEN LOWER(avatar) LIKE '%boy%' THEN 'MALE'
+                    ELSE 'UNSPECIFIED'
+                END
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS child_profile_snapshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    childId INTEGER NOT NULL,
+                    visualPreferencePercent REAL NOT NULL,
+                    audioPreferencePercent REAL NOT NULL,
+                    interactivePreferencePercent REAL NOT NULL,
+                    dominantModality TEXT NOT NULL,
+                    languageLevel INTEGER NOT NULL,
+                    numeracyLevel INTEGER NOT NULL,
+                    motorLevel INTEGER NOT NULL,
+                    capturedAt INTEGER NOT NULL,
+                    FOREIGN KEY(childId) REFERENCES children(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_child_profile_snapshots_childId ON child_profile_snapshots(childId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_child_profile_snapshots_childId_capturedAt ON child_profile_snapshots(childId, capturedAt)")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
@@ -144,7 +179,13 @@ object DatabaseModule {
             AppDatabase::class.java,
             "babybloom_db"
         )
-            .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+            .addMigrations(
+                MIGRATION_9_10,
+                MIGRATION_10_11,
+                MIGRATION_11_12,
+                MIGRATION_12_13,
+                MIGRATION_13_14
+            )
             .fallbackToDestructiveMigration()
             .build()
     }
@@ -152,6 +193,7 @@ object DatabaseModule {
     @Provides fun provideUserDao(db: AppDatabase) = db.userDao()
     @Provides fun provideChildDao(db: AppDatabase) = db.childDao()
     @Provides fun provideChildProfileDao(db: AppDatabase) = db.childProfileDao()
+    @Provides fun provideChildProfileSnapshotDao(db: AppDatabase) = db.childProfileSnapshotDao()
     @Provides fun provideSessionDao(db: AppDatabase) = db.sessionDao()
     @Provides fun provideActivityDao(db: AppDatabase) = db.activityDao()
     @Provides fun provideLearningContentDao(db: AppDatabase) = db.learningContentDao()

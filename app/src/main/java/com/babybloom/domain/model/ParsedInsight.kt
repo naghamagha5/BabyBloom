@@ -1,5 +1,7 @@
 package com.babybloom.domain.model
 
+import org.json.JSONObject
+
 /**
  * Structured form of [AiInsight.insightText].
  * The raw text uses a simple "key: value" format (one per line) so it can be
@@ -21,6 +23,21 @@ data class ParsedInsight(
 ) {
     companion object {
         fun from(insightText: String): ParsedInsight {
+            runCatching { JSONObject(insightText) }.getOrNull()?.let { json ->
+                return ParsedInsight(
+                    learningStyle = json.optString("learningStyle"),
+                    strengths = json.optString("strengths"),
+                    development = json.optString("development"),
+                    tip1Title = json.optString("tip1Title"),
+                    tip1Body = json.optString("tip1Body"),
+                    tip2Title = json.optString("tip2Title"),
+                    tip2Body = json.optString("tip2Body"),
+                    guidanceIntro = json.optString("guidanceIntro"),
+                    recommended = json.optJSONArray("recommended").toStringList(),
+                    avoid = json.optJSONArray("avoid").toStringList()
+                )
+            }
+
             val map = insightText.lines()
                 .filter { it.contains(':') }
                 .associate { line ->
@@ -40,6 +57,13 @@ data class ParsedInsight(
                 recommended   = (1..5).mapNotNull { map["موصى_$it"] }.filter { it.isNotEmpty() },
                 avoid         = (1..5).mapNotNull { map["تجنب_$it"] }.filter { it.isNotEmpty() }
             )
+        }
+
+        private fun org.json.JSONArray?.toStringList(): List<String> {
+            if (this == null) return emptyList()
+            return (0 until length()).mapNotNull { index ->
+                optString(index).takeIf { it.isNotBlank() }
+            }
         }
     }
 }

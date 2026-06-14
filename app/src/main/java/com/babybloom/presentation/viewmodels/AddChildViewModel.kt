@@ -122,6 +122,7 @@ class AddChildViewModel @Inject constructor(
                     userId = userId,
                     name   = state.childName.trim(),
                     age    = state.childAge.toInt(),
+                    gender = if (state.isGirlSelected == true) "FEMALE" else "MALE",
                     notes  = notesValue,
                     avatar = state.selectedAvatar,
                     status = "ACTIVE"

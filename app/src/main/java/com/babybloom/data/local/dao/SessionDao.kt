@@ -20,6 +20,9 @@ interface SessionDao {
     @Query("SELECT * FROM sessions WHERE childId = :childId ORDER BY startTime DESC LIMIT :limit")
     suspend fun getRecentSessions(childId: Long, limit: Int): List<SessionEntity>
 
+    @Query("SELECT * FROM sessions WHERE childId = :childId ORDER BY startTime DESC")
+    suspend fun getAllSessions(childId: Long): List<SessionEntity>
+
     @Query("SELECT * FROM sessions WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): SessionEntity?
 

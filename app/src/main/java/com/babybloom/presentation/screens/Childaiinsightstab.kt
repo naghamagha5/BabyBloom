@@ -26,6 +26,9 @@ import com.babybloom.ui.theme.*
 fun ChildAiInsightsTab(
     parsedInsight: ParsedInsight?,
     isLoading: Boolean,
+    canGenerate: Boolean,
+    generationMessage: String?,
+    generationError: String?,
     onRefresh: () -> Unit
 ) {
     val scrollState    = rememberScrollState()
@@ -52,7 +55,13 @@ fun ChildAiInsightsTab(
             modifier         = Modifier
                 .fillMaxWidth()
                 .height(52.dp)
-                .background(brush = buttonGradient, shape = RoundedCornerShape(14.dp)),
+                .then(
+                    if (canGenerate || isLoading) {
+                        Modifier.background(brush = buttonGradient, shape = RoundedCornerShape(14.dp))
+                    } else {
+                        Modifier.background(color = TextSecondary.copy(alpha = 0.45f), shape = RoundedCornerShape(14.dp))
+                    }
+                ),
             contentAlignment = Alignment.Center
         ) {
             if (isLoading) {
@@ -64,7 +73,8 @@ fun ChildAiInsightsTab(
             } else {
                 TextButton(
                     onClick  = onRefresh,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    enabled = canGenerate
                 ) {
                     Row(
                         verticalAlignment     = Alignment.CenterVertically,
@@ -83,6 +93,25 @@ fun ChildAiInsightsTab(
                     }
                 }
             }
+        }
+
+        generationMessage?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        generationError?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
 
         Spacer(modifier = Modifier.height(8.dp))

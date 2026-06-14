@@ -21,6 +21,7 @@ data class ChildEntity(
     val userId: Long,
     val name: String,
     val age: Int,
+    val gender: String = "UNSPECIFIED",
     val notes: String = "",
     val avatar: String = "",          // asset path e.g. "avatars/bear.webp"
     val soundEffectEnabled: Boolean = true,
