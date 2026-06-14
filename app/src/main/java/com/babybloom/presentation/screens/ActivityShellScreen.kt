@@ -170,17 +170,17 @@ fun ActivityShellScreen(
                 if (settings.isCalmMode) {
                     Brush.horizontalGradient(
                         colors = listOf(
-                            ProgressActiveSwatch1,
-                            ProgressActiveSwatch2,
-                            ProgressActiveSwatch3
+                            ProgressCalmSwatch1,
+                            ProgressCalmSwatch2,
+                            ProgressCalmSwatch3
                         )
                     )
                 } else {
                     Brush.horizontalGradient(
                         colors = listOf(
-                            ProgressCalmSwatch1,
-                            ProgressCalmSwatch2,
-                            ProgressCalmSwatch3
+                            ProgressActiveSwatch1,
+                            ProgressActiveSwatch2,
+                            ProgressActiveSwatch3
                         )
                     )
                 }

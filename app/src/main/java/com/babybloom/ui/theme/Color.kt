@@ -236,6 +236,6 @@ val ProgressActiveSwatch2  = Color(0xFF56F277)
 val ProgressActiveSwatch3  = Color(0xFF08F30E)
 
 // ── Progress bar – Calm palette ──────────────────────────────────────────
-val ProgressCalmSwatch1  = Color(0xFF91CCA6)
-val ProgressCalmSwatch2  = Color(0xFF88DC8D)
-val ProgressCalmSwatch3  = Color(0xFFA8E7AE)
+val ProgressCalmSwatch1  = Color(0xFFA8DBBF)
+val ProgressCalmSwatch2  = Color(0xFFC0DD97)
+val ProgressCalmSwatch3  = Color(0xFFB8E4C2)
