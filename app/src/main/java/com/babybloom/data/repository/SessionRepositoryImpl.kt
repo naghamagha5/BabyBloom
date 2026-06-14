@@ -28,6 +28,9 @@ class SessionRepositoryImpl @Inject constructor(
     override suspend fun getRecentSessions(childId: Long, limit: Int): List<Session> =
         sessionDao.getRecentSessions(childId, limit).map { it.toDomain() }
 
+    override suspend fun getAllSessions(childId: Long): List<Session> =
+        sessionDao.getAllSessions(childId).map { it.toDomain() }
+
     override fun countByChild(childId: Long): Flow<Int> =
         sessionDao.countByChild(childId)
 

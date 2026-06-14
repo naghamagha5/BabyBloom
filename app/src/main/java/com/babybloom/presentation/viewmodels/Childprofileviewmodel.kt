@@ -11,6 +11,9 @@ import com.babybloom.domain.model.ChildProfile
 import com.babybloom.domain.model.ParsedInsight
 import com.babybloom.domain.model.RecentActivity
 import com.babybloom.domain.model.WeeklyChartData
+import com.babybloom.domain.insight.AiInsightGenerator
+import com.babybloom.domain.insight.InsightContextBuilder
+import com.babybloom.domain.insight.InsightGenerationPolicy
 import com.babybloom.domain.repository.ActivityResultRepository
 import com.babybloom.domain.repository.AiInsightRepository
 import com.babybloom.domain.repository.ChildProfileRepository
@@ -21,10 +24,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import android.content.Context
 import android.media.SoundPool
+import android.util.Log
+import com.babybloom.BuildConfig
 import com.babybloom.R
 import com.babybloom.di.AppSoundSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -37,6 +44,9 @@ data class ChildProfileUiState(
     val latestInsight: AiInsight? = null,
     val parsedInsight: ParsedInsight? = null,
     val isLoadingInsight: Boolean = false,
+    val canGenerateInsight: Boolean = true,
+    val insightGenerationMessage: String? = null,
+    val insightGenerationError: String? = null,
     val recentActivities: List<RecentActivity> = emptyList(),
     val weeklyChartData: WeeklyChartData = WeeklyChartData(),
     val isLoading: Boolean = false,
@@ -54,6 +64,8 @@ class ChildProfileViewModel @Inject constructor(
     private val aiInsightRepository: AiInsightRepository,
     private val sessionRepository: SessionRepository,
     private val activityResultRepository: ActivityResultRepository,
+    private val insightContextBuilder: InsightContextBuilder,
+    private val aiInsightGenerator: AiInsightGenerator,
     savedStateHandle: SavedStateHandle,
     private val appSoundSettings: AppSoundSettings,
     @ApplicationContext private val context: Context,
@@ -63,6 +75,7 @@ class ChildProfileViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(ChildProfileUiState())
     val uiState: StateFlow<ChildProfileUiState> = _uiState.asStateFlow()
+    private var insightLimitResetJob: Job? = null
 
     // ── Sound ─────────────────────────────────────────────────────────────────
     private val soundPool     = SoundPool.Builder().setMaxStreams(3).build()
@@ -135,8 +148,15 @@ class ChildProfileViewModel @Inject constructor(
                 _uiState.update { state ->
                     state.copy(
                         latestInsight = insight,
-                        parsedInsight = insight?.let { ParsedInsight.from(it.insightText) }
+                        parsedInsight = insight?.let { ParsedInsight.from(it.insightText) },
+                        canGenerateInsight = InsightGenerationPolicy.canGenerate(insight?.generatedAt),
+                        insightGenerationMessage = if (!InsightGenerationPolicy.canGenerate(insight?.generatedAt)) {
+                            context.getString(R.string.ai_daily_limit_message)
+                        } else null
                     )
+                }
+                if (!InsightGenerationPolicy.canGenerate(insight?.generatedAt)) {
+                    scheduleInsightLimitReset()
                 }
             }
         }
@@ -210,11 +230,82 @@ class ChildProfileViewModel @Inject constructor(
 
     fun onRefreshInsight() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingInsight = true) }
+            val latest = aiInsightRepository.getLatestForChild(childId)
+            if (!InsightGenerationPolicy.canGenerate(latest?.generatedAt)) {
+                _uiState.update {
+                    it.copy(
+                        canGenerateInsight = false,
+                        insightGenerationMessage = context.getString(R.string.ai_daily_limit_message),
+                        insightGenerationError = null
+                    )
+                }
+                scheduleInsightLimitReset()
+                return@launch
+            }
+
+            _uiState.update {
+                it.copy(
+                    isLoadingInsight = true,
+                    insightGenerationError = null,
+                    insightGenerationMessage = null
+                )
+            }
             try {
-                // TODO: replace with real AI API call
+                val insightContext = insightContextBuilder.build(childId)
+                val generatedJson = aiInsightGenerator.generate(insightContext)
+                val parsed = ParsedInsight.from(generatedJson)
+                require(parsed.learningStyle.isNotBlank() && parsed.strengths.isNotBlank()) {
+                    "Generated insight is incomplete"
+                }
+
+                aiInsightRepository.save(
+                    AiInsight(
+                        childId = childId,
+                        insightText = generatedJson,
+                        generatedAt = System.currentTimeMillis()
+                    )
+                )
+                aiInsightRepository.deleteOldForChild(childId, keepLatest = 30)
+                _uiState.update {
+                    it.copy(
+                        parsedInsight = parsed,
+                        canGenerateInsight = false,
+                        insightGenerationMessage = context.getString(R.string.ai_daily_limit_message)
+                    )
+                }
+                scheduleInsightLimitReset()
+            } catch (exception: Exception) {
+                Log.e("BabyBloomInsights", "Insight generation failed for childId=$childId", exception)
+                val technicalDetail = exception.message
+                    ?.replace(Regex("key=[^&\\s]+"), "key=<redacted>")
+                    ?.take(180)
+                    .orEmpty()
+                _uiState.update {
+                    it.copy(
+                        insightGenerationError = buildString {
+                            append(context.getString(R.string.ai_generation_failed))
+                            if (BuildConfig.DEBUG && technicalDetail.isNotBlank()) {
+                                append("\n")
+                                append(technicalDetail)
+                            }
+                        }
+                    )
+                }
             } finally {
                 _uiState.update { it.copy(isLoadingInsight = false) }
+            }
+        }
+    }
+
+    private fun scheduleInsightLimitReset() {
+        insightLimitResetJob?.cancel()
+        insightLimitResetJob = viewModelScope.launch {
+            delay(InsightGenerationPolicy.millisUntilNextLocalMidnight())
+            _uiState.update {
+                it.copy(
+                    canGenerateInsight = true,
+                    insightGenerationMessage = null
+                )
             }
         }
     }

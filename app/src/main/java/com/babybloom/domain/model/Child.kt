@@ -5,6 +5,7 @@ data class Child(
     val userId: Long,
     val name: String,
     val age: Int,
+    val gender: String = "UNSPECIFIED",
     val notes: String = "",
     val avatar: String = "",
     val soundEffectEnabled: Boolean = true,

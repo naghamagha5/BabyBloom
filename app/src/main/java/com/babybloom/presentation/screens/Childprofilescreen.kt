@@ -116,6 +116,9 @@ fun ChildProfileScreen(
                     ChildProfileTab.AI_INSIGHTS -> ChildAiInsightsTab(
                         parsedInsight = uiState.parsedInsight,
                         isLoading     = uiState.isLoadingInsight,
+                        canGenerate   = uiState.canGenerateInsight,
+                        generationMessage = uiState.insightGenerationMessage,
+                        generationError = uiState.insightGenerationError,
                         onRefresh     = viewModel::onRefreshInsight
                     )
                     ChildProfileTab.SETTINGS -> ChildSettingsTab(

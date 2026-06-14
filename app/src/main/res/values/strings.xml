@@ -308,6 +308,8 @@
     <string name="ai_insights_subtitle">توصيات مخصّصة لدعم رحلة تعلّم طفلك</string>
     <string name="ai_refresh_button">إنشاء رؤى جديدة</string>
     <string name="ai_loading">جارٍ تحليل بيانات طفلك…</string>
+    <string name="ai_daily_limit_message">تم إنشاء رؤية اليوم. يمكنك إنشاء رؤية جديدة بعد منتصف الليل.</string>
+    <string name="ai_generation_failed">تعذّر إنشاء الرؤية. تحقّق من الإنترنت وإعداد مفتاح Gemini ثم حاول مرة أخرى.</string>
 
     <!-- Section titles -->
     <string name="ai_learning_summary">ملخّص الرؤى الرئيسية</string>

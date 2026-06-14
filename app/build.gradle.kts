@@ -28,6 +28,7 @@ android {
         }
 
         buildConfigField("String", "GEMINI_API_KEY", "\"${props.getProperty("GEMINI_API_KEY") ?: ""}\"")
+        buildConfigField("String", "GEMINI_MODEL", "\"${props.getProperty("GEMINI_MODEL") ?: "gemini-2.5-flash"}\"")
     }
 
     buildTypes {

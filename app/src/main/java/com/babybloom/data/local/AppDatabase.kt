@@ -10,6 +10,7 @@ import com.babybloom.data.local.entity.*
         UserEntity::class,
         ChildEntity::class,
         ChildProfileEntity::class,
+        ChildProfileSnapshotEntity::class,
         SessionEntity::class,
         ActivityEntity::class,
         LearningContentEntity::class,
@@ -21,13 +22,14 @@ import com.babybloom.data.local.entity.*
         ActivityRecommendationEntity::class,
         AssessmentResultEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
     abstract fun childDao(): ChildDao
     abstract fun childProfileDao(): ChildProfileDao
+    abstract fun childProfileSnapshotDao(): ChildProfileSnapshotDao
     abstract fun sessionDao(): SessionDao
     abstract fun activityDao(): ActivityDao
     abstract fun learningContentDao(): LearningContentDao
