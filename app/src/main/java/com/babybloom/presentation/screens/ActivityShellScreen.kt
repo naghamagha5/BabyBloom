@@ -35,12 +35,14 @@ import com.babybloom.presentation.viewmodels.ActivityUiState
 import com.babybloom.presentation.viewmodels.ActivityViewModel
 import com.babybloom.ui.theme.GameActiveSwatch1
 import com.babybloom.ui.theme.GameActiveBackground
-import com.babybloom.ui.theme.GameActiveSwatch2
-import com.babybloom.ui.theme.GameActiveSwatch3
+import com.babybloom.ui.theme.ProgressActiveSwatch1
+import com.babybloom.ui.theme.ProgressActiveSwatch2
+import com.babybloom.ui.theme.ProgressActiveSwatch3
 import com.babybloom.ui.theme.GameCalmBackground
 import com.babybloom.ui.theme.GameCalmSwatch1
-import com.babybloom.ui.theme.GameCalmSwatch3
-import com.babybloom.ui.theme.GameCalmSwatch2
+import com.babybloom.ui.theme.ProgressCalmSwatch1
+import com.babybloom.ui.theme.ProgressCalmSwatch2
+import com.babybloom.ui.theme.ProgressCalmSwatch3
 import com.babybloom.ui.theme.LocalGameColorScheme
 import com.babybloom.ui.theme.DarkPurple
 import com.babybloom.ui.theme.TextSecondary
@@ -168,17 +170,17 @@ fun ActivityShellScreen(
                 if (settings.isCalmMode) {
                     Brush.horizontalGradient(
                         colors = listOf(
-                            GameCalmSwatch2,
-                            GameCalmSwatch3,
-                            GameCalmSwatch1
+                            ProgressActiveSwatch1,
+                            ProgressActiveSwatch2,
+                            ProgressActiveSwatch3
                         )
                     )
                 } else {
                     Brush.horizontalGradient(
                         colors = listOf(
-                            GameActiveSwatch2,
-                            GameActiveSwatch3,
-                            GameActiveSwatch1
+                            ProgressCalmSwatch1,
+                            ProgressCalmSwatch2,
+                            ProgressCalmSwatch3
                         )
                     )
                 }
