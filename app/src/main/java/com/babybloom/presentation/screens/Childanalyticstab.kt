@@ -442,6 +442,14 @@ private fun normalizedDisplayPercentages(
     audio: Float,
     interactive: Float
 ): DisplayPercentages {
+    if (visual <= 0f && audio <= 0f && interactive <= 0f) {
+        return DisplayPercentages(
+            visual = 0,
+            audio = 0,
+            interactive = 0
+        )
+    }
+
     data class Entry(
         val key: String,
         val raw: Float,
