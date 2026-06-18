@@ -127,7 +127,7 @@ class ChildProfileViewModel @Inject constructor(
                 _uiState.update { state ->
                     state.copy(
                         childProfile    = profile,
-                        progressPercent = profile?.let { computeProgress(it) } ?: 0
+                        progressPercent = profile?.overallProgressPercent?.toInt()?.coerceIn(0, 100) ?: 0
                     )
                 }
             }
@@ -219,12 +219,6 @@ class ChildProfileViewModel @Inject constructor(
     }
 
     // ── Progress computation ──────────────────────────────────────────────────
-
-    private fun computeProgress(p: ChildProfile): Int {
-        val scoreAvg = (p.visualScore + p.audioScore + p.gameScore) / 3f
-        val levelAvg = (p.languageLevel + p.numeracyLevel + p.motorLevel) / 9f
-        return ((scoreAvg * 0.6f + levelAvg * 0.4f) * 100).toInt().coerceIn(0, 100)
-    }
 
     // ── AI Insight ────────────────────────────────────────────────────────────
 

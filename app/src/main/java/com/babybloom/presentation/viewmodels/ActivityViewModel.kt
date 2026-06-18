@@ -10,6 +10,7 @@ import com.babybloom.di.NormalSessionProgressStore
 import com.babybloom.domain.algorithm.AdaptiveAlgorithmEngine
 import com.babybloom.domain.algorithm.AlgorithmWeights
 import com.babybloom.domain.algorithm.SessionPlannerService
+import com.babybloom.domain.progress.OverallProgressCalculator
 import com.babybloom.domain.model.ActivityLaunchStep
 import com.babybloom.domain.model.ActivityResult
 import com.babybloom.domain.model.ActivitySignal
@@ -133,7 +134,8 @@ class ActivityViewModel @Inject constructor(
     private val speechRecognitionManager: SpeechRecognitionManager,
     private val appSoundSettings: AppSoundSettings,
     private val normalSessionProgressStore: NormalSessionProgressStore,
-    private val attentionDetector: AttentionDetector
+    private val attentionDetector: AttentionDetector,
+    private val overallProgressCalculator: OverallProgressCalculator
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ActivityUiState>(ActivityUiState.Loading)
@@ -846,9 +848,14 @@ class ActivityViewModel @Inject constructor(
         val allContent = listOf("LETTER_NAME", "ANIMAL", "NUMBER", "COLOR", "SHAPE")
             .flatMap { learningContentRepository.getByCategory(it) }
         val learnedIds = levelMasteryRepository.getContentScoresForChild(profile.childId)
-            .filter { it.contentId.isNotBlank() && (it.contentScore ?: 0f) > AlgorithmWeights.CONTENT_PASS_THRESHOLD }
+            .filter { mastery ->
+                mastery.contentId.isNotBlank() &&
+                    mastery.contentScore != null &&
+                    (mastery.contentScore == 0f || mastery.contentScore > AlgorithmWeights.CONTENT_PASS_THRESHOLD)
+            }
             .mapTo(mutableSetOf()) { it.contentId }
         return algorithmEngine.applyContentProgress(profile, allContent, learnedIds)
+            .copy(overallProgressPercent = overallProgressCalculator.computeForChild(profile.childId))
     }
 
     private suspend fun saveNormalSessionProgress(remainingMs: Long) {
@@ -1051,14 +1058,6 @@ class ActivityViewModel @Inject constructor(
             languageLevel = languageLevel,
             numeracyLevel = numeracyLevel,
             motorLevel = motorLevel,
-            overallProgressPercent = computeOverallProgressPercent(
-                languageLevel = languageLevel,
-                numeracyLevel = numeracyLevel,
-                motorLevel = motorLevel,
-                languageProgress = contentProgressProfile.languageProgress,
-                numeracyProgress = contentProgressProfile.numeracyProgress,
-                motorProgress = contentProgressProfile.motorProgress
-            ),
             lastUpdated = System.currentTimeMillis()
         )
     }
@@ -1072,27 +1071,6 @@ class ActivityViewModel @Inject constructor(
             CATEGORY_SHAPE -> 4
             else -> 5
         }
-
-    private fun computeOverallProgressPercent(
-        languageLevel: Int,
-        numeracyLevel: Int,
-        motorLevel: Int,
-        languageProgress: Float,
-        numeracyProgress: Float,
-        motorProgress: Float
-    ): Float {
-        fun normalized(level: Int, progress: Float, maxLevel: Int): Float {
-            val safeLevel = level.coerceIn(1, maxLevel)
-            return ((safeLevel - 1) + progress.coerceIn(0f, 1f)) /
-                (maxLevel - 1).coerceAtLeast(1).toFloat()
-        }
-
-        return (
-            normalized(languageLevel, languageProgress, 5) +
-                normalized(numeracyLevel, numeracyProgress, 4) +
-                normalized(motorLevel, motorProgress, 4)
-            ) / 3f * 100f
-    }
 
     private data class TestContentAggregate(
         val contentId: String,

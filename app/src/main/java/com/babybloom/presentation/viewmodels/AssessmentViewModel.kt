@@ -13,6 +13,7 @@ import com.babybloom.domain.model.ChildProfile
 import com.babybloom.domain.model.Confidence
 import com.babybloom.domain.model.Modality
 import com.babybloom.domain.model.Session
+import com.babybloom.domain.progress.OverallProgressCalculator
 import com.babybloom.domain.repository.ActivityResultRepository
 import com.babybloom.domain.repository.AssessmentRepository
 import com.babybloom.domain.repository.ChildProfileRepository
@@ -98,7 +99,8 @@ class AssessmentViewModel @Inject constructor(
     private val activityResultRepository: ActivityResultRepository,
     private val speechRecognitionManager: SpeechRecognitionManager,
     private val levelMasteryRepository: LevelMasteryRepository,
-    private val learningContentRepository: LearningContentRepository
+    private val learningContentRepository: LearningContentRepository,
+    private val overallProgressCalculator: OverallProgressCalculator
 ) : ViewModel() {
 
     private companion object {
@@ -368,16 +370,19 @@ class AssessmentViewModel @Inject constructor(
 
             val result = buildAssessmentResult(hitItemCap)
             val profile = buildProfileFromResult(result)
-            childProfileRepository.upsert(profile)
             seedAssessmentMastery(result)
+            val persistedProfile = profile.copy(
+                overallProgressPercent = overallProgressCalculator.computeForChild(childId)
+            )
+            childProfileRepository.upsert(persistedProfile)
 
             assessmentRepository.save(
                 AssessmentResultEntity(
                     childId = childId,
-                    initialLanguageLevel = profile.languageLevel,
-                    initialNumeracyLevel = profile.numeracyLevel,
-                    initialMotorLevel = profile.motorLevel,
-                    dominantModality = profile.dominantModality
+                    initialLanguageLevel = persistedProfile.languageLevel,
+                    initialNumeracyLevel = persistedProfile.numeracyLevel,
+                    initialMotorLevel = persistedProfile.motorLevel,
+                    dominantModality = persistedProfile.dominantModality
                 )
             )
 

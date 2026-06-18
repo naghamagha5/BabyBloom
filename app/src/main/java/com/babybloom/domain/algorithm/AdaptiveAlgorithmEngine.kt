@@ -64,14 +64,7 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
             dominantModality         = dominantModality,
             weakSkillAreas           = weakSkills,
             totalActivitiesCompleted = currentProfile.totalActivitiesCompleted + 1,
-            overallProgressPercent   = computeOverallProgressPercent(
-                langLevel,
-                numerLevel,
-                motorLevel,
-                langProgress,
-                numerProgress,
-                motorProgress
-            ),
+            overallProgressPercent   = currentProfile.overallProgressPercent,
             lastUpdated              = System.currentTimeMillis()
         )
 
@@ -195,7 +188,7 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
     ): ChildProfile {
         if (signals.isEmpty()) {
             return currentProfile.copy(
-                overallProgressPercent = computeOverallProgressPercent(currentProfile),
+                overallProgressPercent = currentProfile.overallProgressPercent,
                 lastUpdated = System.currentTimeMillis()
             )
         }
@@ -240,7 +233,7 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
             audioScore = audio / 100f,
             gameScore = interactive / 100f,
             dominantModality = computeDominantModality(visual, audio, interactive),
-            overallProgressPercent = computeOverallProgressPercent(currentProfile),
+            overallProgressPercent = currentProfile.overallProgressPercent,
             lastUpdated = System.currentTimeMillis()
         )
     }
@@ -400,38 +393,6 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
             "AUDIO" to audioPercent.coerceIn(0f, 100f),
             "INTERACTIVE" to interactivePercent.coerceIn(0f, 100f)
         )
-    }
-
-    private fun computeOverallProgressPercent(profile: ChildProfile): Float =
-        computeOverallProgressPercent(
-            profile.languageLevel,
-            profile.numeracyLevel,
-            profile.motorLevel,
-            profile.languageProgress,
-            profile.numeracyProgress,
-            profile.motorProgress
-        )
-
-    private fun computeOverallProgressPercent(
-        languageLevel: Int,
-        numeracyLevel: Int,
-        motorLevel: Int,
-        languageProgress: Float,
-        numeracyProgress: Float,
-        motorProgress: Float
-    ): Float {
-        fun normalized(level: Int, progress: Float, maxLevel: Int): Float {
-            val safeLevel = level.coerceIn(1, maxLevel)
-            return ((safeLevel - 1) + progress.coerceIn(0f, 1f))
-                .div((maxLevel - 1).coerceAtLeast(1).toFloat())
-                .coerceIn(0f, 1f)
-        }
-
-        return (
-            normalized(languageLevel, languageProgress, maxLevelFor("LANGUAGE")) +
-                normalized(numeracyLevel, numeracyProgress, maxLevelFor("NUMERACY")) +
-                normalized(motorLevel, motorProgress, maxLevelFor("MOTOR"))
-            ) / 3f * 100f
     }
 
     private fun maxLevelFor(skillArea: String): Int =

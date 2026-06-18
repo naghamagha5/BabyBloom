@@ -4,14 +4,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babybloom.R
 import com.babybloom.di.SessionManager
-import com.babybloom.domain.repository.ChildRepository
 import com.babybloom.domain.repository.ChildProfileRepository
+import com.babybloom.domain.repository.ChildRepository
 import com.babybloom.presentation.screens.ChildUiModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -40,42 +44,37 @@ class MyChildrenViewModel @Inject constructor(
                 if (userId == -1L) {
                     _uiState.value = MyChildrenUiState(
                         isLoading    = false,
-                        errorMessage = "لم يتم تسجيل الدخول"
+                        errorMessage = "Ù„Ù… ÙŠØªÙ… ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„"
                     )
                     return@launch
                 }
 
-                childRepository.getChildrenByUser(userId).collectLatest { children ->
-                    val uiModels = children.map { child ->
-                        val profile = childProfileRepository.getByChildId(child.id)
-
-                        val progressPercent = if (profile != null) {
-                            // Average the three skill progress bars (each 0.0–1.0)
-                            // then blend with normalized level (levels 1–5 → 0.0–1.0)
-                            val progressAvg = (profile.languageProgress +
-                                    profile.numeracyProgress  +
-                                    profile.motorProgress) / 3f
-
-                            val levelAvg = (profile.languageLevel +
-                                    profile.numeracyLevel  +
-                                    profile.motorLevel).toFloat() / 15f  // max = 5+5+5
-
-                            ((progressAvg * 0.7f + levelAvg * 0.3f) * 100)
-                                .toInt()
-                                .coerceIn(0, 100)
-                        } else 0
-
-                        ChildUiModel(
-                            id              = child.id,
-                            name            = child.name,
-                            ageYears        = child.age,
-                            progressPercent = progressPercent,
-                            status          = child.status,
-                            avatarRes       = resolveAvatar(child.avatar)
-                        )
+                childRepository.getChildrenByUser(userId)
+                    .flatMapLatest { children ->
+                        if (children.isEmpty()) {
+                            flowOf(emptyList())
+                        } else {
+                            combine(
+                                children.map { child ->
+                                    childProfileRepository.observeProfile(child.id)
+                                        .map { profile -> child to profile }
+                                }
+                            ) { pairs -> pairs.toList() }
+                        }
                     }
-                    _uiState.value = MyChildrenUiState(isLoading = false, children = uiModels)
-                }
+                    .collectLatest { childProfiles ->
+                        val uiModels = childProfiles.map { (child, profile) ->
+                            ChildUiModel(
+                                id              = child.id,
+                                name            = child.name,
+                                ageYears        = child.age,
+                                progressPercent = profile?.overallProgressPercent?.toInt()?.coerceIn(0, 100) ?: 0,
+                                status          = child.status,
+                                avatarRes       = resolveAvatar(child.avatar)
+                            )
+                        }
+                        _uiState.value = MyChildrenUiState(isLoading = false, children = uiModels)
+                    }
             } catch (e: Exception) {
                 _uiState.value = MyChildrenUiState(
                     isLoading    = false,
