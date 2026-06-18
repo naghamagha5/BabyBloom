@@ -28,6 +28,7 @@ import com.babybloom.domain.model.ChildProfile
 import com.babybloom.domain.model.RecentActivity
 import com.babybloom.domain.model.WeeklyChartData
 import com.babybloom.ui.theme.*
+import kotlin.math.floor
 
 // ─── Analytics Tab ────────────────────────────────────────────────────────────
 @Composable
@@ -347,10 +348,19 @@ private fun RecentActivityRow(name: String, timeAgo: String, score: Float) {
 // ─── Learning Performance ─────────────────────────────────────────────────────
 @Composable
 private fun LearningPerformanceCard(childProfile: ChildProfile?) {
+    val displayPercentages = childProfile?.let {
+        normalizedDisplayPercentages(
+            visual = it.visualPreferencePercent,
+            audio = it.audioPreferencePercent,
+            interactive = it.interactivePreferencePercent
+        )
+    } ?: DisplayPercentages(0, 0, 0)
+
     AnalyticsCard(title = stringResource(R.string.analytics_learning_performance)) {
         ModalityCard(
             label          = stringResource(R.string.analytics_visual),
-            progress       = childProfile?.visualScore ?: 0f,
+            percentage     = childProfile?.visualPreferencePercent ?: 0f,
+            displayPercentage = displayPercentages.visual,
             progressColor  = ProgressPurple,
             cardBackground = CardPurple,
             iconRes        = R.drawable.ic_activity_visual
@@ -358,24 +368,34 @@ private fun LearningPerformanceCard(childProfile: ChildProfile?) {
         Spacer(modifier = Modifier.height(10.dp))
         ModalityCard(
             label          = stringResource(R.string.analytics_interactive),
-            progress       = childProfile?.gameScore ?: 0f,
+            percentage     = childProfile?.interactivePreferencePercent ?: 0f,
+            displayPercentage = displayPercentages.interactive,
             progressColor  = ChartColorInteractive,
             cardBackground = ChartColorInteractive.copy(alpha = 0.18f),
-            iconRes        = R.drawable.ic_activity_audio
+            iconRes        = R.drawable.ic_skill_interactive
         )
         Spacer(modifier = Modifier.height(10.dp))
         ModalityCard(
             label          = stringResource(R.string.analytics_audio),
-            progress       = childProfile?.audioScore ?: 0f,
+            percentage     = childProfile?.audioPreferencePercent ?: 0f,
+            displayPercentage = displayPercentages.audio,
             progressColor  = ChartColorNumeracy,
             cardBackground = ChartColorNumeracy.copy(alpha = 0.18f),
-            iconRes        = R.drawable.ic_activity_numeracy
+            iconRes        = R.drawable.ic_activity_audio
         )
     }
 }
 
 @Composable
-private fun ModalityCard(label: String, progress: Float, progressColor: Color, cardBackground: Color, iconRes: Int) {
+private fun ModalityCard(
+    label: String,
+    percentage: Float,
+    displayPercentage: Int,
+    progressColor: Color,
+    cardBackground: Color,
+    iconRes: Int
+) {
+    val progress = (percentage / 100f).coerceIn(0f, 1f)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -402,7 +422,7 @@ private fun ModalityCard(label: String, progress: Float, progressColor: Color, c
                 strokeCap  = StrokeCap.Round
             )
             Text(
-                text     = "${(progress * 100).toInt()}%",
+                text     = "$displayPercentage%",
                 style    = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = NavyDark),
                 modifier = Modifier.width(40.dp)
             )
@@ -411,6 +431,65 @@ private fun ModalityCard(label: String, progress: Float, progressColor: Color, c
 }
 
 // ─── Reusable Card Shell ──────────────────────────────────────────────────────
+private data class DisplayPercentages(
+    val visual: Int,
+    val audio: Int,
+    val interactive: Int
+)
+
+private fun normalizedDisplayPercentages(
+    visual: Float,
+    audio: Float,
+    interactive: Float
+): DisplayPercentages {
+    data class Entry(
+        val key: String,
+        val raw: Float,
+        var display: Int
+    )
+
+    fun displayRound(value: Float): Int {
+        val whole = floor(value).toInt()
+        val fraction = value - whole
+        return if (fraction > 0.5f) whole + 1 else whole
+    }
+
+    val entries = mutableListOf(
+        Entry("visual", visual, displayRound(visual)),
+        Entry("audio", audio, displayRound(audio)),
+        Entry("interactive", interactive, displayRound(interactive))
+    )
+
+    var delta = 100 - entries.sumOf { it.display }
+    if (delta != 0) {
+        val ordered = if (delta > 0) {
+            entries.sortedByDescending { it.raw - floor(it.raw) }
+        } else {
+            entries.sortedBy { it.raw - floor(it.raw) }
+        }
+
+        var index = 0
+        while (delta != 0 && ordered.isNotEmpty()) {
+            val entry = ordered[index % ordered.size]
+            if (delta > 0) {
+                entry.display += 1
+                delta -= 1
+            } else if (entry.display > 0) {
+                entry.display -= 1
+                delta += 1
+            }
+            index++
+        }
+    }
+
+    val byKey = entries.associateBy({ it.key }, { it.display })
+    return DisplayPercentages(
+        visual = byKey.getValue("visual"),
+        audio = byKey.getValue("audio"),
+        interactive = byKey.getValue("interactive")
+    )
+}
+
 @Composable
 private fun AnalyticsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
     Card(
