@@ -84,6 +84,16 @@ interface ActivityResultDao {
     """)
     suspend fun getSkillScoresForChart(childId: Long): List<SkillScoreRow>
 
+    @Query("""
+        SELECT ar.timestamp, ar.score, a.skillArea
+        FROM activity_results ar
+        LEFT JOIN activities a ON ar.activityId = a.id
+        WHERE ar.childId = :childId
+          AND a.skillArea IS NOT NULL
+        ORDER BY ar.timestamp ASC
+    """)
+    fun observeSkillScoresForChart(childId: Long): Flow<List<SkillScoreRow>>
+
     // Multimodal signal queries — used by personalization algorithm
 
     @Query("""

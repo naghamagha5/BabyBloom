@@ -57,6 +57,9 @@ class ActivityResultRepositoryImpl @Inject constructor(
     override suspend fun getSkillScoresForChart(childId: Long): List<SkillScoreRow> =
         activityResultDao.getSkillScoresForChart(childId)
 
+    override fun observeSkillScoresForChart(childId: Long): Flow<List<SkillScoreRow>> =
+        activityResultDao.observeSkillScoresForChart(childId)
+
     override suspend fun getResultsWithAttention(
         childId: Long,
         limit: Int

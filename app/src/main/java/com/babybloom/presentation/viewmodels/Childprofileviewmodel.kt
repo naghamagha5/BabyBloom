@@ -3,14 +3,14 @@ package com.babybloom.presentation.viewmodels
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.babybloom.data.local.entity.AttentionScoreRow
 import com.babybloom.data.local.entity.SkillScoreRow
+import com.babybloom.domain.model.AnalyticsChartData
 import com.babybloom.domain.model.AiInsight
+import com.babybloom.domain.model.ChartResolutionData
 import com.babybloom.domain.model.Child
 import com.babybloom.domain.model.ChildProfile
 import com.babybloom.domain.model.ParsedInsight
 import com.babybloom.domain.model.RecentActivity
-import com.babybloom.domain.model.WeeklyChartData
 import com.babybloom.domain.insight.AiInsightGenerator
 import com.babybloom.domain.insight.InsightContextBuilder
 import com.babybloom.domain.insight.InsightGenerationPolicy
@@ -23,6 +23,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -35,6 +37,9 @@ import com.babybloom.BuildConfig
 import com.babybloom.R
 import com.babybloom.di.AppSoundSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 data class ChildProfileUiState(
     val child: Child? = null,
@@ -48,7 +53,7 @@ data class ChildProfileUiState(
     val insightGenerationMessage: String? = null,
     val insightGenerationError: String? = null,
     val recentActivities: List<RecentActivity> = emptyList(),
-    val weeklyChartData: WeeklyChartData = WeeklyChartData(),
+    val chartData: AnalyticsChartData = AnalyticsChartData(),
     val isLoading: Boolean = false,
     val error: String? = null,
     val navigateToHome: Boolean = false,
@@ -89,7 +94,7 @@ class ChildProfileViewModel @Inject constructor(
         observeSessionCount()
         observeLatestInsight()
         loadRecentActivities()
-        loadChartData()
+        observeChartData()
         soundPool.setOnLoadCompleteListener { _, _, status -> soundLoaded = status == 0 }
         toggleSoundId = soundPool.load(context, R.raw.button_one, 1)
     }
@@ -169,12 +174,19 @@ class ChildProfileViewModel @Inject constructor(
         }
     }
 
-    private fun loadChartData() {
+    private fun observeChartData() {
         viewModelScope.launch {
-            val skillRows     = activityResultRepository.getSkillScoresForChart(childId)
-            val attentionRows = sessionRepository.getAttentionScoresForChart(childId)
-            val chartData     = buildChartData(skillRows, attentionRows)
-            _uiState.update { it.copy(weeklyChartData = chartData) }
+            childRepository.observeById(childId).combine(
+                activityResultRepository.observeSkillScoresForChart(childId)
+            ) { child, skillRows ->
+                buildChartData(
+                    skillRows = skillRows,
+                    childCreatedAt = child?.createdAt ?: System.currentTimeMillis()
+                )
+            }
+                .collect { chartData ->
+                    _uiState.update { it.copy(chartData = chartData) }
+                }
         }
     }
 
@@ -182,45 +194,126 @@ class ChildProfileViewModel @Inject constructor(
 
     private fun buildChartData(
         skillRows: List<SkillScoreRow>,
-        attentionRows: List<AttentionScoreRow>
-    ): WeeklyChartData {
-        if (skillRows.isEmpty() && attentionRows.isEmpty()) return WeeklyChartData()
+        childCreatedAt: Long
+    ): AnalyticsChartData =
+        AnalyticsChartData(
+            weekly = buildWeeklyResolutionData(skillRows, childCreatedAt),
+            daily = buildDailyResolutionData(skillRows, childCreatedAt)
+        )
 
-        val allTimestamps = skillRows.map { it.timestamp } + attentionRows.map { it.startTime }
-        val minTime   = allTimestamps.min()
-        val maxTime   = allTimestamps.max()
-        val range     = (maxTime - minTime).coerceAtLeast(1L)
-        val bucketMs  = range / 6f
+    private fun buildDailyResolutionData(
+        skillRows: List<SkillScoreRow>,
+        childCreatedAt: Long
+    ): ChartResolutionData {
+        val dayStarts = buildDayStartsFrom(childCreatedAt)
+        if (dayStarts.isEmpty()) return ChartResolutionData()
+        val dayLabels = dayStarts.map(::formatDayLabel)
+        val firstDayStart = dayStarts.first()
+        val chartEndExclusive = dayStarts.last() + DAY_MS
 
-        fun bucket(t: Long) = ((t - minTime) / bucketMs).toInt().coerceIn(0, 5)
+        fun bucket(timestamp: Long): Int {
+            if (timestamp < firstDayStart || timestamp >= chartEndExclusive) return -1
+            return ((timestamp - firstDayStart) / DAY_MS).toInt().coerceIn(0, dayStarts.lastIndex)
+        }
+
+        val skillBuckets = Array(dayStarts.size) { mutableMapOf<String, MutableList<Float>>() }
+        skillRows.forEach { row ->
+            val bucketIndex = bucket(row.timestamp)
+            if (bucketIndex == -1) return@forEach
+
+            skillBuckets[bucketIndex]
+                .getOrPut(row.skillArea) { mutableListOf() }
+                .add(row.score * 100f)
+        }
+
+        fun avgOrNull(list: List<Float>): Float? = if (list.isEmpty()) null else list.average().toFloat()
+
+        return ChartResolutionData(
+            periodLabels = dayLabels,
+            languageScores = dayStarts.indices.map { avgOrNull(skillBuckets[it]["LANGUAGE"] ?: emptyList()) },
+            numeracyScores = dayStarts.indices.map { avgOrNull(skillBuckets[it]["NUMERACY"] ?: emptyList()) },
+            motorScores = dayStarts.indices.map { avgOrNull(skillBuckets[it]["MOTOR"] ?: emptyList()) }
+        )
+    }
+
+    private fun buildWeeklyResolutionData(
+        skillRows: List<SkillScoreRow>,
+        childCreatedAt: Long
+    ): ChartResolutionData {
+        val weekStarts = buildWeekStartsFrom(childCreatedAt)
+        if (weekStarts.isEmpty()) return ChartResolutionData()
+        val weekLabels = weekStarts.map(::formatWeekLabel)
+        val firstWeekStart = weekStarts.first()
+        val chartEndExclusive = weekStarts.last() + WEEK_MS
+
+        fun bucket(timestamp: Long): Int {
+            if (timestamp < firstWeekStart || timestamp >= chartEndExclusive) return -1
+            return ((timestamp - firstWeekStart) / WEEK_MS).toInt().coerceIn(0, weekStarts.lastIndex)
+        }
 
         // skill buckets: index → skillArea → list of scores (0–100)
-        val skillBuckets = Array(6) { mutableMapOf<String, MutableList<Float>>() }
+        val skillBuckets = Array(weekStarts.size) { mutableMapOf<String, MutableList<Float>>() }
         skillRows.forEach { row ->
-            skillBuckets[bucket(row.timestamp)]
+            val bucketIndex = bucket(row.timestamp)
+            if (bucketIndex == -1) return@forEach
+
+            skillBuckets[bucketIndex]
                 .getOrPut(row.skillArea) { mutableListOf() }
                 .add(row.score * 100f)
         }
 
         // attention buckets: index → list of scores (0–100)
-        val attBuckets = Array(6) { mutableListOf<Float>() }
-        attentionRows.forEach { row ->
-            attBuckets[bucket(row.startTime)].add(row.attentionScore * 100f)
-        }
+        fun avgOrNull(list: List<Float>): Float? = if (list.isEmpty()) null else list.average().toFloat()
 
-        fun avg(list: List<Float>) = if (list.isEmpty()) 0f else list.average().toFloat()
-
-        return WeeklyChartData(
-            languageScores  = (0..5).map { avg(skillBuckets[it]["LANGUAGE"]  ?: emptyList()) },
-            numeracyScores  = (0..5).map { avg(skillBuckets[it]["NUMERACY"]  ?: emptyList()) },
-            motorScores     = (0..5).map { avg(skillBuckets[it]["MOTOR"]     ?: emptyList()) },
-            attentionScores = (0..5).map { avg(attBuckets[it]) }
+        return ChartResolutionData(
+            periodLabels    = weekLabels,
+            languageScores  = weekStarts.indices.map { avgOrNull(skillBuckets[it]["LANGUAGE"] ?: emptyList()) },
+            numeracyScores  = weekStarts.indices.map { avgOrNull(skillBuckets[it]["NUMERACY"] ?: emptyList()) },
+            motorScores     = weekStarts.indices.map { avgOrNull(skillBuckets[it]["MOTOR"] ?: emptyList()) }
         )
     }
 
     // ── Progress computation ──────────────────────────────────────────────────
 
     // ── AI Insight ────────────────────────────────────────────────────────────
+
+    private fun buildWeekStartsFrom(anchorTimeMillis: Long): List<Long> {
+        val anchorWeekStart = Calendar.getInstance().apply {
+            timeInMillis = anchorTimeMillis
+            set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        return (0 until 6).map { weekIndex ->
+            anchorWeekStart + (weekIndex * WEEK_MS)
+        }
+    }
+
+    private fun buildDayStartsFrom(anchorTimeMillis: Long): List<Long> {
+        val anchorDayStart = Calendar.getInstance().apply {
+            timeInMillis = anchorTimeMillis
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        return (0 until 7).map { dayIndex ->
+            anchorDayStart + (dayIndex * DAY_MS)
+        }
+    }
+
+    private fun formatWeekLabel(weekStartMillis: Long): String =
+        SimpleDateFormat("d MMM", Locale.getDefault()).format(weekStartMillis)
+
+    private fun formatDayLabel(dayStartMillis: Long): String =
+        SimpleDateFormat("d MMM", Locale.getDefault()).format(dayStartMillis)
+
+    private companion object {
+        const val DAY_MS = 24L * 60L * 60L * 1000L
+        const val WEEK_MS = 7L * 24L * 60L * 60L * 1000L
+    }
 
     fun onRefreshInsight() {
         viewModelScope.launch {

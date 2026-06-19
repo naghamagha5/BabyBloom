@@ -6,9 +6,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -22,11 +30,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
 import com.babybloom.R
+import com.babybloom.domain.model.AnalyticsChartData
+import com.babybloom.domain.model.ChartResolutionData
 import com.babybloom.domain.model.ChildProfile
 import com.babybloom.domain.model.RecentActivity
-import com.babybloom.domain.model.WeeklyChartData
 import com.babybloom.ui.theme.*
 import kotlin.math.floor
 
@@ -35,7 +45,7 @@ import kotlin.math.floor
 fun ChildAnalyticsTab(
     childProfile: ChildProfile?,
     recentActivities: List<RecentActivity>,
-    weeklyChartData: WeeklyChartData
+    chartData: AnalyticsChartData
 ) {
     val scrollState = rememberScrollState()
 
@@ -47,7 +57,7 @@ fun ChildAnalyticsTab(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        ProgressOverTimeCard(weeklyChartData = weeklyChartData)
+        ProgressOverTimeCard(chartData = chartData)
         SkillBreakdownCard(childProfile = childProfile)
         RecentActivitiesCard(recentActivities = recentActivities)
         LearningPerformanceCard(childProfile = childProfile)
@@ -57,109 +67,145 @@ fun ChildAnalyticsTab(
 
 // ─── Progress Over Time ───────────────────────────────────────────────────────
 @Composable
-private fun ProgressOverTimeCard(weeklyChartData: WeeklyChartData) {
+private fun ProgressOverTimeCard(chartData: AnalyticsChartData) {
+    var chartScale by remember { mutableFloatStateOf(1f) }
+    val activeData = if (chartScale > 1.15f) chartData.daily else chartData.weekly
+
     AnalyticsCard(title = stringResource(R.string.analytics_progress_over_time)) {
-        RealLineChart(chartData = weeklyChartData)
+        RealLineChart(
+            chartData = activeData,
+            onZoomChange = { zoomFactor ->
+                chartScale = (chartScale * zoomFactor).coerceIn(1f, 3f)
+            }
+        )
         Spacer(modifier = Modifier.height(10.dp))
-        Row(
-            modifier              = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
         ) {
-            ChartLegendItem(color = ChartColorLanguage,    label = stringResource(R.string.analytics_skill_language))
-            ChartLegendItem(color = ChartColorNumeracy,    label = stringResource(R.string.analytics_skill_numeracy))
-            ChartLegendItem(color = ChartColorMotor,       label = stringResource(R.string.analytics_skill_motor))
-            ChartLegendItem(color = ChartColorInteractive, label = stringResource(R.string.analytics_skill_interactive))
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                ChartLegendItem(color = ChartColorLanguage,    label = stringResource(R.string.analytics_skill_language))
+                ChartLegendItem(color = ChartColorNumeracy,    label = stringResource(R.string.analytics_skill_numeracy))
+                ChartLegendItem(color = ChartColorMotor,       label = stringResource(R.string.analytics_skill_motor))
+            }
         }
     }
 }
 
 @Composable
-private fun RealLineChart(chartData: WeeklyChartData) {
+private fun RealLineChart(
+    chartData: ChartResolutionData,
+    onZoomChange: (Float) -> Unit
+) {
+    val orderedLabels = chartData.periodLabels.reversed()
     val seriesData = listOf(
         ChartColorLanguage    to chartData.languageScores,
         ChartColorNumeracy    to chartData.numeracyScores,
-        ChartColorMotor       to chartData.motorScores,
-        ChartColorInteractive to chartData.attentionScores
+        ChartColorMotor       to chartData.motorScores
     )
     val yLabels = listOf("100", "75", "50", "25", "0")
 
-    val hasData = seriesData.any { (_, values) -> values.any { it > 0f } }
+    val hasData = seriesData.any { (_, values) -> values.any { it != null } }
 
-    Column {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier            = Modifier.height(160.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                yLabels.forEach { label ->
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        Column {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Canvas(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(160.dp)
+                        .background(GradientPurpleLight.copy(alpha = 0.30f), RoundedCornerShape(8.dp))
+                        .pointerInput(Unit) {
+                            detectTransformGestures { _, _, zoom, _ ->
+                                onZoomChange(zoom)
+                            }
+                        }
+                ) {
+                    val minVal   = 0f
+                    val maxVal   = 100f
+                    val pointCount = orderedLabels.size.coerceAtLeast(2)
+                    val stepX    = size.width / (pointCount - 1).toFloat()
+                    val scaleY   = size.height / (maxVal - minVal)
+                    val gridVals = listOf(0f, 25f, 50f, 75f, 100f)
+                    fun xForIndex(index: Int): Float = size.width - (index * stepX)
+
+                    gridVals.forEach { v ->
+                        val y = size.height - (v - minVal) * scaleY
+                        drawLine(
+                            color       = BorderGray.copy(alpha = 0.55f),
+                            start       = Offset(0f, y),
+                            end         = Offset(size.width, y),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                    }
+
+                    if (!hasData) return@Canvas
+
+                    seriesData.forEach { (lineColor, values) ->
+                        if (values.all { it == null }) return@forEach
+
+                        val path = Path()
+                        var hasSegment = false
+                        var segmentOpen = false
+                        values.forEachIndexed { i, value ->
+                            if (value == null) {
+                                segmentOpen = false
+                                return@forEachIndexed
+                            }
+
+                            val x = xForIndex(i)
+                            val y = size.height - (value - minVal) * scaleY
+                            if (!segmentOpen) {
+                                path.moveTo(x, y)
+                                segmentOpen = true
+                            } else {
+                                path.lineTo(x, y)
+                            }
+                            hasSegment = true
+                        }
+                        if (hasSegment) {
+                            drawPath(
+                                path  = path,
+                                color = lineColor,
+                                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+                            )
+                        }
+                        values.forEachIndexed { i, value ->
+                            if (value == null) return@forEachIndexed
+                            val x = xForIndex(i)
+                            val y = size.height - (value - minVal) * scaleY
+                            drawCircle(color = lineColor,   radius = 4.dp.toPx(), center = Offset(x, y))
+                            drawCircle(color = Color.White, radius = 2.dp.toPx(), center = Offset(x, y))
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                Column(
+                    modifier            = Modifier.height(160.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    yLabels.forEach { label ->
+                        Text(
+                            text  = label,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            color = TextSecondary
+                        )
+                    }
+                }
+            }
+
+            Row(modifier = Modifier.padding(end = 28.dp)) {
+                orderedLabels.forEach { label ->
                     Text(
-                        text  = label,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                        color = TextSecondary
+                        text      = label,
+                        style     = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
+                        color     = TextSecondary,
+                        modifier  = Modifier.weight(1f),
+                        textAlign = TextAlign.Center
                     )
                 }
-            }
-
-            Spacer(modifier = Modifier.width(4.dp))
-
-            Canvas(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(160.dp)
-                    .background(GradientPurpleLight.copy(alpha = 0.30f), RoundedCornerShape(8.dp))
-            ) {
-                val minVal   = 0f
-                val maxVal   = 100f
-                val stepX    = size.width / 5f
-                val scaleY   = size.height / (maxVal - minVal)
-                val gridVals = listOf(0f, 25f, 50f, 75f, 100f)
-
-                gridVals.forEach { v ->
-                    val y = size.height - (v - minVal) * scaleY
-                    drawLine(
-                        color       = BorderGray.copy(alpha = 0.55f),
-                        start       = Offset(0f, y),
-                        end         = Offset(size.width, y),
-                        strokeWidth = 1.dp.toPx()
-                    )
-                }
-
-                if (!hasData) return@Canvas
-
-                seriesData.forEach { (lineColor, values) ->
-                    if (values.all { it == 0f }) return@forEach
-
-                    val path = Path()
-                    values.forEachIndexed { i, v ->
-                        val x = i * stepX
-                        val y = size.height - (v - minVal) * scaleY
-                        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                    }
-                    drawPath(
-                        path  = path,
-                        color = lineColor,
-                        style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
-                    )
-                    values.forEachIndexed { i, v ->
-                        if (v == 0f) return@forEachIndexed
-                        val x = i * stepX
-                        val y = size.height - (v - minVal) * scaleY
-                        drawCircle(color = lineColor,   radius = 4.dp.toPx(), center = Offset(x, y))
-                        drawCircle(color = Color.White, radius = 2.dp.toPx(), center = Offset(x, y))
-                    }
-                }
-            }
-        }
-
-        Row(modifier = Modifier.padding(start = 28.dp)) {
-            for (i in 1..6) {
-                Text(
-                    text      = stringResource(R.string.analytics_period_label, i),
-                    style     = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
-                    color     = TextSecondary,
-                    modifier  = Modifier.weight(1f),
-                    textAlign = TextAlign.Center
-                )
             }
         }
     }
@@ -185,28 +231,21 @@ private fun SkillBreakdownCard(childProfile: ChildProfile?) {
         SkillProgressRow(
             iconRes       = R.drawable.ic_skill_language,
             label         = stringResource(R.string.analytics_skill_language),
-            progress      = childProfile?.languageLevel?.div(3f) ?: 0f,
+            progress      = childProfile?.languageProgress ?: 0f,
             progressColor = ChartColorLanguage
         )
         Spacer(modifier = Modifier.height(12.dp))
         SkillProgressRow(
             iconRes       = R.drawable.ic_skill_numeracy,
             label         = stringResource(R.string.analytics_skill_numeracy),
-            progress      = childProfile?.numeracyLevel?.div(3f) ?: 0f,
+            progress      = childProfile?.numeracyProgress ?: 0f,
             progressColor = ChartColorNumeracy
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        SkillProgressRow(
-            iconRes       = R.drawable.ic_skill_interactive,
-            label         = stringResource(R.string.analytics_skill_interactive),
-            progress      = childProfile?.gameScore ?: 0f,
-            progressColor = ChartColorInteractive
         )
         Spacer(modifier = Modifier.height(12.dp))
         SkillProgressRow(
             iconRes       = R.drawable.ic_skill_motor,
             label         = stringResource(R.string.analytics_skill_motor),
-            progress      = childProfile?.motorLevel?.div(3f) ?: 0f,
+            progress      = childProfile?.motorProgress ?: 0f,
             progressColor = ChartColorMotor
         )
     }
@@ -219,6 +258,8 @@ private fun SkillProgressRow(
     progress: Float,
     progressColor: Color
 ) {
+    val normalizedProgress = progress.coerceIn(0f, 1f)
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier          = Modifier.fillMaxWidth(),
@@ -238,14 +279,14 @@ private fun SkillProgressRow(
             )
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text  = "${(progress * 100).toInt()}%",
+                text  = "${(normalizedProgress * 100).toInt()}%",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = NavyDark
             )
         }
         Spacer(modifier = Modifier.height(6.dp))
         LinearProgressIndicator(
-            progress   = { progress },
+            progress   = { normalizedProgress },
             modifier   = Modifier.fillMaxWidth().height(8.dp),
             color      = progressColor,
             trackColor = CardPurple,

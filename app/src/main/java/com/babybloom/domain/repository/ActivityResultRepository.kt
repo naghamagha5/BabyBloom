@@ -23,6 +23,7 @@ interface ActivityResultRepository {
     fun observeByChild(childId: Long): Flow<List<ActivityResult>>
     suspend fun getRecentActivities(childId: Long, limit: Int = 3): List<RecentActivity>
     suspend fun getSkillScoresForChart(childId: Long): List<SkillScoreRow>
+    fun observeSkillScoresForChart(childId: Long): Flow<List<SkillScoreRow>>
 
     // New — used by personalization algorithm to get multimodal signals
     suspend fun getResultsWithAttention(

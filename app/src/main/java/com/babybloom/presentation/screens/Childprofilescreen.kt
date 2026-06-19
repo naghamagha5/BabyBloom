@@ -111,7 +111,7 @@ fun ChildProfileScreen(
                     ChildProfileTab.ANALYTICS -> ChildAnalyticsTab(
                         childProfile     = uiState.childProfile,
                         recentActivities = uiState.recentActivities,
-                        weeklyChartData  = uiState.weeklyChartData
+                        chartData        = uiState.chartData
                     )
                     ChildProfileTab.AI_INSIGHTS -> ChildAiInsightsTab(
                         parsedInsight = uiState.parsedInsight,
