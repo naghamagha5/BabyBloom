@@ -204,7 +204,7 @@ class SessionPlannerService @Inject constructor(
             .filter { it.contentId.isNotBlank() && it.contentScore != null }
             .associateBy { it.contentId }
         val passedContentIds = persistedScoresByContent
-            .filterValues { (it.contentScore ?: 0f) > AlgorithmWeights.CONTENT_PASS_THRESHOLD }
+            .filterValues { isPassedContentScore(it.contentScore) }
             .keys
         val assessmentPassedContentIds = assessmentPassedContentIds(profile.childId, allContent)
         val masteredContentIds = passedContentIds + assessmentPassedContentIds
@@ -308,7 +308,7 @@ class SessionPlannerService @Inject constructor(
             .filter { it.contentId.isNotBlank() && it.contentScore != null }
             .associateBy { it.contentId }
         val passedContentIds = persistedScoresByContent
-            .filterValues { (it.contentScore ?: 0f) > AlgorithmWeights.CONTENT_PASS_THRESHOLD }
+            .filterValues { isPassedContentScore(it.contentScore) }
             .keys + assessmentPassedContentIds(profile.childId, allContent)
 
         val prioritizedIds = selectRevisionContentIds(
@@ -671,6 +671,10 @@ class SessionPlannerService @Inject constructor(
         }
         return result
     }
+
+    private fun isPassedContentScore(contentScore: Float?): Boolean =
+        contentScore != null &&
+            (contentScore == 0f || contentScore > AlgorithmWeights.CONTENT_PASS_THRESHOLD)
 
     private data class RevisionCandidate(
         val contentId: String,

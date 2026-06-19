@@ -12,7 +12,7 @@ data class Child(
     val reducedAnimation: Boolean = false,
     val uiTheme: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
-    val status: ChildStatus = ChildStatus.ACTIVE,
+    val status: ChildStatus = ChildStatus.CALM,
     val sessionDurationMinutes: Int = 10,
     val backgroundMusicEnabled: Boolean = true
 )

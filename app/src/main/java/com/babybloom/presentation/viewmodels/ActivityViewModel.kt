@@ -30,6 +30,7 @@ import com.babybloom.domain.repository.LevelMasteryRepository
 import com.babybloom.domain.repository.LearningContentRepository
 import com.babybloom.domain.repository.SessionRepository
 import com.babybloom.domain.repository.UserRepository
+import com.babybloom.domain.status.ChildStatusEvaluator
 import com.babybloom.util.attention.AttentionDetector
 import com.babybloom.util.attention.AttentionSample
 import com.babybloom.util.attention.AttentionTracker
@@ -135,7 +136,8 @@ class ActivityViewModel @Inject constructor(
     private val appSoundSettings: AppSoundSettings,
     private val normalSessionProgressStore: NormalSessionProgressStore,
     private val attentionDetector: AttentionDetector,
-    private val overallProgressCalculator: OverallProgressCalculator
+    private val overallProgressCalculator: OverallProgressCalculator,
+    private val childStatusEvaluator: ChildStatusEvaluator
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ActivityUiState>(ActivityUiState.Loading)
@@ -831,17 +833,10 @@ class ActivityViewModel @Inject constructor(
         }
 
         val contentProgressProfile = refreshContentProgress(modalityProfile)
-        val finalProfile = if (isTestPartComplete) {
-            applyCompletedTestLevels(
-                baseProfile = profile,
-                contentProgressProfile = contentProgressProfile,
-                contentScores = testContentScores
-            )
-        } else {
-            contentProgressProfile
-        }
+        val finalProfile = contentProgressProfile
 
         childProfileRepository.upsert(finalProfile)
+        refreshDynamicChildStatus(finalProfile)
     }
 
     private suspend fun refreshContentProgress(profile: com.babybloom.domain.model.ChildProfile): com.babybloom.domain.model.ChildProfile {
@@ -856,6 +851,20 @@ class ActivityViewModel @Inject constructor(
             .mapTo(mutableSetOf()) { it.contentId }
         return algorithmEngine.applyContentProgress(profile, allContent, learnedIds)
             .copy(overallProgressPercent = overallProgressCalculator.computeForChild(profile.childId))
+    }
+
+    private suspend fun refreshDynamicChildStatus(profile: ChildProfile) {
+        val child = childRepository.getById(profile.childId) ?: return
+        val recentResults = activityResultRepository.getByChild(profile.childId)
+        val recentSessions = sessionRepository.getRecentSessions(profile.childId, limit = 6)
+        val evaluatedStatus = childStatusEvaluator.evaluate(
+            profile = profile,
+            recentResults = recentResults,
+            recentSessions = recentSessions
+        )
+        if (child.status != evaluatedStatus) {
+            childRepository.updateChild(child.copy(status = evaluatedStatus))
+        }
     }
 
     private suspend fun saveNormalSessionProgress(remainingMs: Long) {
@@ -1016,61 +1025,6 @@ class ActivityViewModel @Inject constructor(
             )
         }
     }
-
-    private fun applyCompletedTestLevels(
-        baseProfile: ChildProfile,
-        contentProgressProfile: ChildProfile,
-        contentScores: List<TestContentAggregate>
-    ): ChildProfile {
-        val resolvedLevels = mutableMapOf(
-            CATEGORY_LETTER to baseProfile.languageLevel.coerceIn(1, 5),
-            CATEGORY_ANIMAL to baseProfile.languageLevel.coerceIn(1, 5),
-            CATEGORY_NUMBER to baseProfile.numeracyLevel.coerceIn(1, 4),
-            CATEGORY_COLOR to baseProfile.motorLevel.coerceIn(1, 4),
-            CATEGORY_SHAPE to baseProfile.motorLevel.coerceIn(1, 4)
-        )
-
-        contentScores
-            .groupBy { it.category to it.level }
-            .toList()
-            .sortedBy { it.first.second }
-            .forEach { entry ->
-                val (category, level) = entry.first
-                val scoresAtLevel = entry.second
-                val passedCount = scoresAtLevel.count { it.averageScore > AlgorithmWeights.CONTENT_PASS_THRESHOLD }
-                val resolvedLevel = when {
-                    passedCount == scoresAtLevel.size -> (level + 1).coerceAtMost(maxLevelForCategory(category))
-                    passedCount == 0 -> (level - 1).coerceAtLeast(1)
-                    else -> level
-                }
-                resolvedLevels[category] = resolvedLevel
-            }
-
-        val languageLevel = ((resolvedLevels.getValue(CATEGORY_LETTER) + resolvedLevels.getValue(CATEGORY_ANIMAL)) / 2f)
-            .roundToInt()
-            .coerceIn(0, 5)
-        val numeracyLevel = resolvedLevels.getValue(CATEGORY_NUMBER).coerceIn(0, 4)
-        val motorLevel = ((resolvedLevels.getValue(CATEGORY_COLOR) + resolvedLevels.getValue(CATEGORY_SHAPE)) / 2f)
-            .roundToInt()
-            .coerceIn(0, 4)
-
-        return contentProgressProfile.copy(
-            languageLevel = languageLevel,
-            numeracyLevel = numeracyLevel,
-            motorLevel = motorLevel,
-            lastUpdated = System.currentTimeMillis()
-        )
-    }
-
-    private fun maxLevelForCategory(category: String): Int =
-        when (category) {
-            CATEGORY_LETTER,
-            CATEGORY_ANIMAL -> 5
-            CATEGORY_NUMBER,
-            CATEGORY_COLOR,
-            CATEGORY_SHAPE -> 4
-            else -> 5
-        }
 
     private data class TestContentAggregate(
         val contentId: String,

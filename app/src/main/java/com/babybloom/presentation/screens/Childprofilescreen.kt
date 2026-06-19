@@ -336,7 +336,7 @@ internal fun ChildProfileHeader(
                                 ChildStatus.ACTIVE        -> stringResource(R.string.stat_status_active)
                                 ChildStatus.CALM          -> stringResource(R.string.stat_status_calm)
                                 ChildStatus.NEEDS_SUPPORT -> stringResource(R.string.stat_status_needs_support)
-                                null                      -> stringResource(R.string.stat_status_active)
+                                null                      -> stringResource(R.string.stat_status_calm)
                             },
                             modifier = Modifier.weight(1f)
                         )

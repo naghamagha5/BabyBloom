@@ -21,6 +21,7 @@ import com.babybloom.domain.repository.ChildRepository
 import com.babybloom.domain.repository.LevelMasteryRepository
 import com.babybloom.domain.repository.LearningContentRepository
 import com.babybloom.domain.repository.SessionRepository
+import com.babybloom.domain.status.ChildStatusEvaluator
 import com.babybloom.util.speech.SpeechRecognitionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -100,7 +101,8 @@ class AssessmentViewModel @Inject constructor(
     private val speechRecognitionManager: SpeechRecognitionManager,
     private val levelMasteryRepository: LevelMasteryRepository,
     private val learningContentRepository: LearningContentRepository,
-    private val overallProgressCalculator: OverallProgressCalculator
+    private val overallProgressCalculator: OverallProgressCalculator,
+    private val childStatusEvaluator: ChildStatusEvaluator
 ) : ViewModel() {
 
     private companion object {
@@ -387,10 +389,25 @@ class AssessmentViewModel @Inject constructor(
             )
 
             sessionRepository.endSession(sessionId, System.currentTimeMillis())
+            refreshDynamicChildStatus(persistedProfile)
             _uiState.value = AssessmentUiState.Complete(
                 correctCount = correctShownCount,
                 totalCount = displayIndex
             )
+        }
+    }
+
+    private suspend fun refreshDynamicChildStatus(profile: ChildProfile) {
+        val child = childRepository.getById(profile.childId) ?: return
+        val recentResults = activityResultRepository.getByChild(profile.childId)
+        val recentSessions = sessionRepository.getRecentSessions(profile.childId, limit = 6)
+        val evaluatedStatus = childStatusEvaluator.evaluate(
+            profile = profile,
+            recentResults = recentResults,
+            recentSessions = recentSessions
+        )
+        if (child.status != evaluatedStatus) {
+            childRepository.updateChild(child.copy(status = evaluatedStatus))
         }
     }
 
@@ -475,16 +492,23 @@ class AssessmentViewModel @Inject constructor(
         fun assessedCategoryLevel(category: AssessmentCategory): Int =
             result.categoryLevels[category.name.lowercase()]?.level ?: 0
 
-        fun learnableCategoryLevel(category: AssessmentCategory): Int =
-            assessedCategoryLevel(category).coerceAtLeast(1)
+        val letterLevel = assessedCategoryLevel(AssessmentCategory.LETTERS).coerceIn(0, 5)
+        val animalLevel = assessedCategoryLevel(AssessmentCategory.ANIMALS).coerceIn(0, 5)
+        val numberLevel = assessedCategoryLevel(AssessmentCategory.NUMBERS).coerceIn(0, 4)
+        val colorLevel = assessedCategoryLevel(AssessmentCategory.COLORS).coerceIn(0, 4)
+        val shapeLevel = assessedCategoryLevel(AssessmentCategory.SHAPES).coerceIn(0, 4)
 
-        val languageLevel = ((learnableCategoryLevel(AssessmentCategory.LETTERS) + learnableCategoryLevel(AssessmentCategory.ANIMALS)) / 2f)
+        val languageLevel = ((letterLevel + animalLevel) / 2f)
             .roundToInt()
-            .coerceIn(1, 5)
-        val numeracyLevel = learnableCategoryLevel(AssessmentCategory.NUMBERS)
-        val motorLevel = ((learnableCategoryLevel(AssessmentCategory.COLORS) + learnableCategoryLevel(AssessmentCategory.SHAPES)) / 2f)
+            .coerceIn(0, 5)
+        val numeracyLevel = numberLevel
+        val motorLevel = ((colorLevel + shapeLevel) / 2f)
             .roundToInt()
-            .coerceIn(1, 5)
+            .coerceIn(0, 4)
+
+        val languageProgress = (letterLevel + animalLevel) / 10f
+        val numeracyProgress = numberLevel / 4f
+        val motorProgress = (colorLevel + shapeLevel) / 8f
 
         val visual = result.modalityScores[Modality.VISUAL] ?: 0.5f
         val audio = result.modalityScores[Modality.AUDIO] ?: 0.5f
@@ -511,9 +535,9 @@ class AssessmentViewModel @Inject constructor(
             languageLevel = languageLevel,
             numeracyLevel = numeracyLevel,
             motorLevel = motorLevel,
-            languageProgress = skillProgress(languageLevel),
-            numeracyProgress = skillProgress(numeracyLevel),
-            motorProgress = skillProgress(motorLevel),
+            languageProgress = languageProgress,
+            numeracyProgress = numeracyProgress,
+            motorProgress = motorProgress,
             dominantModality = result.dominantModality.name,
             weakSkillAreas = weakSkills,
             totalActivitiesCompleted = result.sessionItemCount,
@@ -582,9 +606,6 @@ class AssessmentViewModel @Inject constructor(
             activityId.startsWith("drag_") -> mapOf(Modality.INTERACTIVE to 0.8f, Modality.VISUAL to 0.2f)
             else -> mapOf(Modality.VISUAL to 1f)
         }
-
-    private fun skillProgress(level: Int): Float =
-        (level.toFloat() / 5f).coerceIn(0f, 1f)
 
     private fun initialCategoryStates(): LinkedHashMap<AssessmentCategory, CategoryState> =
         linkedMapOf(

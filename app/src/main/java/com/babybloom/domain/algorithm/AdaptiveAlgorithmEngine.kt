@@ -244,12 +244,19 @@ class AdaptiveAlgorithmEngine @Inject constructor() {
         allContent: List<LearningContent>,
         learnedContentIds: Set<String>
     ): ChildProfile {
-        fun categoryLevel(category: String, maxLevel: Int): Int = allContent
-            .asSequence()
-            .filter { it.category == category && it.id in learnedContentIds }
-            .maxOfOrNull { it.difficultyLevel }
-            ?.coerceIn(0, maxLevel)
-            ?: 0
+        fun categoryLevel(category: String, maxLevel: Int): Int {
+            var completedLevel = 0
+            for (level in 1..maxLevel) {
+                val contentAtLevel = allContent.filter {
+                    it.category == category && it.difficultyLevel == level
+                }
+                if (contentAtLevel.isEmpty()) continue
+                val allLearnedAtLevel = contentAtLevel.all { it.id in learnedContentIds }
+                if (!allLearnedAtLevel) break
+                completedLevel = level
+            }
+            return completedLevel
+        }
 
         val alphabet = categoryLevel("LETTER_NAME", 5)
         val animals = categoryLevel("ANIMAL", 5)

@@ -126,7 +126,7 @@ class AddChildViewModel @Inject constructor(
                     gender = if (state.isGirlSelected == true) "FEMALE" else "MALE",
                     notes  = notesValue,
                     avatar = state.selectedAvatar,
-                    status = "ACTIVE"
+                    status = "CALM"
                 )
 
                 val newChildId = childDao.insert(child)
