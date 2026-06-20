@@ -205,20 +205,44 @@
 
     <!-- ── Notification Screen ─────────────────────────────────────────────── -->
     <string name="label_notifications_screen_title">الإشعارات</string>
-    <string name="label_notifications_new_count">%d إشعارات جديدة</string>
+    <string name="label_notifications_new_count_one">إشعار جديد</string>
     <string name="label_notifications_new_count_two">إشعاران جديدان</string>
+    <string name="label_notifications_new_count">%d إشعارات جديدة</string>
     <string name="btn_mark_all_read">تحديد الكل كمقروء</string>
+    <string name="btn_mark_as_read">تحديد كمقروء</string>
+    <string name="btn_mark_as_unread">تحديد كغير مقروء</string>
+    <string name="btn_close_notifications_dialog">إغلاق</string>
     <string name="label_notification_minutes_ago">منذ %d دقائق</string>
     <string name="label_notification_hour_ago">منذ ساعة واحدة</string>
     <string name="label_notification_hours_ago">منذ %d ساعات</string>
+    <string name="label_notification_day_ago">منذ يوم واحد</string>
+    <string name="label_notification_days_ago">منذ %d أيام</string>
+    <string name="notifications_filter_all">الكل</string>
+    <string name="notifications_filter_unread">غير المقروءة</string>
+    <string name="notifications_empty_all">لا توجد إشعارات حالياً.</string>
+    <string name="notifications_empty_unread">لا توجد إشعارات غير مقروءة.</string>
 
     <!-- ── Notification Types / Sample Titles (use as templates) ───────────── -->
+    <string name="notif_title_insight_ready">يمكنك إنشاء رؤية جديدة لـ %1$s</string>
     <string name="notif_title_activity_completed">أكملت %s نشاط %s</string>
     <string name="notif_title_ai_insight">رؤية جديدة من الذكاء الاصطناعي متاحة</string>
     <string name="notif_title_needs_support">%s بحاجة إلى دعم</string>
+    <string name="notif_title_assessment_available">نتيجة تقييم %1$s أصبحت متاحة</string>
+    <string name="notif_title_assessment_missing">التقييم الأولي مطلوب لـ %1$s</string>
+    <string name="notif_title_progress_milestone">%1$s حقق تقدماً جديداً</string>
+    <string name="notif_title_session_inactivity">%1$s لم يكمل جلسة منذ فترة</string>
+    <string name="notif_title_status_active">%1$s عاد إلى التعلم النشط</string>
+    <string name="notif_title_status_calm">%1$s في حالة مستقرة</string>
+    <string name="notif_body_insight_ready">توفرت بيانات جديدة من جلسات %1$s وتستطيعين مراجعة رؤية الذكاء الاصطناعي الآن.</string>
     <string name="notif_body_activity_completed">أنهت %s نشاط «%s» بدقة %d%%</string>
     <string name="notif_body_ai_insight">تم تحديث الإرشادات الخاصة ببودي بناءً على التقدّم الأخير</string>
     <string name="notif_body_needs_support">أظهر %s صعوبة في أنشطة اللغة</string>
+    <string name="notif_body_assessment_available">تم حفظ التقييم الأولي لـ %1$s ويمكنك مراجعة المستوى الحالي من ملف الطفل.</string>
+    <string name="notif_body_assessment_missing">أكملي التقييم الأولي لتحسين التوصيات ورؤى الذكاء الاصطناعي الخاصة بـ %1$s.</string>
+    <string name="notif_body_progress_milestone">وصل %1$s إلى %2$d%% من التقدم العام.</string>
+    <string name="notif_body_session_inactivity">لم يكمل %1$s أي جلسة خلال الأيام الأخيرة. قد يكون هذا وقتاً مناسباً للعودة إلى التعلم.</string>
+    <string name="notif_body_status_active">أظهر %1$s تحسناً في آخر الجلسات ولم يعد بحاجة إلى دعم فوري.</string>
+    <string name="notif_body_status_calm">أصبح أداء %1$s أكثر استقراراً بعد المتابعة الأخيرة.</string>
 
     <!-- ── Content Descriptions ─────────────────────────────────────────────── -->
     <string name="cd_close_notifications">إغلاق الإشعارات</string>

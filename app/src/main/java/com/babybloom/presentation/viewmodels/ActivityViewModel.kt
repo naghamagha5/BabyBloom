@@ -30,6 +30,7 @@ import com.babybloom.domain.repository.LevelMasteryRepository
 import com.babybloom.domain.repository.LearningContentRepository
 import com.babybloom.domain.repository.SessionRepository
 import com.babybloom.domain.repository.UserRepository
+import com.babybloom.domain.notifications.ParentNotificationHandler
 import com.babybloom.domain.status.ChildStatusEvaluator
 import com.babybloom.util.attention.AttentionDetector
 import com.babybloom.util.attention.AttentionSample
@@ -137,7 +138,8 @@ class ActivityViewModel @Inject constructor(
     private val normalSessionProgressStore: NormalSessionProgressStore,
     private val attentionDetector: AttentionDetector,
     private val overallProgressCalculator: OverallProgressCalculator,
-    private val childStatusEvaluator: ChildStatusEvaluator
+    private val childStatusEvaluator: ChildStatusEvaluator,
+    private val notificationService: ParentNotificationHandler
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ActivityUiState>(ActivityUiState.Loading)
@@ -837,6 +839,8 @@ class ActivityViewModel @Inject constructor(
 
         childProfileRepository.upsert(finalProfile)
         refreshDynamicChildStatus(finalProfile)
+        notificationService.onProgressUpdated(finalProfile)
+        notificationService.onInsightReadyCheck(finalProfile)
     }
 
     private suspend fun refreshContentProgress(profile: com.babybloom.domain.model.ChildProfile): com.babybloom.domain.model.ChildProfile {
@@ -864,6 +868,7 @@ class ActivityViewModel @Inject constructor(
         )
         if (child.status != evaluatedStatus) {
             childRepository.updateChild(child.copy(status = evaluatedStatus))
+            notificationService.onStatusChanged(profile.childId, child.status, evaluatedStatus)
         }
     }
 

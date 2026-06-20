@@ -20,9 +20,10 @@ import com.babybloom.data.local.entity.*
         AiInsightEntity::class,
         LevelMasteryEntity::class,
         ActivityRecommendationEntity::class,
-        AssessmentResultEntity::class
+        AssessmentResultEntity::class,
+        AppNotificationEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -40,5 +41,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun levelMasteryDao(): LevelMasteryDao
     abstract fun activityRecommendationDao(): ActivityRecommendationDao
     abstract fun assessmentResultDao(): AssessmentResultDao
+    abstract fun appNotificationDao(): AppNotificationDao
 
 }

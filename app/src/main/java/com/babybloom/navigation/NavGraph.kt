@@ -172,20 +172,24 @@ fun BabyBloomNavGraph(
                 onNavigateToAddChild = {
                     navController.navigate(Routes.ADD_CHILD)
                 },
-                onNavigateToChildProfile = { childId ->
-                    navController.navigate("${Routes.CHILD_PROFILE}/$childId")
+                onNavigateToChildProfile = { childId, childProfileTab ->
+                    navController.navigate("${Routes.CHILD_PROFILE}/$childId?startTab=$childProfileTab")
                 }
             )
         }
 
         // ── CHILD PROFILE ──────────────────────────────────────────────────
         composable(
-            route     = "${Routes.CHILD_PROFILE}/{childId}",
-            arguments = listOf(navArgument("childId") { type = NavType.LongType })
+            route     = "${Routes.CHILD_PROFILE}/{childId}?startTab={startTab}",
+            arguments = listOf(
+                navArgument("childId") { type = NavType.LongType },
+                navArgument("startTab") {
+                    type = NavType.IntType
+                    defaultValue = 0
+                }
+            )
         ) { backStackEntry ->
-            val startTab by backStackEntry.savedStateHandle
-                .getStateFlow("startTab", 0)
-                .collectAsState()
+            val startTab = backStackEntry.arguments?.getInt("startTab") ?: 0
 
             ChildProfileScreen(
                 initialTab = when (startTab) {

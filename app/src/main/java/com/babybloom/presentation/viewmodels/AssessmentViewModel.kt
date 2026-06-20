@@ -13,6 +13,7 @@ import com.babybloom.domain.model.ChildProfile
 import com.babybloom.domain.model.Confidence
 import com.babybloom.domain.model.Modality
 import com.babybloom.domain.model.Session
+import com.babybloom.domain.notifications.ParentNotificationHandler
 import com.babybloom.domain.progress.OverallProgressCalculator
 import com.babybloom.domain.repository.ActivityResultRepository
 import com.babybloom.domain.repository.AssessmentRepository
@@ -102,7 +103,8 @@ class AssessmentViewModel @Inject constructor(
     private val levelMasteryRepository: LevelMasteryRepository,
     private val learningContentRepository: LearningContentRepository,
     private val overallProgressCalculator: OverallProgressCalculator,
-    private val childStatusEvaluator: ChildStatusEvaluator
+    private val childStatusEvaluator: ChildStatusEvaluator,
+    private val notificationService: ParentNotificationHandler
 ) : ViewModel() {
 
     private companion object {
@@ -378,18 +380,20 @@ class AssessmentViewModel @Inject constructor(
             )
             childProfileRepository.upsert(persistedProfile)
 
-            assessmentRepository.save(
-                AssessmentResultEntity(
-                    childId = childId,
-                    initialLanguageLevel = persistedProfile.languageLevel,
-                    initialNumeracyLevel = persistedProfile.numeracyLevel,
-                    initialMotorLevel = persistedProfile.motorLevel,
-                    dominantModality = persistedProfile.dominantModality
-                )
+            val assessmentEntity = AssessmentResultEntity(
+                childId = childId,
+                initialLanguageLevel = persistedProfile.languageLevel,
+                initialNumeracyLevel = persistedProfile.numeracyLevel,
+                initialMotorLevel = persistedProfile.motorLevel,
+                dominantModality = persistedProfile.dominantModality
             )
+            val assessmentId = assessmentRepository.save(assessmentEntity)
 
             sessionRepository.endSession(sessionId, System.currentTimeMillis())
             refreshDynamicChildStatus(persistedProfile)
+            notificationService.onAssessmentResultAvailable(childId, assessmentId)
+            notificationService.onProgressUpdated(persistedProfile)
+            notificationService.onInsightReadyCheck(persistedProfile)
             _uiState.value = AssessmentUiState.Complete(
                 correctCount = correctShownCount,
                 totalCount = displayIndex
@@ -408,6 +412,7 @@ class AssessmentViewModel @Inject constructor(
         )
         if (child.status != evaluatedStatus) {
             childRepository.updateChild(child.copy(status = evaluatedStatus))
+            notificationService.onStatusChanged(profile.childId, child.status, evaluatedStatus)
         }
     }
 

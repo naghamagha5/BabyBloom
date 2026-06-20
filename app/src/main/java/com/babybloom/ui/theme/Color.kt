@@ -24,12 +24,9 @@ val DividerGray             = Color(0xFFCCC5E0)
 val ButtonText              = Color(0xFFFFFFFF)
 val LinkColor               = Color(0xFF6B4EFF)
 
-// ── Register Screen ───────────────────────────────────────────────────────────
-val GradientTop             = Color(0xFFB8A9E8)
-val GradientBottom          = Color(0xFFD8D0F0)
-val CardWhite               = Color(0xFFFFFFFF)
-val SunBackground           = Color(0xFFF0E8FF)
-val TextFieldBorderFocused  = Color(0xFF7B68C8)
+// ── Notification panel ───────────────────────────────────────────────────────────
+val GradientTop             = Color(0xFF2E2645)
+val GradientBottom          = Color(0xFF7C4DBC)
 
 // ── Gradient Palette ──────────────────────────────────────────────────────────
 val GradientPurpleLight     = Color(0xFFE1E3F7)

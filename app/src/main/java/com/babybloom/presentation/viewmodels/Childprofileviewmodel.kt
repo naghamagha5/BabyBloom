@@ -14,6 +14,7 @@ import com.babybloom.domain.model.RecentActivity
 import com.babybloom.domain.insight.AiInsightGenerator
 import com.babybloom.domain.insight.InsightContextBuilder
 import com.babybloom.domain.insight.InsightGenerationPolicy
+import com.babybloom.domain.notifications.ParentNotificationHandler
 import com.babybloom.domain.repository.ActivityResultRepository
 import com.babybloom.domain.repository.AiInsightRepository
 import com.babybloom.domain.repository.ChildProfileRepository
@@ -71,6 +72,7 @@ class ChildProfileViewModel @Inject constructor(
     private val activityResultRepository: ActivityResultRepository,
     private val insightContextBuilder: InsightContextBuilder,
     private val aiInsightGenerator: AiInsightGenerator,
+    private val notificationService: ParentNotificationHandler,
     savedStateHandle: SavedStateHandle,
     private val appSoundSettings: AppSoundSettings,
     @ApplicationContext private val context: Context,
@@ -353,6 +355,7 @@ class ChildProfileViewModel @Inject constructor(
                     )
                 )
                 aiInsightRepository.deleteOldForChild(childId, keepLatest = 30)
+                notificationService.onAiInsightGenerated(childId)
                 _uiState.update {
                     it.copy(
                         parsedInsight = parsed,

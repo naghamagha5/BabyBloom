@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
@@ -44,7 +45,7 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.babybloom.R
-import com.babybloom.presentation.viewmodels.AppNotification
+import com.babybloom.presentation.viewmodels.HomeNotificationUi
 import com.babybloom.presentation.viewmodels.ParentHomeUiState
 import com.babybloom.presentation.viewmodels.ParentHomeViewModel
 import com.babybloom.ui.theme.*
@@ -58,7 +59,7 @@ fun ParentShell(
     onNavigateToLogin        : () -> Unit = {},
     onNavigateToChangePwd    : () -> Unit = {},
     onNavigateToAddChild     : () -> Unit = {},
-    onNavigateToChildProfile : (Long) -> Unit = {}
+    onNavigateToChildProfile : (Long, Int) -> Unit = { _, _ -> }
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(startTab) }
 
@@ -71,11 +72,12 @@ fun ParentShell(
                         "settings"  -> selectedTab = 2
                         "add_child" -> onNavigateToAddChild()
                     }
-                }
+                },
+                onOpenChildProfile = onNavigateToChildProfile
             )
             1 -> MyChildrenContent(
                 onAddChildClick = onNavigateToAddChild,
-                onChildClick    = onNavigateToChildProfile
+                onChildClick    = { childId -> onNavigateToChildProfile(childId, 0) }
             )
             2 -> ParentSettingsContent(
                 onNavigateToLogin     = onNavigateToLogin,
@@ -161,7 +163,8 @@ private fun ParentNavTab(iconRes: Int, label: String, selected: Boolean, onClick
 @Composable
 fun ParentHomeScreen(
     viewModel  : ParentHomeViewModel = hiltViewModel(),
-    onNavigate : (String) -> Unit = {}
+    onNavigate : (String) -> Unit = {},
+    onOpenChildProfile: (Long, Int) -> Unit = { _, _ -> }
 ) {
     val uiState       by viewModel.uiState.collectAsStateWithLifecycle()
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
@@ -250,6 +253,13 @@ fun ParentHomeScreen(
                     viewModel.markAllNotificationsRead()
                     showNotifications = false
                 },
+                onNotificationClick = { notification ->
+                    viewModel.markNotificationRead(notification.id)
+                    showNotifications = false
+                    notification.childId?.let { childId ->
+                        onOpenChildProfile(childId, notification.destinationTab)
+                    }
+                },
                 onDismiss = { showNotifications = false }
             )
         }
@@ -261,8 +271,9 @@ fun ParentHomeScreen(
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun NotificationsPanel(
-    notifications : List<AppNotification>,
+    notifications : List<HomeNotificationUi>,
     onMarkAllRead : () -> Unit,
+    onNotificationClick: (HomeNotificationUi) -> Unit,
     onDismiss     : () -> Unit
 ) {
     val unreadCount = notifications.count { !it.isRead }
@@ -271,7 +282,7 @@ private fun NotificationsPanel(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(elevation = 16.dp, shape = RoundedCornerShape(20.dp), ambientColor = ShadowColor.copy(alpha = 0.12f))
+                .shadow(elevation = 16.dp, shape = RoundedCornerShape(15.dp), ambientColor = ShadowColor.copy(alpha = 0.12f))
                 .clip(RoundedCornerShape(20.dp))
                 .background(BackgroundLight)
         ) {
@@ -281,9 +292,9 @@ private fun NotificationsPanel(
                     .fillMaxWidth()
                     .background(
                         brush = Brush.verticalGradient(
-                            colors = listOf(GradientPurpleDark, GradientPurpleMedium)
+                            colors = listOf(GradientTop, GradientBottom)
                         ),
-                        shape = RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp)
+                        shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp)
                     )
                     .padding(horizontal = 14.dp, vertical = 1.dp)
             ) {
@@ -297,14 +308,14 @@ private fun NotificationsPanel(
                         Box(
                             modifier = Modifier
                                 .size(35.dp)
-                                .background(DarkNavy.copy(alpha = 0.20f), CircleShape)
+                                .background(White .copy(alpha = 0.20f), CircleShape)
                                 .clickable { onDismiss() },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 painter            = painterResource(id = R.drawable.ic_exit),
                                 contentDescription = stringResource(R.string.cd_close_notifications),
-                                tint               = DarkNavy,
+                                tint               = White ,
                                 modifier           = Modifier.size(20.dp)
                             )
                         }
@@ -318,18 +329,20 @@ private fun NotificationsPanel(
                                 text      = stringResource(R.string.label_notifications_screen_title),
                                 fontSize  = 25.sp,
                                 fontWeight = FontWeight.Bold,
-                                color     = DarkNavy,
+                                color     = White ,
                                 textAlign = TextAlign.End   // ← add this
                             )
                             if (unreadCount > 0) {
                                 Text(
-                                    text     = if (unreadCount == 2)
-                                        stringResource(R.string.label_notifications_new_count_two)
-                                    else
-                                        stringResource(R.string.label_notifications_new_count, unreadCount),
+                                    text     = when (unreadCount) {
+                                        1 -> stringResource(R.string.label_notifications_new_count_one)
+                                        2 -> stringResource(R.string.label_notifications_new_count_two)
+                                        else -> stringResource(R.string.label_notifications_new_count, unreadCount)
+                                    },
                                     fontSize = 16.sp,
-                                    color    = DarkNavy.copy(alpha = 0.75f),
-                                    textAlign = TextAlign.End
+                                    color    = White .copy(alpha = 0.75f),
+                                    textAlign = TextAlign.End,
+                                    style     = LocalTextStyle.current.copy(textDirection = TextDirection.ContentOrRtl)
                                 )
                             }
                         }
@@ -338,13 +351,13 @@ private fun NotificationsPanel(
                         Box(
                             modifier = Modifier
                                 .size(35.dp)
-                                .background(DarkNavy.copy(alpha = 0.20f), CircleShape),
+                                .background(White .copy(alpha = 0.20f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 painter            = painterResource(id = R.drawable.ic_bell),
                                 contentDescription = null,
-                                tint               = DarkNavy,
+                                tint               = White ,
                                 modifier           = Modifier.size(20.dp)
                             )
                         }
@@ -361,7 +374,10 @@ private fun NotificationsPanel(
                 contentPadding      = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
             ) {
                 items(notifications, key = { it.id }) { notif ->
-                    NotifCard(notification = notif)
+                    NotifCard(
+                        notification = notif,
+                        onClick = { onNotificationClick(notif) }
+                    )
                 }
             }
 
@@ -392,10 +408,13 @@ private fun NotificationsPanel(
 // NOTIFICATION CARD  (compact, no change to logic)
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun NotifCard(notification: AppNotification) {
+private fun NotifCard(
+    notification: HomeNotificationUi,
+    onClick: () -> Unit
+) {
     val (borderColor, dotColor) = when (notification.id % 3) {
-        1    -> NotifAccentGreen  to NotifUnreadDotGreen
-        2    -> NotifAccentPurple to NotifUnreadDotPink
+        1L   -> NotifAccentGreen  to NotifUnreadDotGreen
+        2L   -> NotifAccentPurple to NotifUnreadDotPink
         else -> NotifAccentOrange to NotifUnreadDotOrange
     }
     val showAccent = !notification.isRead
@@ -405,14 +424,16 @@ private fun NotifCard(notification: AppNotification) {
             .fillMaxWidth()
             .shadow(elevation = 2.dp, shape = RoundedCornerShape(12.dp), ambientColor = ShadowColor.copy(alpha = 0.05f))
             .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() }
             .background(NotifCardBg,shape = RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp))
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 12.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)
-            ) {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)
+                ) {
                 // Title + unread dot
                 Row(
                     modifier              = Modifier.fillMaxWidth(),
@@ -424,8 +445,10 @@ private fun NotifCard(notification: AppNotification) {
                         fontSize   = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color      = NavyDark,
-                        textAlign  = TextAlign.End,
-                        modifier   = Modifier.weight(1f)
+                        textAlign  = TextAlign.Right,
+                        modifier   = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Box(
@@ -443,7 +466,7 @@ private fun NotifCard(notification: AppNotification) {
                     text      = notification.message,
                     fontSize  = 11.sp,
                     color     = TextSecondary,
-                    textAlign = TextAlign.End,
+                    textAlign = TextAlign.Right,
                     modifier  = Modifier.fillMaxWidth(),
                     maxLines  = 2
                 )
@@ -463,6 +486,7 @@ private fun NotifCard(notification: AppNotification) {
                         modifier           = Modifier.size(11.dp)
                     )
                 }
+            }
             }
             // Colored left border strip
             Box(
