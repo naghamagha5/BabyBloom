@@ -208,11 +208,11 @@ class AssessmentViewModel @Inject constructor(
     fun onActivityComplete(score: Int, total: Int) {
         val finishedStep = currentStep ?: return
         val isCorrect = total > 0 && score >= total
-        if (isCorrect) correctShownCount++
 
         if (finishedStep.isWarmUp) {
             warmUpIndex++
         } else {
+            if (isCorrect) correctShownCount++
             val category = finishedStep.category ?: return
             scoredItemCount++
             val domain = domainOf(category)
@@ -396,7 +396,7 @@ class AssessmentViewModel @Inject constructor(
             notificationService.onInsightReadyCheck(persistedProfile)
             _uiState.value = AssessmentUiState.Complete(
                 correctCount = correctShownCount,
-                totalCount = displayIndex
+                totalCount = SCORED_ITEM_CAP
             )
         }
     }

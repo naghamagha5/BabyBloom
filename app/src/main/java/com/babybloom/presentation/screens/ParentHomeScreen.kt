@@ -475,19 +475,27 @@ private fun NotifCard(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 // Timestamp
-                Row(
-                    modifier              = Modifier.fillMaxWidth(),
-                    verticalAlignment     = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Text(text = notification.time, fontSize = 10.sp, color = NotifTimestampColor)
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Icon(
-                        painter            = painterResource(id = R.drawable.ic_clock),
-                        contentDescription = null,
-                        tint               = NotifTimestampColor,
-                        modifier           = Modifier.size(11.dp)
-                    )
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Row(
+                        modifier              = Modifier.fillMaxWidth(),
+                        verticalAlignment     = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Text(
+                            text = notification.time,
+                            fontSize = 10.sp,
+                            color = NotifTimestampColor,
+                            textAlign = TextAlign.Right,
+                            style = LocalTextStyle.current.copy(textDirection = TextDirection.ContentOrRtl)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Icon(
+                            painter            = painterResource(id = R.drawable.ic_clock),
+                            contentDescription = null,
+                            tint               = NotifTimestampColor,
+                            modifier           = Modifier.size(11.dp)
+                        )
+                    }
                 }
             }
             }

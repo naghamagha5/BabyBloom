@@ -1,6 +1,12 @@
 package com.babybloom.presentation.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -14,17 +20,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.babybloom.domain.model.ActivityLaunchStep
@@ -33,6 +44,7 @@ import com.babybloom.R
 import com.babybloom.presentation.components.AttentionCameraOverlay
 import com.babybloom.presentation.viewmodels.ActivityUiState
 import com.babybloom.presentation.viewmodels.ActivityViewModel
+import com.babybloom.util.toArabicDigits
 import com.babybloom.ui.theme.GameActiveSwatch1
 import com.babybloom.ui.theme.GameActiveBackground
 import com.babybloom.ui.theme.ProgressActiveSwatch1
@@ -210,6 +222,10 @@ fun ActivityShellScreen(
                     )
 
                     // ── Top bar ───────────────────────────────────────────
+                    if (!settings.isCalmMode && !state.showParentLock) {
+                        ModeBirdsDecoration(isAnimated = true)
+                    }
+
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -484,6 +500,99 @@ private fun GamePlaceholder(label: String) {
 }
 
 @Composable
+private fun ModeBirdsDecoration(isAnimated: Boolean) {
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val birdSize = (screenWidth * 0.18f).coerceIn(52.dp, 84.dp)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .zIndex(1f)
+    ) {
+        BirdDecoration(
+            resId = R.drawable.ic_bird2,
+            size = birdSize,
+            alignment = Alignment.TopStart,
+            top = 55.dp,
+            verticalRange = 8f,
+            horizontalRange = 4f,
+            rotationRange = 3.5f,
+            durationMs = 3600,
+            isAnimated = isAnimated
+        )
+        BirdDecoration(
+            resId = R.drawable.ic_bird1,
+            size = birdSize,
+            alignment = Alignment.TopEnd,
+            top = 35.dp,
+            verticalRange = 6f,
+            horizontalRange = 3f,
+            rotationRange = 2.5f,
+            durationMs = 3000,
+            isAnimated = isAnimated
+        )
+    }
+}
+
+@Composable
+private fun BoxScope.BirdDecoration(
+    resId: Int,
+    size: Dp,
+    alignment: Alignment,
+    top: Dp,
+    verticalRange: Float,
+    horizontalRange: Float,
+    rotationRange: Float,
+    durationMs: Int,
+    isAnimated: Boolean
+) {
+    val transition = rememberInfiniteTransition(label = "bird_motion_$resId")
+    val animatedFloatY by transition.animateFloat(
+        initialValue = -verticalRange,
+        targetValue = verticalRange,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = durationMs, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bird_y_$resId"
+    )
+    val animatedFloatX by transition.animateFloat(
+        initialValue = -horizontalRange,
+        targetValue = horizontalRange,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = durationMs + 700, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bird_x_$resId"
+    )
+    val animatedRotation by transition.animateFloat(
+        initialValue = -rotationRange,
+        targetValue = rotationRange,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = durationMs + 300, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bird_rotation_$resId"
+    )
+    val floatY = if (isAnimated) animatedFloatY else 0f
+    val floatX = if (isAnimated) animatedFloatX else 0f
+    val rotation = if (isAnimated) animatedRotation else 0f
+
+    Image(
+        painter = painterResource(id = resId),
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        modifier = Modifier
+            .align(alignment)
+            .padding(top = top)
+            .offset(x = floatX.dp, y = floatY.dp)
+            .rotate(rotation)
+            .size(size)
+    )
+}
+
+@Composable
 fun ActivityLoadingScreen() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
@@ -622,14 +731,19 @@ private fun AssessmentStepBadge(
     current: Int,
     total: Int
 ) {
+    val formattedCurrent = remember(current) { current.toArabicDigits() }
+    val formattedTotal = remember(total) { total.toArabicDigits() }
+
     Surface(
         shape = RoundedCornerShape(50),
         color = MaterialTheme.colorScheme.primaryContainer
     ) {
         Text(
-            text = "$current / $total",
+            text = "$formattedTotal / $formattedCurrent",
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelMedium.copy(
+                textDirection = TextDirection.Ltr
+            ),
             color = MaterialTheme.colorScheme.onPrimaryContainer
         )
     }
