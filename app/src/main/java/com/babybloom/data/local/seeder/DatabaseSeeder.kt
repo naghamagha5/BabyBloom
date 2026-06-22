@@ -49,6 +49,7 @@ class DatabaseSeeder @Inject constructor(
                 userId = userId,
                 name = "ليلى",
                 age = 4,
+                gender = "FEMALE",
                 notes = "تحب الرسم والألوان",
                 avatar = "avatar_girl_1",
                 soundEffectEnabled = true,

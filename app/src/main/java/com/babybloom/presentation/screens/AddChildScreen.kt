@@ -3,26 +3,35 @@ package com.babybloom.presentation.screens
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
@@ -32,14 +41,22 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.babybloom.R
 import com.babybloom.presentation.viewmodels.AddChildViewModel
 import com.babybloom.ui.theme.*
+import kotlinx.coroutines.launch
 
 @Composable
 fun AddChildScreen(
+    showBackButton: Boolean = true,
+    onBackClick: () -> Unit = {},
     onSaveChild: (Long) -> Unit = {},
     viewModel  : AddChildViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val bringIntoViewScope = rememberCoroutineScope()
+    val nameBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val ageBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val notesBringIntoViewRequester = remember { BringIntoViewRequester() }
 
     // ── Navigate to Home when child saved successfully ─────────────────────
     LaunchedEffect(uiState.isSaved) {
@@ -109,7 +126,9 @@ fun AddChildScreen(
     val screenHeight  = configuration.screenHeightDp.dp
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-
+            val buttonGradient = Brush.horizontalGradient(
+                colors = listOf(GradientPurpleMedium, GradientPurpleDark)
+            )
 
             Box(
                 modifier = Modifier
@@ -139,6 +158,7 @@ fun AddChildScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = screenHeight * 0.26f, bottom = 20.dp)
+                        .imePadding()
                 ) {
                     val scrollState = rememberScrollState()
 
@@ -190,7 +210,16 @@ fun AddChildScreen(
                                         )
                                     },
                                     textStyle      = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
-                                    modifier       = Modifier.fillMaxWidth(),
+                                    modifier       = Modifier
+                                        .fillMaxWidth()
+                                        .bringIntoViewRequester(nameBringIntoViewRequester)
+                                        .onFocusEvent { focusState ->
+                                            if (focusState.isFocused) {
+                                                bringIntoViewScope.launch {
+                                                    nameBringIntoViewRequester.bringIntoView()
+                                                }
+                                            }
+                                        },
                                     shape          = RoundedCornerShape(12.dp),
                                     isError        = uiState.nameError != null,
                                     supportingText = {
@@ -207,6 +236,13 @@ fun AddChildScreen(
                                         focusedBorderColor   = NavyDark,
                                         unfocusedBorderColor = BorderGray,
                                         errorBorderColor     = MaterialTheme.colorScheme.error
+                                    ),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Text,
+                                        imeAction = ImeAction.Next
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
                                     ),
                                     singleLine = true
                                 )
@@ -228,7 +264,16 @@ fun AddChildScreen(
                                         )
                                     },
                                     textStyle      = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
-                                    modifier       = Modifier.fillMaxWidth(),
+                                    modifier       = Modifier
+                                        .fillMaxWidth()
+                                        .bringIntoViewRequester(ageBringIntoViewRequester)
+                                        .onFocusEvent { focusState ->
+                                            if (focusState.isFocused) {
+                                                bringIntoViewScope.launch {
+                                                    ageBringIntoViewRequester.bringIntoView()
+                                                }
+                                            }
+                                        },
                                     shape          = RoundedCornerShape(12.dp),
                                     isError        = uiState.ageError != null,
                                     supportingText = {
@@ -246,7 +291,13 @@ fun AddChildScreen(
                                         unfocusedBorderColor = BorderGray,
                                         errorBorderColor     = MaterialTheme.colorScheme.error
                                     ),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Next
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                    ),
                                     singleLine      = true
                                 )
 
@@ -297,11 +348,28 @@ fun AddChildScreen(
                                             )
                                         },
                                         textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
-                                        modifier  = Modifier.fillMaxWidth().height(120.dp),
+                                        modifier  = Modifier
+                                            .fillMaxWidth()
+                                            .height(120.dp)
+                                            .bringIntoViewRequester(notesBringIntoViewRequester)
+                                            .onFocusEvent { focusState ->
+                                                if (focusState.isFocused) {
+                                                    bringIntoViewScope.launch {
+                                                        notesBringIntoViewRequester.bringIntoView()
+                                                    }
+                                                }
+                                            },
                                         shape     = RoundedCornerShape(12.dp),
                                         colors    = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor   = NavyDark,
                                             unfocusedBorderColor = BorderGray
+                                        ),
+                                        keyboardOptions = KeyboardOptions(
+                                            keyboardType = KeyboardType.Text,
+                                            imeAction = ImeAction.Done
+                                        ),
+                                        keyboardActions = KeyboardActions(
+                                            onDone = { focusManager.clearFocus() }
                                         ),
                                         maxLines = 5,
                                         minLines = 3
@@ -501,6 +569,34 @@ fun AddChildScreen(
                         .align(Alignment.TopStart)
                         .offset(x = screenWidth * 0.75f, y = screenHeight * 0.20f)
                 )
+
+                if (showBackButton) {
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                        Box(
+                            modifier = Modifier
+                                .statusBarsPadding()
+                                .padding(horizontal = 16.dp, vertical = 14.dp)
+                                .align(Alignment.TopStart)
+                                .size(44.dp)
+                                .background(
+                                    brush = buttonGradient,
+                                    shape = CircleShape
+                                )
+                                .clickable(onClick = onBackClick),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_arrow_back),
+                                contentDescription = stringResource(R.string.cd_back),
+                                tint = White,
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .scale(scaleX = -1f, scaleY = 1f)
+                                    .offset(x = 4.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
     }

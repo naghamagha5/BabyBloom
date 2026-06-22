@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.babybloom.data.local.dao.ChildDao
 import com.babybloom.data.local.entity.ChildEntity
 import com.babybloom.di.SessionManager
+import com.babybloom.domain.model.ChildProfile
 import com.babybloom.domain.repository.ChildProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -122,13 +123,36 @@ class AddChildViewModel @Inject constructor(
                     userId = userId,
                     name   = state.childName.trim(),
                     age    = state.childAge.toInt(),
+                    gender = if (state.isGirlSelected == true) "FEMALE" else "MALE",
                     notes  = notesValue,
                     avatar = state.selectedAvatar,
-                    status = "ACTIVE"
+                    status = "CALM"
                 )
 
                 val newChildId = childDao.insert(child)
-                childProfileRepository.getByChildId(newChildId)
+                childProfileRepository.createProfile(
+                    ChildProfile(
+                        childId = newChildId,
+                        visualScore = 0f,
+                        audioScore = 0f,
+                        gameScore = 0f,
+                        visualPreferencePercent = 0f,
+                        audioPreferencePercent = 0f,
+                        interactivePreferencePercent = 0f,
+                        languageLevel = 0,
+                        numeracyLevel = 0,
+                        motorLevel = 0,
+                        languageProgress = 0f,
+                        numeracyProgress = 0f,
+                        motorProgress = 0f,
+                        dominantModality = "",
+                        weakSkillAreas = "",
+                        totalSessionCount = 0,
+                        totalActivitiesCompleted = 0,
+                        overallProgressPercent = 0f,
+                        assessmentCompleted = false
+                    )
+                )
 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,

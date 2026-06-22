@@ -27,7 +27,6 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -35,6 +34,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
@@ -44,10 +44,11 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.babybloom.R
-import com.babybloom.presentation.viewmodels.AppNotification
+import com.babybloom.presentation.viewmodels.HomeNotificationUi
 import com.babybloom.presentation.viewmodels.ParentHomeUiState
 import com.babybloom.presentation.viewmodels.ParentHomeViewModel
 import com.babybloom.ui.theme.*
+import kotlin.math.roundToInt
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHELL
@@ -58,7 +59,7 @@ fun ParentShell(
     onNavigateToLogin        : () -> Unit = {},
     onNavigateToChangePwd    : () -> Unit = {},
     onNavigateToAddChild     : () -> Unit = {},
-    onNavigateToChildProfile : (Long) -> Unit = {}
+    onNavigateToChildProfile : (Long, Int) -> Unit = { _, _ -> }
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(startTab) }
 
@@ -71,11 +72,12 @@ fun ParentShell(
                         "settings"  -> selectedTab = 2
                         "add_child" -> onNavigateToAddChild()
                     }
-                }
+                },
+                onOpenChildProfile = onNavigateToChildProfile
             )
             1 -> MyChildrenContent(
                 onAddChildClick = onNavigateToAddChild,
-                onChildClick    = onNavigateToChildProfile
+                onChildClick    = { childId -> onNavigateToChildProfile(childId, 0) }
             )
             2 -> ParentSettingsContent(
                 onNavigateToLogin     = onNavigateToLogin,
@@ -104,56 +106,75 @@ fun ParentBottomNav(
     onTabSelected : (Int) -> Unit,
     modifier      : Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .height(100.dp)
-            .shadow(elevation = 12.dp, shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp), ambientColor = ProgressPurple.copy(alpha = 0.06f))
-            .background(color = Color.White, shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+    NavigationBar(
+        modifier = modifier,
+        containerColor = White,
+        tonalElevation = 8.dp
     ) {
-        Row(
-            modifier              = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment     = Alignment.CenterVertically
-        ) {
-            ParentNavTab(iconRes = R.drawable.ic_home,     label = stringResource(R.string.nav_home),     selected = selectedTab == 0, onClick = { onTabSelected(0) })
-            ParentNavTab(iconRes = R.drawable.ic_children, label = stringResource(R.string.nav_children), selected = selectedTab == 1, onClick = { onTabSelected(1) })
-            ParentNavTab(iconRes = R.drawable.ic_profile,  label = stringResource(R.string.nav_settings), selected = selectedTab == 2, onClick = { onTabSelected(2) })
-        }
+        NavigationBarItem(
+            selected = selectedTab == 0,
+            onClick = { onTabSelected(0) },
+            icon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_home),
+                    contentDescription = stringResource(R.string.nav_home)
+                )
+            },
+            label = {
+                Text(
+                    text = stringResource(R.string.nav_home),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            },
+            colors = parentNavBarColors()
+        )
+
+        NavigationBarItem(
+            selected = selectedTab == 1,
+            onClick = { onTabSelected(1) },
+            icon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_children),
+                    contentDescription = stringResource(R.string.nav_children)
+                )
+            },
+            label = {
+                Text(
+                    text = stringResource(R.string.nav_children),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            },
+            colors = parentNavBarColors()
+        )
+
+        NavigationBarItem(
+            selected = selectedTab == 2,
+            onClick = { onTabSelected(2) },
+            icon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_profile),
+                    contentDescription = stringResource(R.string.nav_settings)
+                )
+            },
+            label = {
+                Text(
+                    text = stringResource(R.string.nav_settings),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            },
+            colors = parentNavBarColors()
+        )
     }
 }
 
 @Composable
-private fun ParentNavTab(iconRes: Int, label: String, selected: Boolean, onClick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onClick() }
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .then(if (selected) Modifier.background(ProgressPurple.copy(alpha = 0.15f)) else Modifier)
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter            = painterResource(id = iconRes),
-                contentDescription = label,
-                tint               = if (selected) ProgressPurple else TextSecondary,
-                modifier           = Modifier.size(22.dp)
-            )
-        }
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text       = label,
-            fontSize   = 12.sp,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color      = if (selected) ProgressPurple else TextSecondary
-        )
-    }
-}
+private fun parentNavBarColors() = NavigationBarItemDefaults.colors(
+    selectedIconColor   = ProgressPurple,
+    selectedTextColor   = ProgressPurple,
+    unselectedIconColor = TextSecondary,
+    unselectedTextColor = TextSecondary,
+    indicatorColor      = CardPurple
+)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN SCREEN
@@ -161,7 +182,8 @@ private fun ParentNavTab(iconRes: Int, label: String, selected: Boolean, onClick
 @Composable
 fun ParentHomeScreen(
     viewModel  : ParentHomeViewModel = hiltViewModel(),
-    onNavigate : (String) -> Unit = {}
+    onNavigate : (String) -> Unit = {},
+    onOpenChildProfile: (Long, Int) -> Unit = { _, _ -> }
 ) {
     val uiState       by viewModel.uiState.collectAsStateWithLifecycle()
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
@@ -205,9 +227,12 @@ fun ParentHomeScreen(
                             .padding(horizontal = 16.dp)
                             .padding(top = 16.dp, bottom = 16.dp)
                     ) {
-                        Section1Container(uiState = uiState, viewModel = viewModel)
+                        Section1Container(
+                            uiState = uiState,
+                            viewModel = viewModel,
+                            onOpenChildProfile = onOpenChildProfile
+                        )
                         Spacer(modifier = Modifier.height(24.dp))
-                        Section2Container(uiState = uiState, onNavigate = onNavigate)
                         Spacer(modifier = Modifier.height(100.dp))
                     }
                 }
@@ -250,6 +275,13 @@ fun ParentHomeScreen(
                     viewModel.markAllNotificationsRead()
                     showNotifications = false
                 },
+                onNotificationClick = { notification ->
+                    viewModel.markNotificationRead(notification.id)
+                    showNotifications = false
+                    notification.childId?.let { childId ->
+                        onOpenChildProfile(childId, notification.destinationTab)
+                    }
+                },
                 onDismiss = { showNotifications = false }
             )
         }
@@ -261,8 +293,9 @@ fun ParentHomeScreen(
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun NotificationsPanel(
-    notifications : List<AppNotification>,
+    notifications : List<HomeNotificationUi>,
     onMarkAllRead : () -> Unit,
+    onNotificationClick: (HomeNotificationUi) -> Unit,
     onDismiss     : () -> Unit
 ) {
     val unreadCount = notifications.count { !it.isRead }
@@ -271,7 +304,7 @@ private fun NotificationsPanel(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(elevation = 16.dp, shape = RoundedCornerShape(20.dp), ambientColor = ShadowColor.copy(alpha = 0.12f))
+                .shadow(elevation = 16.dp, shape = RoundedCornerShape(15.dp), ambientColor = ShadowColor.copy(alpha = 0.12f))
                 .clip(RoundedCornerShape(20.dp))
                 .background(BackgroundLight)
         ) {
@@ -281,9 +314,9 @@ private fun NotificationsPanel(
                     .fillMaxWidth()
                     .background(
                         brush = Brush.verticalGradient(
-                            colors = listOf(GradientPurpleDark, GradientPurpleMedium)
+                            colors = listOf(GradientTop, GradientBottom)
                         ),
-                        shape = RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp)
+                        shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp)
                     )
                     .padding(horizontal = 14.dp, vertical = 1.dp)
             ) {
@@ -297,14 +330,14 @@ private fun NotificationsPanel(
                         Box(
                             modifier = Modifier
                                 .size(35.dp)
-                                .background(DarkNavy.copy(alpha = 0.20f), CircleShape)
+                                .background(White .copy(alpha = 0.20f), CircleShape)
                                 .clickable { onDismiss() },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 painter            = painterResource(id = R.drawable.ic_exit),
                                 contentDescription = stringResource(R.string.cd_close_notifications),
-                                tint               = DarkNavy,
+                                tint               = White ,
                                 modifier           = Modifier.size(20.dp)
                             )
                         }
@@ -318,18 +351,20 @@ private fun NotificationsPanel(
                                 text      = stringResource(R.string.label_notifications_screen_title),
                                 fontSize  = 25.sp,
                                 fontWeight = FontWeight.Bold,
-                                color     = DarkNavy,
+                                color     = White ,
                                 textAlign = TextAlign.End   // ← add this
                             )
                             if (unreadCount > 0) {
                                 Text(
-                                    text     = if (unreadCount == 2)
-                                        stringResource(R.string.label_notifications_new_count_two)
-                                    else
-                                        stringResource(R.string.label_notifications_new_count, unreadCount),
+                                    text     = when (unreadCount) {
+                                        1 -> stringResource(R.string.label_notifications_new_count_one)
+                                        2 -> stringResource(R.string.label_notifications_new_count_two)
+                                        else -> stringResource(R.string.label_notifications_new_count, unreadCount)
+                                    },
                                     fontSize = 16.sp,
-                                    color    = DarkNavy.copy(alpha = 0.75f),
-                                    textAlign = TextAlign.End
+                                    color    = White .copy(alpha = 0.75f),
+                                    textAlign = TextAlign.End,
+                                    style     = LocalTextStyle.current.copy(textDirection = TextDirection.ContentOrRtl)
                                 )
                             }
                         }
@@ -338,13 +373,13 @@ private fun NotificationsPanel(
                         Box(
                             modifier = Modifier
                                 .size(35.dp)
-                                .background(DarkNavy.copy(alpha = 0.20f), CircleShape),
+                                .background(White .copy(alpha = 0.20f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 painter            = painterResource(id = R.drawable.ic_bell),
                                 contentDescription = null,
-                                tint               = DarkNavy,
+                                tint               = White ,
                                 modifier           = Modifier.size(20.dp)
                             )
                         }
@@ -361,7 +396,10 @@ private fun NotificationsPanel(
                 contentPadding      = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
             ) {
                 items(notifications, key = { it.id }) { notif ->
-                    NotifCard(notification = notif)
+                    NotifCard(
+                        notification = notif,
+                        onClick = { onNotificationClick(notif) }
+                    )
                 }
             }
 
@@ -392,10 +430,13 @@ private fun NotificationsPanel(
 // NOTIFICATION CARD  (compact, no change to logic)
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun NotifCard(notification: AppNotification) {
+private fun NotifCard(
+    notification: HomeNotificationUi,
+    onClick: () -> Unit
+) {
     val (borderColor, dotColor) = when (notification.id % 3) {
-        1    -> NotifAccentGreen  to NotifUnreadDotGreen
-        2    -> NotifAccentPurple to NotifUnreadDotPink
+        1L   -> NotifAccentGreen  to NotifUnreadDotGreen
+        2L   -> NotifAccentPurple to NotifUnreadDotPink
         else -> NotifAccentOrange to NotifUnreadDotOrange
     }
     val showAccent = !notification.isRead
@@ -405,14 +446,16 @@ private fun NotifCard(notification: AppNotification) {
             .fillMaxWidth()
             .shadow(elevation = 2.dp, shape = RoundedCornerShape(12.dp), ambientColor = ShadowColor.copy(alpha = 0.05f))
             .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() }
             .background(NotifCardBg,shape = RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp))
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 12.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)
-            ) {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)
+                ) {
                 // Title + unread dot
                 Row(
                     modifier              = Modifier.fillMaxWidth(),
@@ -424,8 +467,10 @@ private fun NotifCard(notification: AppNotification) {
                         fontSize   = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color      = NavyDark,
-                        textAlign  = TextAlign.End,
-                        modifier   = Modifier.weight(1f)
+                        textAlign  = TextAlign.Right,
+                        modifier   = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Box(
@@ -443,26 +488,35 @@ private fun NotifCard(notification: AppNotification) {
                     text      = notification.message,
                     fontSize  = 11.sp,
                     color     = TextSecondary,
-                    textAlign = TextAlign.End,
+                    textAlign = TextAlign.Right,
                     modifier  = Modifier.fillMaxWidth(),
                     maxLines  = 2
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 // Timestamp
-                Row(
-                    modifier              = Modifier.fillMaxWidth(),
-                    verticalAlignment     = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Text(text = notification.time, fontSize = 10.sp, color = NotifTimestampColor)
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Icon(
-                        painter            = painterResource(id = R.drawable.ic_clock),
-                        contentDescription = null,
-                        tint               = NotifTimestampColor,
-                        modifier           = Modifier.size(11.dp)
-                    )
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Row(
+                        modifier              = Modifier.fillMaxWidth(),
+                        verticalAlignment     = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Text(
+                            text = notification.time,
+                            fontSize = 10.sp,
+                            color = NotifTimestampColor,
+                            textAlign = TextAlign.Right,
+                            style = LocalTextStyle.current.copy(textDirection = TextDirection.ContentOrRtl)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Icon(
+                            painter            = painterResource(id = R.drawable.ic_clock),
+                            contentDescription = null,
+                            tint               = NotifTimestampColor,
+                            modifier           = Modifier.size(11.dp)
+                        )
+                    }
                 }
+            }
             }
             // Colored left border strip
             Box(
@@ -562,11 +616,13 @@ fun ParentHeader(
 @Composable
 fun Section1Container(
     uiState   : ParentHomeUiState,
-    viewModel : ParentHomeViewModel
+    viewModel : ParentHomeViewModel,
+    onOpenChildProfile: (Long, Int) -> Unit = { _, _ -> }
 ) {
 
     val children       by viewModel.children.collectAsStateWithLifecycle()
     val selectedChild  by viewModel.selectedChild.collectAsStateWithLifecycle()
+    val selectedChildInsightUiState by viewModel.selectedChildInsightUiState.collectAsStateWithLifecycle()
     var dropdownOpen   by remember { mutableStateOf(false) }
 
     Column(
@@ -587,9 +643,9 @@ fun Section1Container(
         Text(text = stringResource(R.string.parent_home_stats_title), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = HeaderTitleColor, modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp))
 
         Row(modifier = Modifier.fillMaxWidth().height(150.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StatCard(number = stringResource(R.string.parent_home_stat_1_number), label = stringResource(R.string.parent_home_stat_1_label), backgroundColor = Card2, accentColor = ParentCardBlue,   iconRes = R.drawable.ic_progress,     modifier = Modifier.weight(1f))
-            StatCard(number = stringResource(R.string.parent_home_stat_2_number), label = stringResource(R.string.parent_home_stat_2_label), backgroundColor = Card3, accentColor = ParentCardOrange, iconRes = R.drawable.ic_achievements, modifier = Modifier.weight(1f))
-            StatCard(number = stringResource(R.string.parent_home_stat_3_number), label = stringResource(R.string.parent_home_stat_3_label), backgroundColor = Card1, accentColor = ParentCardPurple, iconRes = R.drawable.ic_timer,        modifier = Modifier.weight(1f))
+            StatCard(number = "${uiState.weeklyProgressPercentage.roundToInt()}%", label = stringResource(R.string.parent_home_stat_1_label), backgroundColor = Card2, accentColor = ParentCardBlue,   iconRes = R.drawable.ic_progress,     modifier = Modifier.weight(1f))
+            StatCard(number = uiState.weeklyAchievementsCount.toString(), label = stringResource(R.string.parent_home_stat_2_label), backgroundColor = Card3, accentColor = ParentCardOrange, iconRes = R.drawable.ic_achievements, modifier = Modifier.weight(1f))
+            StatCard(number = formatAverageSessionMinutes(uiState.totalPointsThisWeek), label = stringResource(R.string.parent_home_stat_3_label), backgroundColor = Card1, accentColor = ParentCardPurple, iconRes = R.drawable.ic_timer,        modifier = Modifier.weight(1f))
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -665,24 +721,31 @@ fun Section1Container(
 
                     // ── AI insight message ────────────────────────────────────
                     Text(
-                        text       = if (selectedChild != null)
+                        text       = if (selectedChild != null) {
                             stringResource(R.string.parent_home_ai_insight_for_child, selectedChild!!.name)
-                        else
-                            uiState.aiInsightMessage,
+                        } else {
+                            uiState.aiInsightMessage
+                        },
                         fontSize   = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color      = NavyDark.copy(alpha = 0.9f),
                         modifier   = Modifier
                             .fillMaxWidth()
-                            .offset(y = (-30).dp)
+                            .then(
+                                if (selectedChild == null) {
+                                    Modifier
+                                        .padding(top = 0.dp, bottom = 4.dp)
+                                        .offset(y = (-18).dp)
+                                } else {
+                                    Modifier.padding(top = 4.dp, bottom = 12.dp)
+                                }
+                            )
                     )
 
                     // ── Child dropdown list ───────────────────────────────────
                     AnimatedVisibility(visible = dropdownOpen) {
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .offset(y = (-24).dp)
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             // "Select child" hint row
                             Text(
@@ -716,19 +779,6 @@ fun Section1Container(
                                     verticalAlignment     = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.End
                                 ) {
-                                    Text(
-                                        text      = child.name,
-                                        fontSize  = 14.sp,
-                                        fontWeight = if (selectedChild?.id == child.id)
-                                            FontWeight.Bold
-                                        else
-                                            FontWeight.Normal,
-                                        color     = if (selectedChild?.id == child.id)
-                                            DarkPurple
-                                        else
-                                            NavyDark
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
                                     // Small colored dot per child
                                     Box(
                                         modifier = Modifier
@@ -741,6 +791,21 @@ fun Section1Container(
                                                 shape = CircleShape
                                             )
                                     )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text      = child.name,
+                                        fontSize  = 14.sp,
+                                        fontWeight = if (selectedChild?.id == child.id)
+                                            FontWeight.Bold
+                                        else
+                                            FontWeight.Normal,
+                                        color     = if (selectedChild?.id == child.id)
+                                            DarkPurple
+                                        else
+                                            NavyDark,
+                                        textAlign = TextAlign.Right,
+                                        modifier  = Modifier.weight(1f)
+                                    )
                                 }
                                 Divider(color = BorderGray.copy(alpha = 0.4f), thickness = 0.5.dp)
                             }
@@ -748,15 +813,55 @@ fun Section1Container(
                     }
 
                     // ── "View more" link ──────────────────────────────────────
-                    Text(
-                        text       = stringResource(R.string.parent_home_featured_more),
-                        fontSize   = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color      = Purple,
-                        modifier   = Modifier
-                            .fillMaxWidth()
-                            .offset(y = (-24).dp)
-                    )
+                    if (selectedChild != null && selectedChildInsightUiState?.hasInsight == true) {
+                        Box(
+                            modifier   = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(BackgroundLight)
+                                .padding(horizontal = 12.dp, vertical = 14.dp)
+                        ) {
+                            Text(
+                                text       = selectedChildInsightUiState?.briefMessage
+                                    ?: stringResource(R.string.parent_home_ai_summary_fallback),
+                                fontSize   = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color      = TextSecondary,
+                                lineHeight = 20.sp,
+                                modifier   = Modifier.fillMaxWidth()
+                            )
+                        }
+                    } else if (selectedChild != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(ProgressPurple.copy(alpha = 0.10f))
+                                .clickable {
+                                    onOpenChildProfile(selectedChild!!.id, 1)
+                                }
+                                .padding(horizontal = 14.dp, vertical = 14.dp)
+                        ) {
+                            Text(
+                                text       = stringResource(R.string.parent_home_ai_open_child_insights),
+                                fontSize   = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color      = Purple,
+                                lineHeight = 20.sp,
+                                modifier   = Modifier.fillMaxWidth(),
+                                textAlign  = TextAlign.Center
+                            )
+                        }
+                    } else {
+                        Text(
+                            text       = stringResource(R.string.parent_home_ai_select_prompt),
+                            fontSize   = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color      = Purple,
+                            lineHeight = 20.sp,
+                            modifier   = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
         }
@@ -795,41 +900,15 @@ fun StatCard(number: String, label: String, backgroundColor: Color, accentColor:
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SECTION 2  (your exact original)
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-fun Section2Container(uiState: ParentHomeUiState, onNavigate: (String) -> Unit = {}) {
-    Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(SectionCardBackground).padding(16.dp)) {
-        Text(text = stringResource(R.string.parent_home_sections_title), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = HeaderTitleColor, modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp))
-        QuickActionItem(title = stringResource(R.string.parent_home_section_1_title), description = stringResource(R.string.parent_home_section_1_desc), backgroundColor = Card2, iconRes = R.drawable.ic_search,  onNavigate = { onNavigate("children")  })
-        Spacer(modifier = Modifier.height(12.dp))
-        QuickActionItem(title = stringResource(R.string.parent_home_section_2_title), description = stringResource(R.string.parent_home_section_2_desc), backgroundColor = Card3,   iconRes = R.drawable.ic_add,     onNavigate = { onNavigate("add_child") })
-        Spacer(modifier = Modifier.height(12.dp))
-        QuickActionItem(title = stringResource(R.string.parent_home_section_3_title), description = stringResource(R.string.parent_home_section_3_desc), backgroundColor = Card1, iconRes = R.drawable.ic_support, onNavigate = { onNavigate("settings")  })
+private fun formatAverageSessionMinutes(minutes: Int): String {
+    if (minutes <= 0) return "0m"
+    val hours = minutes / 60
+    val remainingMinutes = minutes % 60
+    return if (hours > 0) {
+        "${hours}h ${remainingMinutes}m"
+    } else {
+        "${remainingMinutes}m"
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// QUICK ACTION ITEM  (your exact original)
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-fun QuickActionItem(title: String, description: String, backgroundColor: Color, iconRes: Int, modifier: Modifier = Modifier, onNavigate: () -> Unit = {}) {
-    Row(
-        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(White).clickable { onNavigate() }.padding(12.dp),
-        horizontalArrangement = Arrangement.Start,
-        verticalAlignment     = Alignment.CenterVertically
-    ) {
-        Box(modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).background(backgroundColor), contentAlignment = Alignment.Center) {
-            Image(painter = painterResource(id = iconRes), contentDescription = title, modifier = Modifier.size(24.dp))
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
-            Text(text = title,       fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HeaderTitleColor)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = description, fontSize = 12.sp, color = HeaderGreetingColor)
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Image(painter = painterResource(id = R.drawable.baseline_chevron_left_24), contentDescription = null, modifier = Modifier.size(24.dp), colorFilter = ColorFilter.tint(HeaderGreetingColor))
-    }
-}
+

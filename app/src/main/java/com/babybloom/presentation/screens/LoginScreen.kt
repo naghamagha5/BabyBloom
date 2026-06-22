@@ -4,6 +4,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -14,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -35,6 +38,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.babybloom.R
 import com.babybloom.presentation.viewmodels.LoginViewModel
 import com.babybloom.ui.theme.*
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
@@ -63,6 +67,9 @@ fun LoginScreen(
     val configuration = LocalConfiguration.current
     val screenWidth   = configuration.screenWidthDp.dp
     val screenHeight  = configuration.screenHeightDp.dp
+    val bringIntoViewScope = rememberCoroutineScope()
+    val emailBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val passwordBringIntoViewRequester = remember { BringIntoViewRequester() }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Box(
@@ -91,6 +98,7 @@ fun LoginScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(top = screenHeight * 0.26f, bottom = 20.dp)
+                    .imePadding()
             ) {
                 val scrollState = rememberScrollState()
 
@@ -140,7 +148,16 @@ fun LoginScreen(
                                     )
                                 },
                                 textStyle      = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
-                                modifier       = Modifier.fillMaxWidth(),
+                                modifier       = Modifier
+                                    .fillMaxWidth()
+                                    .bringIntoViewRequester(emailBringIntoViewRequester)
+                                    .onFocusEvent { focusState ->
+                                        if (focusState.isFocused) {
+                                            bringIntoViewScope.launch {
+                                                emailBringIntoViewRequester.bringIntoView()
+                                            }
+                                        }
+                                    },
                                 shape          = RoundedCornerShape(12.dp),
                                 isError        = uiState.emailError != null,
                                 supportingText = {
@@ -185,7 +202,16 @@ fun LoginScreen(
                                     )
                                 },
                                 textStyle      = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
-                                modifier       = Modifier.fillMaxWidth(),
+                                modifier       = Modifier
+                                    .fillMaxWidth()
+                                    .bringIntoViewRequester(passwordBringIntoViewRequester)
+                                    .onFocusEvent { focusState ->
+                                        if (focusState.isFocused) {
+                                            bringIntoViewScope.launch {
+                                                passwordBringIntoViewRequester.bringIntoView()
+                                            }
+                                        }
+                                    },
                                 shape          = RoundedCornerShape(12.dp),
                                 isError        = uiState.passwordError != null,
                                 supportingText = {

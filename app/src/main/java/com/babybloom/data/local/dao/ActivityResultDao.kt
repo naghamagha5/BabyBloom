@@ -12,6 +12,9 @@ interface ActivityResultDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(result: ActivityResultEntity): Long
 
+    @Query("UPDATE activity_results SET score = :score WHERE id = :resultId")
+    suspend fun updateScore(resultId: Long, score: Float)
+
     @Query("""
         SELECT COALESCE(a.title, ar.activityId) AS activityTitle,
                ar.score,
@@ -80,6 +83,16 @@ interface ActivityResultDao {
         ORDER BY ar.timestamp ASC
     """)
     suspend fun getSkillScoresForChart(childId: Long): List<SkillScoreRow>
+
+    @Query("""
+        SELECT ar.timestamp, ar.score, a.skillArea
+        FROM activity_results ar
+        LEFT JOIN activities a ON ar.activityId = a.id
+        WHERE ar.childId = :childId
+          AND a.skillArea IS NOT NULL
+        ORDER BY ar.timestamp ASC
+    """)
+    fun observeSkillScoresForChart(childId: Long): Flow<List<SkillScoreRow>>
 
     // Multimodal signal queries — used by personalization algorithm
 

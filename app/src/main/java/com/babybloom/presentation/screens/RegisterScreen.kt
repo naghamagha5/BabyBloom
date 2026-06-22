@@ -9,23 +9,30 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -38,6 +45,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.babybloom.R
 import com.babybloom.presentation.viewmodels.RegisterViewModel
 import com.babybloom.ui.theme.*
+import kotlinx.coroutines.launch
 
 @Composable
 fun RegisterScreen(
@@ -54,6 +62,12 @@ fun RegisterScreen(
 
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    val focusManager = LocalFocusManager.current
+    val bringIntoViewScope = rememberCoroutineScope()
+    val nameBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val emailBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val passwordBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val confirmPasswordBringIntoViewRequester = remember { BringIntoViewRequester() }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
@@ -152,6 +166,7 @@ fun RegisterScreen(
                         modifier = Modifier
                             .fillMaxWidth(0.9f)
                             .align(Alignment.TopCenter)
+                            .imePadding()
                             .border(
                                 width = 2.dp,
                                 color = BorderGray,
@@ -209,7 +224,16 @@ fun RegisterScreen(
                                         )
                                     },
                                     textStyle     = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
-                                    modifier      = Modifier.fillMaxWidth(),
+                                    modifier      = Modifier
+                                        .fillMaxWidth()
+                                        .bringIntoViewRequester(nameBringIntoViewRequester)
+                                        .onFocusEvent { focusState ->
+                                            if (focusState.isFocused) {
+                                                bringIntoViewScope.launch {
+                                                    nameBringIntoViewRequester.bringIntoView()
+                                                }
+                                            }
+                                        },
                                     shape         = RoundedCornerShape(12.dp),
                                     isError       = uiState.nameError != null,
                                     supportingText = {
@@ -226,6 +250,13 @@ fun RegisterScreen(
                                         focusedBorderColor   = NavyDark,
                                         unfocusedBorderColor = BorderGray,
                                         errorBorderColor     = MaterialTheme.colorScheme.error
+                                    ),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Text,
+                                        imeAction = ImeAction.Next
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
                                     ),
                                     singleLine = true
                                 )
@@ -250,7 +281,16 @@ fun RegisterScreen(
                                         )
                                     },
                                     textStyle      = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
-                                    modifier       = Modifier.fillMaxWidth(),
+                                    modifier       = Modifier
+                                        .fillMaxWidth()
+                                        .bringIntoViewRequester(emailBringIntoViewRequester)
+                                        .onFocusEvent { focusState ->
+                                            if (focusState.isFocused) {
+                                                bringIntoViewScope.launch {
+                                                    emailBringIntoViewRequester.bringIntoView()
+                                                }
+                                            }
+                                        },
                                     shape          = RoundedCornerShape(12.dp),
                                     isError        = uiState.emailError != null,
                                     supportingText = {
@@ -268,7 +308,13 @@ fun RegisterScreen(
                                         unfocusedBorderColor = BorderGray,
                                         errorBorderColor     = MaterialTheme.colorScheme.error
                                     ),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Email,
+                                        imeAction = ImeAction.Next
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                    ),
                                     singleLine      = true
                                 )
 
@@ -292,7 +338,16 @@ fun RegisterScreen(
                                         )
                                     },
                                     textStyle      = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
-                                    modifier       = Modifier.fillMaxWidth(),
+                                    modifier       = Modifier
+                                        .fillMaxWidth()
+                                        .bringIntoViewRequester(passwordBringIntoViewRequester)
+                                        .onFocusEvent { focusState ->
+                                            if (focusState.isFocused) {
+                                                bringIntoViewScope.launch {
+                                                    passwordBringIntoViewRequester.bringIntoView()
+                                                }
+                                            }
+                                        },
                                     shape          = RoundedCornerShape(12.dp),
                                     isError        = uiState.passwordError != null,
                                     supportingText = {
@@ -312,7 +367,13 @@ fun RegisterScreen(
                                     ),
                                     visualTransformation = if (passwordVisible)
                                         VisualTransformation.None else PasswordVisualTransformation(),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Password,
+                                        imeAction = ImeAction.Next
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                    ),
                                     singleLine      = true,
                                     trailingIcon    = {
                                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -348,7 +409,16 @@ fun RegisterScreen(
                                         )
                                     },
                                     textStyle      = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
-                                    modifier       = Modifier.fillMaxWidth(),
+                                    modifier       = Modifier
+                                        .fillMaxWidth()
+                                        .bringIntoViewRequester(confirmPasswordBringIntoViewRequester)
+                                        .onFocusEvent { focusState ->
+                                            if (focusState.isFocused) {
+                                                bringIntoViewScope.launch {
+                                                    confirmPasswordBringIntoViewRequester.bringIntoView()
+                                                }
+                                            }
+                                        },
                                     shape          = RoundedCornerShape(12.dp),
                                     isError        = uiState.confirmPasswordError != null,
                                     supportingText = {
@@ -368,7 +438,21 @@ fun RegisterScreen(
                                     ),
                                     visualTransformation = if (confirmPwdVisible)
                                         VisualTransformation.None else PasswordVisualTransformation(),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Password,
+                                        imeAction = ImeAction.Done
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onDone = {
+                                            focusManager.clearFocus()
+                                            viewModel.register(
+                                                name = fullName,
+                                                email = email,
+                                                password = password,
+                                                confirmPassword = confirmPassword
+                                            )
+                                        }
+                                    ),
                                     singleLine      = true,
                                     trailingIcon    = {
                                         IconButton(onClick = { confirmPwdVisible = !confirmPwdVisible }) {

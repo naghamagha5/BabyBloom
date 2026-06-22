@@ -126,6 +126,78 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_12_13 = object : Migration(12, 13) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE level_mastery ADD COLUMN contentId TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE level_mastery ADD COLUMN contentScore REAL")
+            db.execSQL("DROP INDEX IF EXISTS index_level_mastery_childId_skillArea_level")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_level_mastery_childId_skillArea_level_contentId ON level_mastery(childId, skillArea, level, contentId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_level_mastery_childId_contentId ON level_mastery(childId, contentId)")
+        }
+    }
+
+    private val MIGRATION_13_14 = object : Migration(13, 14) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE children ADD COLUMN gender TEXT NOT NULL DEFAULT 'UNSPECIFIED'")
+            db.execSQL(
+                """
+                UPDATE children
+                SET gender = CASE
+                    WHEN LOWER(avatar) LIKE '%girl%' THEN 'FEMALE'
+                    WHEN LOWER(avatar) LIKE '%boy%' THEN 'MALE'
+                    ELSE 'UNSPECIFIED'
+                END
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS child_profile_snapshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    childId INTEGER NOT NULL,
+                    visualPreferencePercent REAL NOT NULL,
+                    audioPreferencePercent REAL NOT NULL,
+                    interactivePreferencePercent REAL NOT NULL,
+                    dominantModality TEXT NOT NULL,
+                    languageLevel INTEGER NOT NULL,
+                    numeracyLevel INTEGER NOT NULL,
+                    motorLevel INTEGER NOT NULL,
+                    capturedAt INTEGER NOT NULL,
+                    FOREIGN KEY(childId) REFERENCES children(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_child_profile_snapshots_childId ON child_profile_snapshots(childId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_child_profile_snapshots_childId_capturedAt ON child_profile_snapshots(childId, capturedAt)")
+        }
+    }
+
+    private val MIGRATION_14_15 = object : Migration(14, 15) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS app_notifications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    userId INTEGER NOT NULL,
+                    childId INTEGER,
+                    type TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    createdAt INTEGER NOT NULL,
+                    readAt INTEGER,
+                    eventKey TEXT NOT NULL,
+                    destinationTab INTEGER NOT NULL,
+                    FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE NO ACTION ON DELETE CASCADE,
+                    FOREIGN KEY(childId) REFERENCES children(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_app_notifications_userId ON app_notifications(userId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_app_notifications_childId ON app_notifications(childId)")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_app_notifications_eventKey ON app_notifications(eventKey)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_app_notifications_userId_createdAt ON app_notifications(userId, createdAt)")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
@@ -134,7 +206,14 @@ object DatabaseModule {
             AppDatabase::class.java,
             "babybloom_db"
         )
-            .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+            .addMigrations(
+                MIGRATION_9_10,
+                MIGRATION_10_11,
+                MIGRATION_11_12,
+                MIGRATION_12_13,
+                MIGRATION_13_14,
+                MIGRATION_14_15
+            )
             .fallbackToDestructiveMigration()
             .build()
     }
@@ -142,6 +221,7 @@ object DatabaseModule {
     @Provides fun provideUserDao(db: AppDatabase) = db.userDao()
     @Provides fun provideChildDao(db: AppDatabase) = db.childDao()
     @Provides fun provideChildProfileDao(db: AppDatabase) = db.childProfileDao()
+    @Provides fun provideChildProfileSnapshotDao(db: AppDatabase) = db.childProfileSnapshotDao()
     @Provides fun provideSessionDao(db: AppDatabase) = db.sessionDao()
     @Provides fun provideActivityDao(db: AppDatabase) = db.activityDao()
     @Provides fun provideLearningContentDao(db: AppDatabase) = db.learningContentDao()
@@ -152,4 +232,5 @@ object DatabaseModule {
     @Provides fun provideActivityRecommendationDao(db: AppDatabase) = db.activityRecommendationDao()
     @Provides fun provideAssessmentResultDao(db: AppDatabase) = db.assessmentResultDao()
     @Provides fun provideLevelMasteryDao(db: AppDatabase) = db.levelMasteryDao()
+    @Provides fun provideAppNotificationDao(db: AppDatabase) = db.appNotificationDao()
 }

@@ -1,4 +1,4 @@
-﻿[
+[
   {
     "id": "story_letters_d1",
     "title": "قِصَّة الحُرُوف",
@@ -219,7 +219,9 @@
       "letter_alef",
       "letter_ba",
       "letter_meem",
-      "letter_ha"
+      "letter_ha",
+      "letter_jeem",
+      "letter_dal"
     ]
   },
   {
@@ -365,7 +367,8 @@
       "animal_duck",
       "animal_goat",
       "animal_horse",
-      "animal_camel"
+      "animal_camel",
+      "animal_bear"
     ]
   },
   {

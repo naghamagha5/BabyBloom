@@ -24,12 +24,9 @@ val DividerGray             = Color(0xFFCCC5E0)
 val ButtonText              = Color(0xFFFFFFFF)
 val LinkColor               = Color(0xFF6B4EFF)
 
-// ── Register Screen ───────────────────────────────────────────────────────────
-val GradientTop             = Color(0xFFB8A9E8)
-val GradientBottom          = Color(0xFFD8D0F0)
-val CardWhite               = Color(0xFFFFFFFF)
-val SunBackground           = Color(0xFFF0E8FF)
-val TextFieldBorderFocused  = Color(0xFF7B68C8)
+// ── Notification panel ───────────────────────────────────────────────────────────
+val GradientTop             = Color(0xFF2E2645)
+val GradientBottom          = Color(0xFF7C4DBC)
 
 // ── Gradient Palette ──────────────────────────────────────────────────────────
 val GradientPurpleLight     = Color(0xFFE1E3F7)
@@ -229,3 +226,13 @@ val GameActiveSwatch5  = Color(0xFF0683FC)  // bright periwinkle
 val GameActiveBackground = Color(0xFFFFFFFF) // pure white              → card & screen BG
 val GameActiveWrong      = Color(0xFFFF0606) // pure red                → wrong answer
 val GameActiveCorrect    = Color(0xFF00FF0D) // pure green              → correct answer
+
+// ── Progress bar – Active palette ────────────────────────────────────────────────
+val ProgressActiveSwatch1  = Color(0xFF0FD187)
+val ProgressActiveSwatch2  = Color(0xFF56F277)
+val ProgressActiveSwatch3  = Color(0xFF08F30E)
+
+// ── Progress bar – Calm palette ──────────────────────────────────────────
+val ProgressCalmSwatch1  = Color(0xFFA8DBBF)
+val ProgressCalmSwatch2  = Color(0xFFC0DD97)
+val ProgressCalmSwatch3  = Color(0xFFB8E4C2)

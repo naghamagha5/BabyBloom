@@ -18,6 +18,9 @@ class ActivityResultRepositoryImpl @Inject constructor(
     override suspend fun saveResult(result: ActivityResult): Long =
         activityResultDao.insert(result.toEntity())
 
+    override suspend fun updateScore(resultId: Long, score: Float) =
+        activityResultDao.updateScore(resultId, score)
+
     override suspend fun getBySession(sessionId: Long): List<ActivityResult> =
         activityResultDao.getBySession(sessionId).map { it.toDomain() }
 
@@ -53,6 +56,9 @@ class ActivityResultRepositoryImpl @Inject constructor(
 
     override suspend fun getSkillScoresForChart(childId: Long): List<SkillScoreRow> =
         activityResultDao.getSkillScoresForChart(childId)
+
+    override fun observeSkillScoresForChart(childId: Long): Flow<List<SkillScoreRow>> =
+        activityResultDao.observeSkillScoresForChart(childId)
 
     override suspend fun getResultsWithAttention(
         childId: Long,

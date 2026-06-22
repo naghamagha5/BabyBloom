@@ -15,15 +15,18 @@ import androidx.room.PrimaryKey
     )],
     indices = [
         Index("childId"),
-        Index(value = ["childId", "skillArea", "level"], unique = true)
+        Index(value = ["childId", "skillArea", "level", "contentId"], unique = true),
+        Index(value = ["childId", "contentId"])
     ]
 )
 data class LevelMasteryEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val childId: Long,
-    val skillArea: String,   // "LANGUAGE", "NUMERACY", "MOTOR"
-    val level: Int,          // 1–5
+    val skillArea: String,
+    val level: Int,
+    val contentId: String = "",
+    val contentScore: Float? = null,
     val masteredCount: Int = 0,
     val lastUpdated: Long = System.currentTimeMillis()
 )

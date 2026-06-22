@@ -32,5 +32,36 @@ class ChildRepositoryImpl @Inject constructor(
         childDao.observeById(id).map { it?.toDomain() }
 }
 
-fun ChildEntity.toDomain() = Child(id, userId, name, age, notes, avatar, soundEffectEnabled, reducedAnimation, uiTheme, createdAt, ChildStatus.valueOf(status), sessionDurationMinutes, backgroundMusicEnabled)
-fun Child.toEntity() = ChildEntity(id, userId, name, age, notes, avatar, soundEffectEnabled, reducedAnimation, uiTheme, createdAt, status.name, sessionDurationMinutes, backgroundMusicEnabled)
+fun ChildEntity.toDomain() = Child(
+    id = id,
+    userId = userId,
+    name = name,
+    age = age,
+    gender = gender,
+    notes = notes,
+    avatar = avatar,
+    soundEffectEnabled = soundEffectEnabled,
+    reducedAnimation = reducedAnimation,
+    uiTheme = uiTheme,
+    createdAt = createdAt,
+    status = ChildStatus.valueOf(status),
+    sessionDurationMinutes = sessionDurationMinutes,
+    backgroundMusicEnabled = backgroundMusicEnabled
+)
+
+fun Child.toEntity() = ChildEntity(
+    id = id,
+    userId = userId,
+    name = name,
+    age = age,
+    gender = gender,
+    notes = notes,
+    avatar = avatar,
+    soundEffectEnabled = soundEffectEnabled,
+    reducedAnimation = reducedAnimation,
+    uiTheme = uiTheme,
+    createdAt = createdAt,
+    status = status.name,
+    sessionDurationMinutes = sessionDurationMinutes,
+    backgroundMusicEnabled = backgroundMusicEnabled
+)
