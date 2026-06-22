@@ -12,7 +12,7 @@ data class ActivityResult(
     val incorrectCount: Int,
     val attempts: Int = 1,
     val speechConfidence: Float? = null,
-    val touchComplexity: Float? = null,
+    val touchQualityScore: Float? = null,
     val attentionScore: Float? = null,
     val timestamp: Long = System.currentTimeMillis()
 )

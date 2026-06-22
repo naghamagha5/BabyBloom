@@ -12,6 +12,7 @@ import com.babybloom.domain.model.ActivityContent
 import com.babybloom.util.AssetPathResolver
 import com.babybloom.util.SoundEffect
 import com.babybloom.util.touch.TouchPatternAnalyzer
+import com.babybloom.util.touch.TouchScoringMode
 import com.babybloom.util.trace.TracePathData
 import com.babybloom.util.trace.TracePathLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -39,8 +40,8 @@ data class TraceResult(
     val coverage:        Float,
     val elapsedMs:       Long,
     val attempts:        Int,
-    val touchComplexity: Float,
-    val avgStrokeLength: Float,
+    val touchQualityScore: Float,
+    val averageMovementDistance: Float,
     val correctionCount: Int
 )
 
@@ -97,6 +98,7 @@ class TraceViewModel @Inject constructor(
     private var handAnimJob:     Job? = null
     private var hintRestoreJob:  Job? = null
     private var postResultJob:   Job? = null
+    private var instructionStartJob: Job? = null
 
     private var nameAudioPlayer:    MediaPlayer? = null
     private var soundAudioPlayer:   MediaPlayer? = null
@@ -106,6 +108,8 @@ class TraceViewModel @Inject constructor(
     private var lastTapSoundMs = 0L
     private var canvasW        = 1f
     private var canvasH        = 1f
+    private var traceMoveCount = 0
+    private var offPathMoveCount = 0
 
     companion object {
         const val COVERAGE_MIN  = 0.80f
@@ -146,6 +150,7 @@ class TraceViewModel @Inject constructor(
 
         touchAnalyzer.onSessionStart()
         canvasW = 1f; canvasH = 1f
+        resetPathAdherence()
 
         _uiState.value = TraceUiState.Tracing(
             TraceState(
@@ -156,7 +161,7 @@ class TraceViewModel @Inject constructor(
             )
         )
 
-        viewModelScope.launch {
+        instructionStartJob = viewModelScope.launch {
             delay(400L)
             playInstructionAudio(item.contentId)
         }
@@ -173,9 +178,9 @@ class TraceViewModel @Inject constructor(
         hintRestoreJob?.cancel()
         handAnimJob?.cancel()
         val c = cur() ?: return
-        touchAnalyzer.onPointerEvent(position)
+        touchAnalyzer.onStrokeStart(position)
         update(c.copy(showHandHint = false))
-        hitTest(c.copy(showHandHint = false), position)
+        recordTraceMove(hitTest(c.copy(showHandHint = false), position))
     }
 
     fun onDrag(canvasSize: Offset, position: Offset) {
@@ -183,11 +188,12 @@ class TraceViewModel @Inject constructor(
         canvasH = canvasSize.y.coerceAtLeast(1f)
         val c = cur() ?: return
         touchAnalyzer.onPointerEvent(position)
-        hitTest(c, position)
+        recordTraceMove(hitTest(c, position))
     }
 
     fun onDragEnd() {
         val c = cur() ?: return
+        touchAnalyzer.onStrokeEnd()
         if (c.inBonusWindow) return
         hintRestoreJob = viewModelScope.launch {
             delay(HINT_RESTORE_MS)
@@ -201,24 +207,29 @@ class TraceViewModel @Inject constructor(
 
     // ── Hit detection ─────────────────────────────────────────────────────────
 
-    private fun hitTest(state: TraceState, fingerPx: Offset) {
+    private fun hitTest(state: TraceState, fingerPx: Offset): Boolean {
         val circles = state.pathData.circles
-        if (circles.isEmpty()) return
+        if (circles.isEmpty()) return false
 
         val newColored = state.coloredIndices.toMutableSet()
-        var hit = false
+        var isOnPath = false
+        var addedNewPoint = false
 
         circles.forEachIndexed { i, circle ->
-            if (i in newColored) return@forEachIndexed
             val cpx    = circle.center.x * canvasW
             val cpy    = circle.center.y * canvasH
             val touchR = circle.radius * canvasW * TOUCH_MULTIPLIER
             if (sqrt((fingerPx.x - cpx).pow(2) + (fingerPx.y - cpy).pow(2)) <= touchR) {
-                newColored.add(i); hit = true
+                isOnPath = true
+                if (i !in newColored) {
+                    newColored.add(i)
+                    addedNewPoint = true
+                }
             }
         }
 
-        if (!hit) return
+        if (!isOnPath) return false
+        if (!addedNewPoint) return true
 
         val coverage     = newColored.size.toFloat() / circles.size.coerceAtLeast(1)
         val bestCoverage = maxOf(state.bestCoverage, coverage)
@@ -237,11 +248,28 @@ class TraceViewModel @Inject constructor(
         update(updated)
 
         if (coverage >= COVERAGE_MIN && !state.inBonusWindow) {
-            enterBonusWindow(updated); return
+            enterBonusWindow(updated); return true
         }
         if (coverage >= 1.0f) {
             onSuccess(finalScore = 1.0f, state = updated)
         }
+        return true
+    }
+
+    private fun recordTraceMove(isOnPath: Boolean) {
+        traceMoveCount++
+        if (!isOnPath) offPathMoveCount++
+    }
+
+    private fun pathAdherenceScore(): Float {
+        if (traceMoveCount == 0) return 1f
+        val offPathRate = offPathMoveCount.toFloat() / traceMoveCount.toFloat()
+        return (1f - offPathRate * 1.4f).coerceIn(0f, 1f)
+    }
+
+    private fun resetPathAdherence() {
+        traceMoveCount = 0
+        offPathMoveCount = 0
     }
 
     // ── Phase transitions ─────────────────────────────────────────────────────
@@ -282,17 +310,22 @@ class TraceViewModel @Inject constructor(
             playContentAudio(state.item)
             delay(REVEAL_HOLD_MS)
             _uiState.value = TraceUiState.ShowSuccess(state, finalScore)
-            appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
             delay(SUCCESS_POPUP_MS)
-            val analysis = touchAnalyzer.analyze()
+            val analysis = touchAnalyzer.analyze(
+                attempts = state.currentAttempt,
+                expectedStrokeCount = state.pathData.orderedHintStrokes.size.coerceAtLeast(1),
+                progress = finalScore,
+                pathAdherence = pathAdherenceScore(),
+                mode = TouchScoringMode.TRACE
+            )
             _uiState.value = TraceUiState.ItemComplete(
                 TraceResult(
                     isSuccess       = true,
                     coverage        = finalScore,
                     elapsedMs       = elapsed,
                     attempts        = state.currentAttempt,
-                    touchComplexity = analysis.touchComplexity,
-                    avgStrokeLength = analysis.averageStrokeLength,
+                    touchQualityScore = analysis.touchQualityScore,
+                    averageMovementDistance = analysis.averageMovementDistance,
                     correctionCount = analysis.correctionCount
                 )
             )
@@ -302,7 +335,7 @@ class TraceViewModel @Inject constructor(
     private fun onAttemptFailed(state: TraceState) {
         cancelAllJobs()
         val isLast = state.currentAttempt >= MAX_ATTEMPTS
-        appSoundSettings.playSoundEffect(SoundEffect.TRY_AGAIN)
+        appSoundSettings.playSoundEffect(SoundEffect.WRONG)
 
         _uiState.value = TraceUiState.ShowEncouraging(
             state         = state,
@@ -313,7 +346,13 @@ class TraceViewModel @Inject constructor(
         postResultJob = viewModelScope.launch {
             delay(ENCOURAGING_HOLD_MS)
             if (isLast) {
-                val analysis = touchAnalyzer.analyze()
+                val analysis = touchAnalyzer.analyze(
+                    attempts = state.currentAttempt,
+                    expectedStrokeCount = state.pathData.orderedHintStrokes.size.coerceAtLeast(1),
+                    progress = state.bestCoverage,
+                    pathAdherence = pathAdherenceScore(),
+                    mode = TouchScoringMode.TRACE
+                )
                 val elapsed  = System.currentTimeMillis() - state.startTimeMs
                 _uiState.value = TraceUiState.ItemComplete(
                     TraceResult(
@@ -321,8 +360,8 @@ class TraceViewModel @Inject constructor(
                         coverage        = state.bestCoverage,
                         elapsedMs       = elapsed,
                         attempts        = state.currentAttempt,
-                        touchComplexity = analysis.touchComplexity,
-                        avgStrokeLength = analysis.averageStrokeLength,
+                        touchQualityScore = analysis.touchQualityScore,
+                        averageMovementDistance = analysis.averageMovementDistance,
                         correctionCount = analysis.correctionCount
                     )
                 )
@@ -334,6 +373,7 @@ class TraceViewModel @Inject constructor(
 
     private fun retryItem(prev: TraceState) {
         touchAnalyzer.onSessionStart()
+        resetPathAdherence()
         _uiState.value = TraceUiState.Tracing(
             TraceState(
                 item           = prev.item,
@@ -343,7 +383,7 @@ class TraceViewModel @Inject constructor(
                 startTimeMs    = System.currentTimeMillis()
             )
         )
-        viewModelScope.launch {
+        instructionStartJob = viewModelScope.launch {
             delay(400L)
             playInstructionAudio(prev.item.contentId)
         }
@@ -434,14 +474,7 @@ class TraceViewModel @Inject constructor(
             when {
                 item.contentId.startsWith("letter_") -> {
                     val namePath  = AssetPathResolver.audioPathFor(item.contentId, "LETTER_NAME")
-                    val soundContentId = "${item.contentId}_s"
-                    val soundPath = AssetPathResolver.audioPathFor(soundContentId, "LETTER_SOUND")
-
-                    nameAudioPlayer = buildMediaPlayer(namePath, CONTENT_AUDIO_ATTRS) {
-                        viewModelScope.launch {
-                            soundAudioPlayer = buildMediaPlayer(soundPath, CONTENT_AUDIO_ATTRS, null)
-                        }
-                    }
+                    nameAudioPlayer = buildMediaPlayer(namePath, CONTENT_AUDIO_ATTRS, null)
                 }
                 item.contentId.startsWith("number_") -> {
                     val path = AssetPathResolver.audioPathFor(item.contentId, "NUMBER")
@@ -506,6 +539,7 @@ class TraceViewModel @Inject constructor(
         handAnimJob?.cancel()
         hintRestoreJob?.cancel()
         postResultJob?.cancel()
+        instructionStartJob?.cancel()
     }
 
     private fun releaseAudioPlayers() {

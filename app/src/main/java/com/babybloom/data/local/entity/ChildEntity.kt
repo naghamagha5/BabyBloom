@@ -21,13 +21,14 @@ data class ChildEntity(
     val userId: Long,
     val name: String,
     val age: Int,
+    val gender: String = "UNSPECIFIED",
     val notes: String = "",
     val avatar: String = "",          // asset path e.g. "avatars/bear.webp"
     val soundEffectEnabled: Boolean = true,
     val reducedAnimation: Boolean = false,
     val uiTheme: Boolean = false,  // "false" for "ACTIVE" and "true" for "CALM"
     val createdAt: Long = System.currentTimeMillis(),
-    val status: String = "ACTIVE",
+    val status: String = "CALM",
     val sessionDurationMinutes: Int = 10,
     val backgroundMusicEnabled: Boolean = true
 )

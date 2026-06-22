@@ -36,8 +36,9 @@ class AppSoundSettings @Inject constructor(
         backgroundMusicEnabled: Boolean,
         soundEffectsEnabled: Boolean
     ) {
+        soundEnabled.value = soundEffectsEnabled
         if (backgroundMusicEnabled) startBackgroundMusic()
-        if (soundEffectsEnabled) loadSoundEffects()
+        if (soundEffectsEnabled) loadSoundEffects() else releaseSoundEffects()
     }
 
     fun stopSession() {
@@ -45,11 +46,7 @@ class AppSoundSettings @Inject constructor(
         musicPlayer?.release()
         musicPlayer = null
 
-        sfxPool?.release()
-        sfxPool = null
-        sfxMap.clear()
-        loadedIds.clear()
-        pendingPlay.clear()
+        releaseSoundEffects()
     }
 
     // ── Play ──────────────────────────────────────────────────────────────────
@@ -151,5 +148,13 @@ class AppSoundSettings @Inject constructor(
         }
 
         sfxPool = pool
+    }
+
+    private fun releaseSoundEffects() {
+        sfxPool?.release()
+        sfxPool = null
+        sfxMap.clear()
+        loadedIds.clear()
+        pendingPlay.clear()
     }
 }

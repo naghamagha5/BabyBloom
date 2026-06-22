@@ -35,14 +35,14 @@ data class ActivityResultEntity(
     val sessionId: Long,
     val childId: Long,
     val activityId: String,
-    val contentId: String,           // which content item this result is for
-    val score: Float,                // 0.0 to 1.0
-    val duration: Long,              // milliseconds
+    val contentId: String,
+    val score: Float,
+    val duration: Long,
     val correctCount: Int,
     val incorrectCount: Int,
-    val attempts: Int = 1,           // total attempts before correct/give-up
-    val speechConfidence: Float? = null,   // 0.0–1.0, null if not a speech activity
-    val touchComplexity: Float? = null,    // 0.0–1.0, null if no touch tracking
-    val attentionScore: Float? = null,     // 0.0–1.0, average over activity duration
+    val attempts: Int = 1,
+    val speechConfidence: Float? = null,
+    val touchQualityScore: Float? = null,
+    val attentionScore: Float? = null,
     val timestamp: Long = System.currentTimeMillis()
 )

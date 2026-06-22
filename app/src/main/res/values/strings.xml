@@ -71,30 +71,20 @@
     <string name="parent_home_stats_title">أبرز إنجازات الأسبوع</string>
 
     <string name="parent_home_stat_1_number">18</string>
-    <string name="parent_home_stat_1_label">متوسط التقدم هذا الأسبوع</string>
+    <string name="parent_home_stat_1_label">متوسط التقدم الحالي للأطفال</string>
 
     <string name="parent_home_stat_2_number">47</string>
     <string name="parent_home_stat_2_label">إجمالي الإنجازات المحققة</string>
 
     <string name="parent_home_stat_3_number">+12%</string>
-    <string name="parent_home_stat_3_label">متوسط التقدم هذا الأسبوع</string>
+    <string name="parent_home_stat_3_label">متوسط مدة الجلسة</string>
 
     <!-- Section 3: AI Insights (رؤى الذكاء الاصطناعي) -->
     <string name="parent_home_featured_title">رؤى الذكاء الاصطناعي</string>-----------------------------------------------
-    <string name="parent_home_featured_desc">أظهر 3 أطفال تحسّنًا في مستوى التركيز مع أنشطة الصباح.</string>
-    <string name="parent_home_featured_more">اضغط لعرض المزيد...</string>
-
-    <!-- Quick Actions Section (for future use) -->
-    <string name="parent_home_sections_title">إجراءات سريعة</string>
-
-    <string name="parent_home_section_1_title">البحث عن محتوى</string>
-    <string name="parent_home_section_1_desc">ابحث عن تفاصيل جميع الاطفال</string>
-
-    <string name="parent_home_section_2_title">إضافة طفل</string>
-    <string name="parent_home_section_2_desc">إضافة طفل جديد</string>
-
-    <string name="parent_home_section_3_title">الأطفال الذين يحتاجون إلى دعم</string>
-    <string name="parent_home_section_3_desc">طفل بحاجة إلى اهتمام</string>
+    <string name="parent_home_ai_overview_message">يمكن اختيار طفل لعرض أحدث ملخص من رؤى الذكاء الاصطناعي الخاصة به.</string>
+    <string name="parent_home_ai_select_prompt">يمكن فتح القائمة لاختيار طفل ومراجعة أحدث رؤية محفوظة له.</string>
+    <string name="parent_home_ai_summary_fallback">توجد رؤية محفوظة لهذا الطفل، لكن الملخص المختصر غير متاح حالياً.</string>
+    <string name="parent_home_ai_open_child_insights">لا توجد رؤية محفوظة لهذا الطفل بعد. يمكن الضغط هنا لفتح صفحة رؤى الذكاء الاصطناعي الخاصة به.</string>
 
     <!-- Common -->
 
@@ -205,20 +195,44 @@
 
     <!-- ── Notification Screen ─────────────────────────────────────────────── -->
     <string name="label_notifications_screen_title">الإشعارات</string>
-    <string name="label_notifications_new_count">%d إشعارات جديدة</string>
+    <string name="label_notifications_new_count_one">إشعار جديد</string>
     <string name="label_notifications_new_count_two">إشعاران جديدان</string>
+    <string name="label_notifications_new_count">%d إشعارات جديدة</string>
     <string name="btn_mark_all_read">تحديد الكل كمقروء</string>
+    <string name="btn_mark_as_read">تحديد كمقروء</string>
+    <string name="btn_mark_as_unread">تحديد كغير مقروء</string>
+    <string name="btn_close_notifications_dialog">إغلاق</string>
     <string name="label_notification_minutes_ago">منذ %d دقائق</string>
     <string name="label_notification_hour_ago">منذ ساعة واحدة</string>
     <string name="label_notification_hours_ago">منذ %d ساعات</string>
+    <string name="label_notification_day_ago">منذ يوم واحد</string>
+    <string name="label_notification_days_ago">منذ %d أيام</string>
+    <string name="notifications_filter_all">الكل</string>
+    <string name="notifications_filter_unread">غير المقروءة</string>
+    <string name="notifications_empty_all">لا توجد إشعارات حالياً.</string>
+    <string name="notifications_empty_unread">لا توجد إشعارات غير مقروءة.</string>
 
     <!-- ── Notification Types / Sample Titles (use as templates) ───────────── -->
+    <string name="notif_title_insight_ready">يمكنك إنشاء رؤية جديدة لـ %1$s</string>
     <string name="notif_title_activity_completed">أكملت %s نشاط %s</string>
     <string name="notif_title_ai_insight">رؤية جديدة من الذكاء الاصطناعي متاحة</string>
     <string name="notif_title_needs_support">%s بحاجة إلى دعم</string>
+    <string name="notif_title_assessment_available">نتيجة تقييم %1$s أصبحت متاحة</string>
+    <string name="notif_title_assessment_missing">التقييم الأولي مطلوب لـ %1$s</string>
+    <string name="notif_title_progress_milestone">%1$s حقق تقدماً جديداً</string>
+    <string name="notif_title_session_inactivity">%1$s لم يكمل جلسة منذ فترة</string>
+    <string name="notif_title_status_active">%1$s عاد إلى التعلم النشط</string>
+    <string name="notif_title_status_calm">%1$s في حالة مستقرة</string>
+    <string name="notif_body_insight_ready">توفرت بيانات جديدة من جلسات %1$s وتستطيعين مراجعة رؤية الذكاء الاصطناعي الآن.</string>
     <string name="notif_body_activity_completed">أنهت %s نشاط «%s» بدقة %d%%</string>
     <string name="notif_body_ai_insight">تم تحديث الإرشادات الخاصة ببودي بناءً على التقدّم الأخير</string>
     <string name="notif_body_needs_support">أظهر %s صعوبة في أنشطة اللغة</string>
+    <string name="notif_body_assessment_available">تم حفظ التقييم الأولي لـ %1$s ويمكنك مراجعة المستوى الحالي من ملف الطفل.</string>
+    <string name="notif_body_assessment_missing">أكملي التقييم الأولي لتحسين التوصيات ورؤى الذكاء الاصطناعي الخاصة بـ %1$s.</string>
+    <string name="notif_body_progress_milestone">وصل %1$s إلى %2$d%% من التقدم العام.</string>
+    <string name="notif_body_session_inactivity">لم يكمل %1$s أي جلسة خلال الأيام الأخيرة. قد يكون هذا وقتاً مناسباً للعودة إلى التعلم.</string>
+    <string name="notif_body_status_active">أظهر %1$s تحسناً في آخر الجلسات ولم يعد بحاجة إلى دعم فوري.</string>
+    <string name="notif_body_status_calm">أصبح أداء %1$s أكثر استقراراً بعد المتابعة الأخيرة.</string>
 
     <!-- ── Content Descriptions ─────────────────────────────────────────────── -->
     <string name="cd_close_notifications">إغلاق الإشعارات</string>
@@ -262,7 +276,7 @@
     <string name="analytics_skill_language">اللغة</string>
     <string name="analytics_skill_numeracy">الأرقام</string>
     <string name="analytics_skill_interactive">الأنشطة</string>
-    <string name="analytics_skill_motor">المهارات الحركية</string>
+    <string name="analytics_skill_motor">المعرفة</string>
     <string name="analytics_recent_activities">الأنشطة الأخيرة</string>ٍ
     <string name="analytics_learning_performance">أداء التعلم</string>
     <string name="analytics_visual">بصري</string>
@@ -308,6 +322,8 @@
     <string name="ai_insights_subtitle">توصيات مخصّصة لدعم رحلة تعلّم طفلك</string>
     <string name="ai_refresh_button">إنشاء رؤى جديدة</string>
     <string name="ai_loading">جارٍ تحليل بيانات طفلك…</string>
+    <string name="ai_daily_limit_message">تم إنشاء رؤية اليوم. يمكنك إنشاء رؤية جديدة بعد منتصف الليل.</string>
+    <string name="ai_generation_failed">تعذّر إنشاء الرؤية. تحقّق من الإنترنت وإعداد مفتاح Gemini ثم حاول مرة أخرى.</string>
 
     <!-- Section titles -->
     <string name="ai_learning_summary">ملخّص الرؤى الرئيسية</string>
@@ -390,7 +406,7 @@
     <string name="habitat_forest">الغَابَة</string>
     <string name="habitat_desert">الصَّحْرَاء</string>
     <string name="habitat_farm">المَزْرَعَة</string>
-    <string name="habitat_wetlands">الأَهْوَار</string>
+    <string name="habitat_wetlands">بُحَيْرَةٌ</string>
     <string name="habitat_sea">البَحْر</string>
     <string name="habitat_birds">السَّمَاء</string>
 
@@ -420,9 +436,6 @@
     <!-- Screen instructions -->
     <string name="drag_color_instruction">اسْحَب اللَّوْن الصَّحِيح لِتَلوين الشَّكْل</string>
     <string name="drag_letter_instruction">اسْحَب الحَرْف الصَّحِيح لِإِكمَال الكَلِمَة</string>
-    <!-- Result banner -->
-    <string name="drag_result_correct">✓ أَحْسَنْت!</string>
-    <string name="drag_result_wrong">✗ حَاوِل مَرَّة أُخرى</string>
     <!-- Shape placeholders -->
     <string name="drag_color_shape_placeholder">؟</string>
     <string name="drag_checkmark">✓</string>
@@ -434,21 +447,16 @@
     <!-- Content description -->
     <string name="cd_cage">القفص</string>
     <!-- Cage game instruction: %1$s = numeral, %2$s = animal name with article -->
-    <string name="drag_cage_instruction">اسحب %1$s مِن %2$s إِلَى القَفَص</string>
-    <string name="drag_animal_article_prefix">ال</string>
-    <!-- Arabic numerals -->
-    <string name="drag_numeral_1">١</string>
-    <string name="drag_numeral_2">٢</string>
-    <string name="drag_numeral_3">٣</string>
-    <!-- Word puzzle texts: alef = أَسَد (lion), ba = بَطَّة (duck), meem = مَاعِز (goat), ha = حِصَان (horse) -->
-    <string name="drag_puzzle_alef_part">سَد</string>
-    <string name="drag_puzzle_alef_full">أَسَد</string>
-    <string name="drag_puzzle_ba_part">طَّة</string>
-    <string name="drag_puzzle_ba_full">بَطَّة</string>
-    <string name="drag_puzzle_meem_part">اعِز</string>
-    <string name="drag_puzzle_meem_full">مَاعِز</string>
-    <string name="drag_puzzle_ha_part">صَان</string>
-    <string name="drag_puzzle_ha_full">حِصَان</string>
+    <string name="drag_cage_instruction">اسْحَب %1$s مِني و ضعني في القَفَص</string>
+    <string name="drag_shape_instruction">اسْحَب الشكل إلى مكانه الصحيح</string>
+
+    <!-- Listen And Choose Game -->
+    <string name="listen_choose_instruction_letter">اِسْتَمِعْ جَيِّدًا وَاخْتَرِ الحَرْفَ الصَّحِيحَ</string>
+    <string name="listen_choose_instruction_animal">اِسْتَمِعْ جَيِّدًا وَاخْتَرِ الحَيَوَانَ الصَّحِيحَ</string>
+    <string name="listen_choose_instruction_number">اِسْتَمِعْ جَيِّدًا وَاخْتَرِ الرَّقْمَ الصَّحِيحَ</string>
+    <string name="listen_choose_instruction_color">اِسْتَمِعْ جَيِّدًا وَاخْتَرِ اللَّوْنَ الصَّحِيحَ</string>
+    <string name="listen_choose_instruction_shape">اِسْتَمِعْ جَيِّدًا وَاخْتَرِ الشَّكْلَ الصَّحِيحَ</string>
+    <string name="listen_choose_replay_label">استمع جيدًا</string>
 
     <!-- Good Job Screen -->
     <string name="good_job_text">أحسنت يا بطل!</string>
@@ -469,4 +477,18 @@
     <string name="speech_offline_title">هذه اللعبة تحتاج إلى اتصال بالإنترنت</string>
     <string name="speech_offline_body">يرجى الاتصال بالإنترنت والمحاولة مجدداً</string>
 
+    <string name="session_internet_required_title">الإنترنت مطلوب</string>
+    <string name="session_internet_learning_message">يرجى الاتصال بالإنترنت لبدء الجلسة لأن نشاط الكلام يحتاج إلى اتصال.</string>
+    <string name="session_internet_assessment_message">يرجى الاتصال بالإنترنت لبدء التقييم لأن نشاط الكلام يحتاج إلى اتصال.</string>
+    <string name="session_internet_retry_button">إعادة المحاولة</string>
+    <string name="session_internet_exit_button">خروج</string>
+    <string name="session_exit_button">خروج</string>
+    <string name="session_speech_offline_banner">وضع الكلام يحتاج إنترنت</string>
+    <string name="session_speech_skip_message">انقطع الإنترنت. سيتم تخطي نشاط الكلام والانتقال للنشاط التالي.</string>
+    <string name="assessment_intro_greeting">هيا يا %1$s</string>
+    <string name="assessment_intro_subtitle">لنبدأ مغامرة صغيرة مليئة بالمرح، نتعرف فيها على الأشياء التي تحبها وتستمتع بها.</string>
+    <string name="assessment_bootstrapping_message">نحلل نتائجك...</string>
+    <string name="session_speech_fallback_title">انقطع الإنترنت</string>
+    <string name="session_speech_fallback_subtitle">سيتم تخطي نشاط الكلام والانتقال للنشاط التالي</string>
+    <string name="session_speech_fallback_countdown">الانتقال خلال لحظات...</string>
 </resources>

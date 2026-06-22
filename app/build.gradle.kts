@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -18,6 +20,15 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        val props = Properties()
+        val propertiesFile = rootProject.file("local.properties")
+        if (propertiesFile.exists()) {
+            propertiesFile.inputStream().use { props.load(it) }
+        }
+
+        buildConfigField("String", "GEMINI_API_KEY", "\"${props.getProperty("GEMINI_API_KEY") ?: ""}\"")
+        buildConfigField("String", "GEMINI_MODEL", "\"${props.getProperty("GEMINI_MODEL") ?: "gemini-2.5-flash"}\"")
     }
 
     buildTypes {
@@ -41,6 +52,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

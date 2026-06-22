@@ -1,6 +1,8 @@
 package com.babybloom.di
 
 import com.babybloom.data.repository.*
+import com.babybloom.domain.notifications.ParentNotificationHandler
+import com.babybloom.domain.notifications.ParentNotificationService
 import com.babybloom.domain.repository.*
 import dagger.Binds
 import dagger.Module
@@ -37,5 +39,8 @@ abstract class RepositoryModule {
     abstract fun bindInteractionEventRepository(impl: InteractionEventRepositoryImpl): InteractionEventRepository
 
     @Binds @Singleton
-    abstract fun bindAiInsightRepository(impl: AiInsightRepositoryImpl): AiInsightRepository
+    abstract fun bindAppNotificationRepository(impl: AppNotificationRepositoryImpl): AppNotificationRepository
+
+    @Binds @Singleton
+    abstract fun bindParentNotificationHandler(impl: ParentNotificationService): ParentNotificationHandler
 }

@@ -2,10 +2,12 @@ package com.babybloom.presentation.screens
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,18 +19,26 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
@@ -37,75 +47,119 @@ import coil.request.ImageRequest
 import com.babybloom.R
 import com.babybloom.domain.model.ActivityContent
 import com.babybloom.presentation.viewmodels.ALL_HABITATS
-import com.babybloom.presentation.viewmodels.AnswerState
+import com.babybloom.presentation.viewmodels.ANIMAL_HABITAT_MAP
 import com.babybloom.presentation.viewmodels.AnimalOption
+import com.babybloom.presentation.viewmodels.AnswerState
 import com.babybloom.presentation.viewmodels.Habitat
 import com.babybloom.presentation.viewmodels.MatchCardState
 import com.babybloom.presentation.viewmodels.MatchViewModel
+import com.babybloom.presentation.viewmodels.VisualMatchOption
 import com.babybloom.ui.theme.LocalGameColorScheme
-import com.babybloom.ui.theme.RevealGold       // kept — semantic "revealed answer" color
-import com.babybloom.ui.theme.TraceBadgeBorder // same banner as TraceScreen
-import com.babybloom.ui.theme.TraceBadgeText   // same banner as TraceScreen
+import com.babybloom.ui.theme.RevealGold
+import com.babybloom.ui.theme.TraceBadgeBorder
+import com.babybloom.ui.theme.TraceBadgeText
+import com.babybloom.util.AssetPathResolver
 import com.babybloom.util.ImageAsset
+import kotlin.math.roundToInt
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MatchScreen.kt
-//
-// All game colors come from LocalGameColorScheme (accent / background /
-// correct / wrong), matching every other game screen.
-//
-// RevealGold is the only fixed semantic color kept — it signals "you ran out
-// of attempts and the answer is being shown to you", which is distinct from
-// both correct (child got it right) and wrong (child got it wrong).
-//
-// The prompt banner matches TraceScreen's TraceInstructionBadge exactly.
-// Attempt dots match the other games (wrong = used, faded accent = remaining).
-// Animal option cards have no background tint (transparent, like habitat cards).
-// ─────────────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+//  LAYOUT CONSTANTS — tune here if you need to adjust spacing
+// ══════════════════════════════════════════════════════════════════════════════
 
-// ── Wiggle animation ──────────────────────────────────────────────────────────
+// ── TEST MODE (4-corner layout) ───────────────────────────────────────────────
+//
+//   CONTENT_SIZE_TEST_DP — total size of the center content card.
+//     Change without affecting option card size.
+//
+//   OPT_SIZE_TEST_DP — total size of each of the 4 option cards.
+//     Change without affecting content card size.
+//
+//   OPT_GAP_DP — gap between the content card's edge and each option card's
+//                nearest edge (works both horizontally and vertically).
+//
+//   OPT_PAIR_SPREAD_DP — extra outward push for left and right options.
+//     0.dp  → TL/TR and BL/BR sit at the default (minimum) horizontal distance.
+//     Increase → left options shift further left, right options shift further
+//                right, widening the gap between TL↔TR and BL↔BR pairs.
+//     Does NOT change the vertical positions (top/bottom pairs stay put).
+//
+private val CONTENT_SIZE_TEST_DP = 160.dp
+private val OPT_SIZE_TEST_DP     = 130.dp
+private val OPT_GAP_DP           = 70.dp
+private val OPT_PAIR_SPREAD_DP   = (-120).dp   // ★ change this to widen left↔right gap
+
+// ── LEARNING MODE (top / bottom layout) ───────────────────────────────────────
+//
+//   LEARNING_MODE_GAP_DP — vertical space between content card (top) and
+//                           answer card (bottom).
+//
+private val LEARNING_MODE_GAP_DP  = 130.dp
+private val LEARNING_TOP_PAD      = 32.dp
+
+private val CONTENT_CARD_LEARN_DP = 180.dp
+private val OPT_CARD_LEARN_DP     = 180.dp
+
+// ── Snap radius (line dragging) ───────────────────────────────────────────────
+private val SNAP_RADIUS_DP = 80.dp
+
+// ── Attempt dots (bottom row) ─────────────────────────────────────────────────
+private val ATTEMPT_DOT_SIZE = 12.dp
+
+// ── Letter SVG centering nudge ─────────────────────────────────────────────
+// Positive value → shifts RIGHT, negative → shifts LEFT.
+// Tune until the glyph sits visually centered in the card.
+private val SVG_LETTER_NUDGE_DP = 12.dp   // ★ change this
+
+// ══════════════════════════════════════════════════════════════════════════════
+
 @Composable
 private fun wiggleOffset(trigger: Int): Float {
     val offset = remember { Animatable(0f) }
     LaunchedEffect(trigger) {
         if (trigger == 0) return@LaunchedEffect
-        repeat(4) {
-            offset.animateTo( 9f, tween(55))
-            offset.animateTo(-9f, tween(55))
-        }
-        offset.animateTo(0f, tween(55))
+        repeat(4) { offset.animateTo(10f, tween(60)); offset.animateTo(-10f, tween(60)) }
+        offset.animateTo(0f, tween(60))
     }
     return offset.value
 }
 
-// ── Entry point ───────────────────────────────────────────────────────────────
+private fun lerp(a: Float, b: Float, t: Float) = a + (b - a) * t.coerceIn(0f, 1f)
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Entry point
+// ══════════════════════════════════════════════════════════════════════════════
+
 @Composable
 fun MatchScreen(
-    contentItems: List<ActivityContent>,
-    isCalmMode: Boolean,
-    configJson: String = "{\"matchType\":\"ANIMAL_TO_HABITAT\"}",
-    onCardResult: (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int) -> Unit,
-    onComplete: (elapsedMs: Long, correctCount: Int) -> Unit,
-    viewModel: MatchViewModel = hiltViewModel()
+    contentItems : List<ActivityContent>,
+    isCalmMode   : Boolean,
+    isTest       : Boolean,
+    isAssessment : Boolean,
+    configJson   : String = "{\"matchType\":\"ANIMAL_TO_HABITAT\"}",
+    onCardResult : (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int, touchQualityScore: Float, elapsedMs: Long) -> Unit,
+    onComplete   : (elapsedMs: Long, correctCount: Int) -> Unit,
+    viewModel    : MatchViewModel = hiltViewModel()
 ) {
     val colors = LocalGameColorScheme.current
 
-    LaunchedEffect(Unit) {
-        viewModel.loadActivity(contentItems, isCalmMode, configJson, onCardResult, onComplete)
+    LaunchedEffect(
+        configJson, isCalmMode, isTest, isAssessment,
+        contentItems.joinToString("|") { it.contentId }
+    ) {
+        viewModel.loadActivity(
+            contentItems, isCalmMode, isTest, isAssessment,
+            configJson, onCardResult, onComplete
+        )
     }
 
     val cardState  by viewModel.cardState.collectAsStateWithLifecycle()
     val wiggleTick by viewModel.wiggleTick.collectAsStateWithLifecycle()
 
-    LaunchedEffect(cardState) {
-        val done = cardState as? MatchCardState.Done ?: return@LaunchedEffect
-        onComplete(done.elapsedMs, done.correctCount)
-    }
-
     val showCelebration = when (val s = cardState) {
         is MatchCardState.AnimalHabitatCard -> s.showCelebration
         is MatchCardState.LetterAnimalCard  -> s.showCelebration
-        else                                -> false
+        is MatchCardState.VisualImageCard   -> s.showCelebration
+        else -> false
     }
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -115,540 +169,1016 @@ fun MatchScreen(
             is MatchCardState.Done ->
                 CircularProgressIndicator(color = colors.correct)
             is MatchCardState.AnimalHabitatCard ->
-                AnimalHabitatLayout(state, isCalmMode, wiggleTick) { viewModel.onAnswerSelected(it) }
+                AnimalHabitatGame(state, isCalmMode, wiggleTick, viewModel)
             is MatchCardState.LetterAnimalCard ->
-                LetterAnimalLayout(state, isCalmMode, wiggleTick) { viewModel.onAnswerSelected(it) }
+                LetterAnimalGame(state, isCalmMode, wiggleTick, viewModel)
+            is MatchCardState.VisualImageCard ->
+                VisualImageGame(state, wiggleTick, viewModel)
         }
-
-        if (showCelebration) {
-            GoodJobPopup()
-        }
+        if (showCelebration) GoodJobPopup(coverage = -1f)
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// GAME 1 — Animal → Habitat
-// ═══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+//  GAME 1 — Animal → Habitat
+// ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-private fun AnimalHabitatLayout(
-    state: MatchCardState.AnimalHabitatCard,
-    isCalmMode: Boolean,
-    wiggleTick: Int,
-    onSelected: (String) -> Unit
+private fun AnimalHabitatGame(
+    state      : MatchCardState.AnimalHabitatCard,
+    isCalmMode : Boolean,
+    wiggleTick : Int,
+    viewModel  : MatchViewModel
 ) {
+    val density      = LocalDensity.current
+    val snapRadiusPx = with(density) { SNAP_RADIUS_DP.toPx() }
+    val colors       = LocalGameColorScheme.current
+    val isAnswerable = state.answerState == AnswerState.Idle
+    val resetKey     = state.questionIndex
+
+    var gameAreaTopLeft by remember(resetKey) { mutableStateOf(Offset.Zero) }
+    var contentCenter   by remember(resetKey) { mutableStateOf(Offset.Zero) }
+    val optionCenters   = remember(resetKey)  { mutableStateMapOf<String, Offset>() }
+    var isDragging      by remember(resetKey) { mutableStateOf(false) }
+    var fingerPosRoot   by remember(resetKey) { mutableStateOf(Offset.Zero) }
+    var snappedId       by remember(resetKey) { mutableStateOf<String?>(null) }
+    var localDragPos    by remember(resetKey) { mutableStateOf(Offset.Zero) }
+
     Column(
         modifier            = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(4.dp))
-        TopRow(state.questionIndex, state.totalQuestions, state.attemptsLeft)
         MatchPromptBanner(stringResource(R.string.match_prompt_where_lives))
-        AnimalQuestionCard(state, isCalmMode)
-        HabitatGrid(
-            options     = state.options,
-            correctId   = state.correctHabitatId,
-            answerState = state.answerState,
-            lastWrongId = state.lastWrongId,
-            isCalmMode  = isCalmMode,
-            wiggleTick  = wiggleTick,
-            showWiggle  = state.showCorrectWiggle,
-            onSelected  = onSelected
-        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .onGloballyPositioned { coords -> gameAreaTopLeft = coords.positionInRoot() }
+                .pointerInput(isAnswerable, resetKey) {
+                    if (!isAnswerable) return@pointerInput
+                    detectDragGestures(
+                        onDragStart = { startOffset ->
+                            localDragPos  = startOffset
+                            fingerPosRoot = gameAreaTopLeft + startOffset
+                            isDragging    = true
+                            viewModel.onTouchStart(fingerPosRoot)
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            localDragPos  += dragAmount
+                            fingerPosRoot  = gameAreaTopLeft + localDragPos
+                            viewModel.onTouchMove(fingerPosRoot)
+                            snappedId = optionCenters
+                                .minByOrNull { (_, c) -> (fingerPosRoot - c).getDistance() }
+                                ?.takeIf    { (_, c) -> (fingerPosRoot - c).getDistance() < snapRadiusPx }
+                                ?.key
+                        },
+                        onDragEnd = {
+                            snappedId?.let { selectedId ->
+                                viewModel.onAnswerSelected(
+                                    selectedId = selectedId,
+                                    releasePoint = fingerPosRoot,
+                                    targetCenter = optionCenters[selectedId],
+                                    snapRadiusPx = snapRadiusPx
+                                )
+                            }
+                            isDragging = false; snappedId = null
+                        },
+                        onDragCancel = { isDragging = false; snappedId = null }
+                    )
+                }
+        ) {
+            if (state.isTest) {
+                TestAnimalHabitatLayout(state, isCalmMode, wiggleTick, snappedId,
+                    onContentCenter = { contentCenter = it },
+                    onOptionCenter  = { id, c -> optionCenters[id] = c })
+            } else {
+                LearningAnimalHabitatLayout(state, isCalmMode, wiggleTick, snappedId,
+                    onContentCenter = { contentCenter = it },
+                    onOptionCenter  = { id, c -> optionCenters[id] = c })
+            }
+
+            if (isDragging && contentCenter != Offset.Zero) {
+                val endRoot    = snappedId?.let { optionCenters[it] } ?: fingerPosRoot
+                val startLocal = contentCenter - gameAreaTopLeft
+                val endLocal   = endRoot - gameAreaTopLeft
+                val isSnapped  = snappedId != null
+                Canvas(modifier = Modifier.fillMaxSize().zIndex(5f)) {
+                    drawLine(colors.accent, startLocal, endLocal, 7.dp.toPx(), StrokeCap.Round)
+                    drawCircle(colors.accent, 10.dp.toPx(), startLocal)
+                    drawCircle(
+                        color  = if (isSnapped) colors.correct else colors.accent.copy(alpha = 0.55f),
+                        radius = if (isSnapped) 15.dp.toPx()   else 10.dp.toPx(),
+                        center = endLocal
+                    )
+                }
+            }
+
+            if (state.showHandHint && !isDragging) {
+                val correctCenter = optionCenters[state.correctHabitatId]
+                if (correctCenter != null && contentCenter != Offset.Zero) {
+                    HandHintOverlay(contentCenter, correctCenter, gameAreaTopLeft)
+                }
+            }
+        }
+
+        MatchAttemptsRow(attemptsLeft = state.attemptsLeft)
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+// ── Test layout: animal CENTER, 4 habitats in corners ────────────────────────
+@Composable
+private fun TestAnimalHabitatLayout(
+    state           : MatchCardState.AnimalHabitatCard,
+    isCalmMode      : Boolean,
+    wiggleTick      : Int,
+    snappedId       : String?,
+    onContentCenter : (Offset) -> Unit,
+    onOptionCenter  : (String, Offset) -> Unit
+) {
+    val density = LocalDensity.current
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val contentHalfPx = with(density) { (CONTENT_SIZE_TEST_DP / 2).toPx() }
+        val optHalfPx     = with(density) { (OPT_SIZE_TEST_DP / 2).toPx() }
+        val innerGapPx    = with(density) { OPT_GAP_DP.toPx() }
+        val spreadPx      = with(density) { OPT_PAIR_SPREAD_DP.toPx() }
+        val cx = constraints.maxWidth  / 2f
+        val cy = constraints.maxHeight / 2f
+
+        // dX uses the extra spread so left↔right options can be pushed apart
+        // independently from the top↔bottom distance (dY stays unaffected).
+        val dX = contentHalfPx + innerGapPx + optHalfPx + spreadPx
+        val dY = contentHalfPx + innerGapPx + optHalfPx
+
+        val signs = listOf(-1f to -1f, 1f to -1f, -1f to 1f, 1f to 1f)
+        state.options.take(4).forEachIndexed { idx, habitat ->
+            val (sx, sy) = signs[idx]
+            val topLeftX = (cx + sx * dX - optHalfPx).roundToInt()
+            val topLeftY = (cy + sy * dY - optHalfPx).roundToInt()
+            val isCorrect = habitat.id == state.correctHabitatId
+            val wiggle    = wiggleOffset(if (isCorrect && state.showCorrectWiggle) wiggleTick else 0)
+
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset(topLeftX, topLeftY) }
+                    .size(OPT_SIZE_TEST_DP)
+                    .graphicsLayer { translationX = wiggle }
+                    .onGloballyPositioned { coords ->
+                        val p = coords.positionInRoot(); val s = coords.size
+                        onOptionCenter(habitat.id, Offset(p.x + s.width / 2f, p.y + s.height / 2f))
+                    }
+            ) {
+                HabitatOptionCard(habitat, isCorrect, habitat.id == snappedId,
+                    state.answerState, state.lastWrongId, isCalmMode)
+            }
+        }
+
+        val contentTopLeftX = (cx - contentHalfPx).roundToInt()
+        val contentTopLeftY = (cy - contentHalfPx).roundToInt()
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(contentTopLeftX, contentTopLeftY) }
+                .size(CONTENT_SIZE_TEST_DP)
+                .onGloballyPositioned { coords ->
+                    val p = coords.positionInRoot(); val s = coords.size
+                    onContentCenter(Offset(p.x + s.width / 2f, p.y + s.height / 2f))
+                }
+        ) {
+            AnimalContentCard(state.animal, isCalmMode, state.answerState)
+        }
+    }
+}
+
+// ── Learning layout: animal TOP, single habitat BOTTOM ───────────────────────
+@Composable
+private fun LearningAnimalHabitatLayout(
+    state           : MatchCardState.AnimalHabitatCard,
+    isCalmMode      : Boolean,
+    wiggleTick      : Int,
+    snappedId       : String?,
+    onContentCenter : (Offset) -> Unit,
+    onOptionCenter  : (String, Offset) -> Unit
+) {
+    val habitat = state.options.firstOrNull() ?: return
+    val wiggle  = wiggleOffset(if (state.showCorrectWiggle) wiggleTick else 0)
+
+    Column(
+        modifier            = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(Modifier.height(LEARNING_TOP_PAD))
+
+        Box(
+            modifier = Modifier
+                .size(CONTENT_CARD_LEARN_DP)
+                .onGloballyPositioned { coords ->
+                    val p = coords.positionInRoot(); val s = coords.size
+                    onContentCenter(Offset(p.x + s.width / 2f, p.y + s.height / 2f))
+                }
+        ) { AnimalContentCard(state.animal, isCalmMode, state.answerState) }
+
+        Spacer(Modifier.height(LEARNING_MODE_GAP_DP))
+
+        Box(
+            modifier = Modifier
+                .size(OPT_CARD_LEARN_DP)
+                .graphicsLayer { translationX = wiggle }
+                .onGloballyPositioned { coords ->
+                    val p = coords.positionInRoot(); val s = coords.size
+                    onOptionCenter(habitat.id, Offset(p.x + s.width / 2f, p.y + s.height / 2f))
+                }
+        ) {
+            HabitatOptionCard(habitat, isCorrect = true, isSnapped = habitat.id == snappedId,
+                state.answerState, state.lastWrongId, isCalmMode)
+        }
+
+        Spacer(Modifier.weight(1f))
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  GAME 2 — Letter → Animal
+// ══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun LetterAnimalGame(
+    state      : MatchCardState.LetterAnimalCard,
+    isCalmMode : Boolean,
+    wiggleTick : Int,
+    viewModel  : MatchViewModel
+) {
+    val density      = LocalDensity.current
+    val snapRadiusPx = with(density) { SNAP_RADIUS_DP.toPx() }
+    val colors       = LocalGameColorScheme.current
+    val isAnswerable = state.answerState == AnswerState.Idle
+    val resetKey     = state.questionIndex
+
+    var gameAreaTopLeft by remember(resetKey) { mutableStateOf(Offset.Zero) }
+    var contentCenter   by remember(resetKey) { mutableStateOf(Offset.Zero) }
+    val optionCenters   = remember(resetKey)  { mutableStateMapOf<String, Offset>() }
+    var isDragging      by remember(resetKey) { mutableStateOf(false) }
+    var fingerPosRoot   by remember(resetKey) { mutableStateOf(Offset.Zero) }
+    var snappedId       by remember(resetKey) { mutableStateOf<String?>(null) }
+    var localDragPos    by remember(resetKey) { mutableStateOf(Offset.Zero) }
+
+    Column(
+        modifier            = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(Modifier.height(4.dp))
+        MatchPromptBanner(stringResource(R.string.match_prompt_choose_animal))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .onGloballyPositioned { coords -> gameAreaTopLeft = coords.positionInRoot() }
+                .pointerInput(isAnswerable, resetKey) {
+                    if (!isAnswerable) return@pointerInput
+                    detectDragGestures(
+                        onDragStart = { startOffset ->
+                            localDragPos  = startOffset
+                            fingerPosRoot = gameAreaTopLeft + startOffset
+                            isDragging    = true
+                            viewModel.onTouchStart(fingerPosRoot)
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            localDragPos  += dragAmount
+                            fingerPosRoot  = gameAreaTopLeft + localDragPos
+                            viewModel.onTouchMove(fingerPosRoot)
+                            snappedId = optionCenters
+                                .minByOrNull { (_, c) -> (fingerPosRoot - c).getDistance() }
+                                ?.takeIf    { (_, c) -> (fingerPosRoot - c).getDistance() < snapRadiusPx }
+                                ?.key
+                        },
+                        onDragEnd = {
+                            snappedId?.let { selectedId ->
+                                viewModel.onAnswerSelected(
+                                    selectedId = selectedId,
+                                    releasePoint = fingerPosRoot,
+                                    targetCenter = optionCenters[selectedId],
+                                    snapRadiusPx = snapRadiusPx
+                                )
+                            }
+                            isDragging = false; snappedId = null
+                        },
+                        onDragCancel = { isDragging = false; snappedId = null }
+                    )
+                }
+        ) {
+            if (state.isTest) {
+                TestLetterAnimalLayout(state, isCalmMode, wiggleTick, snappedId,
+                    onContentCenter = { contentCenter = it },
+                    onOptionCenter  = { id, c -> optionCenters[id] = c })
+            } else {
+                LearningLetterAnimalLayout(state, isCalmMode, wiggleTick, snappedId,
+                    onContentCenter = { contentCenter = it },
+                    onOptionCenter  = { id, c -> optionCenters[id] = c })
+            }
+
+            if (isDragging && contentCenter != Offset.Zero) {
+                val endRoot    = snappedId?.let { optionCenters[it] } ?: fingerPosRoot
+                val startLocal = contentCenter - gameAreaTopLeft
+                val endLocal   = endRoot - gameAreaTopLeft
+                val isSnapped  = snappedId != null
+                Canvas(modifier = Modifier.fillMaxSize().zIndex(5f)) {
+                    drawLine(colors.accent, startLocal, endLocal, 7.dp.toPx(), StrokeCap.Round)
+                    drawCircle(colors.accent, 10.dp.toPx(), startLocal)
+                    drawCircle(
+                        color  = if (isSnapped) colors.correct else colors.accent.copy(alpha = 0.55f),
+                        radius = if (isSnapped) 15.dp.toPx() else 10.dp.toPx(),
+                        center = endLocal
+                    )
+                }
+            }
+
+            if (state.showHandHint && !isDragging) {
+                val correctCenter = optionCenters[state.correctAnimalId]
+                if (correctCenter != null && contentCenter != Offset.Zero) {
+                    HandHintOverlay(contentCenter, correctCenter, gameAreaTopLeft)
+                }
+            }
+        }
+
+        MatchAttemptsRow(attemptsLeft = state.attemptsLeft)
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+// ── Test layout: letter CENTER, 4 animals in corners ─────────────────────────
+@Composable
+private fun TestLetterAnimalLayout(
+    state           : MatchCardState.LetterAnimalCard,
+    isCalmMode      : Boolean,
+    wiggleTick      : Int,
+    snappedId       : String?,
+    onContentCenter : (Offset) -> Unit,
+    onOptionCenter  : (String, Offset) -> Unit
+) {
+    val density = LocalDensity.current
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val contentHalfPx = with(density) { (CONTENT_SIZE_TEST_DP / 2).toPx() }
+        val optHalfPx     = with(density) { (OPT_SIZE_TEST_DP / 2).toPx() }
+        val innerGapPx    = with(density) { OPT_GAP_DP.toPx() }
+        val spreadPx      = with(density) { OPT_PAIR_SPREAD_DP.toPx() }
+        val cx = constraints.maxWidth  / 2f
+        val cy = constraints.maxHeight / 2f
+
+        val dX = contentHalfPx + innerGapPx + optHalfPx + spreadPx
+        val dY = contentHalfPx + innerGapPx + optHalfPx
+
+        val signs = listOf(-1f to -1f, 1f to -1f, -1f to 1f, 1f to 1f)
+        state.options.take(4).forEachIndexed { idx, option ->
+            val (sx, sy) = signs[idx]
+            val topLeftX = (cx + sx * dX - optHalfPx).roundToInt()
+            val topLeftY = (cy + sy * dY - optHalfPx).roundToInt()
+            val isCorrect = option.entity.id == state.correctAnimalId
+            val wiggle    = wiggleOffset(if (isCorrect && state.showCorrectWiggle) wiggleTick else 0)
+
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset(topLeftX, topLeftY) }
+                    .size(OPT_SIZE_TEST_DP)
+                    .graphicsLayer { translationX = wiggle }
+                    .onGloballyPositioned { coords ->
+                        val p = coords.positionInRoot(); val s = coords.size
+                        onOptionCenter(option.entity.id, Offset(p.x + s.width / 2f, p.y + s.height / 2f))
+                    }
+            ) {
+                AnimalAnswerCard(option, isCorrect, option.entity.id == snappedId,
+                    state.answerState, state.lastWrongId, isCalmMode)
+            }
+        }
+
+        val contentTopLeftX = (cx - contentHalfPx).roundToInt()
+        val contentTopLeftY = (cy - contentHalfPx).roundToInt()
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(contentTopLeftX, contentTopLeftY) }
+                .size(CONTENT_SIZE_TEST_DP)
+                .onGloballyPositioned { coords ->
+                    val p = coords.positionInRoot(); val s = coords.size
+                    onContentCenter(Offset(p.x + s.width / 2f, p.y + s.height / 2f))
+                }
+        ) { LetterContentCard(state.letter, state.letterImageAsset, state.answerState) }
+    }
+}
+
+// ── Learning layout: letter TOP, single animal BOTTOM ────────────────────────
+@Composable
+private fun LearningLetterAnimalLayout(
+    state           : MatchCardState.LetterAnimalCard,
+    isCalmMode      : Boolean,
+    wiggleTick      : Int,
+    snappedId       : String?,
+    onContentCenter : (Offset) -> Unit,
+    onOptionCenter  : (String, Offset) -> Unit
+) {
+    val option = state.options.firstOrNull() ?: return
+    val wiggle = wiggleOffset(if (state.showCorrectWiggle) wiggleTick else 0)
+
+    Column(
+        modifier            = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(Modifier.height(LEARNING_TOP_PAD))
+
+        Box(
+            modifier = Modifier
+                .size(CONTENT_CARD_LEARN_DP)
+                .onGloballyPositioned { coords ->
+                    val p = coords.positionInRoot(); val s = coords.size
+                    onContentCenter(Offset(p.x + s.width / 2f, p.y + s.height / 2f))
+                }
+        ) { LetterContentCard(state.letter, state.letterImageAsset, state.answerState) }
+
+        Spacer(Modifier.height(LEARNING_MODE_GAP_DP))
+
+        Box(
+            modifier = Modifier
+                .size(OPT_CARD_LEARN_DP)
+                .graphicsLayer { translationX = wiggle }
+                .onGloballyPositioned { coords ->
+                    val p = coords.positionInRoot(); val s = coords.size
+                    onOptionCenter(option.entity.id, Offset(p.x + s.width / 2f, p.y + s.height / 2f))
+                }
+        ) {
+            AnimalAnswerCard(option, isCorrect = true, isSnapped = option.entity.id == snappedId,
+                state.answerState, state.lastWrongId, isCalmMode)
+        }
+
+        Spacer(Modifier.weight(1f))
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Content cards
+// ══════════════════════════════════════════════════════════════════════════════
+
+// FIX: image and label were overlapping because AsyncImage used fillMaxHeight(1f)
+// while the text was absolutely positioned over it. Now uses a Column so the
+// image gets weight(1f) (fills all remaining space) and the label sits below it
+// in its own row — they can never overlap regardless of font size or card size.
+@Composable
+private fun VisualImageGame(
+    state: MatchCardState.VisualImageCard,
+    wiggleTick: Int,
+    viewModel: MatchViewModel
+) {
+    val density = LocalDensity.current
+    val snapRadiusPx = with(density) { SNAP_RADIUS_DP.toPx() }
+    val colors = LocalGameColorScheme.current
+    val resetKey = state.questionIndex
+    var gameAreaTopLeft by remember(resetKey) { mutableStateOf(Offset.Zero) }
+    var contentCenter by remember(resetKey) { mutableStateOf(Offset.Zero) }
+    val optionCenters = remember(resetKey) { mutableStateMapOf<String, Offset>() }
+    var isDragging by remember(resetKey) { mutableStateOf(false) }
+    var fingerPosRoot by remember(resetKey) { mutableStateOf(Offset.Zero) }
+    var snappedId by remember(resetKey) { mutableStateOf<String?>(null) }
+    var localDragPos by remember(resetKey) { mutableStateOf(Offset.Zero) }
+
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(Modifier.height(4.dp))
+        MatchPromptBanner(state.prompt)
+        Box(
+            Modifier.fillMaxWidth().weight(1f)
+                .onGloballyPositioned { gameAreaTopLeft = it.positionInRoot() }
+                .pointerInput(state.answerState, resetKey) {
+                    if (state.answerState != AnswerState.Idle) return@pointerInput
+                    detectDragGestures(
+                        onDragStart = { start ->
+                            localDragPos = start
+                            fingerPosRoot = gameAreaTopLeft + start
+                            isDragging = true
+                            viewModel.onTouchStart(fingerPosRoot)
+                        },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            localDragPos += amount
+                            fingerPosRoot = gameAreaTopLeft + localDragPos
+                            viewModel.onTouchMove(fingerPosRoot)
+                            snappedId = optionCenters
+                                .minByOrNull { (_, center) -> (fingerPosRoot - center).getDistance() }
+                                ?.takeIf { (_, center) -> (fingerPosRoot - center).getDistance() < snapRadiusPx }
+                                ?.key
+                        },
+                        onDragEnd = {
+                            snappedId?.let {
+                                viewModel.onAnswerSelected(
+                                    it, fingerPosRoot, optionCenters[it], snapRadiusPx
+                                )
+                            }
+                            isDragging = false
+                            snappedId = null
+                        },
+                        onDragCancel = { isDragging = false; snappedId = null }
+                    )
+                }
+        ) {
+            VisualImageLayout(
+                state = state,
+                wiggleTick = wiggleTick,
+                snappedId = snappedId,
+                onContentCenter = { contentCenter = it },
+                onOptionCenter = { id, center -> optionCenters[id] = center }
+            )
+            if (isDragging && contentCenter != Offset.Zero) {
+                val endRoot = snappedId?.let { optionCenters[it] } ?: fingerPosRoot
+                val start = contentCenter - gameAreaTopLeft
+                val end = endRoot - gameAreaTopLeft
+                Canvas(Modifier.fillMaxSize().zIndex(5f)) {
+                    drawLine(colors.accent, start, end, 7.dp.toPx(), StrokeCap.Round)
+                    drawCircle(colors.accent, 10.dp.toPx(), start)
+                    drawCircle(
+                        if (snappedId != null) colors.correct else colors.accent.copy(alpha = 0.55f),
+                        if (snappedId != null) 15.dp.toPx() else 10.dp.toPx(), end
+                    )
+                }
+            }
+            if (state.showHandHint && !isDragging) {
+                optionCenters[state.correctOptionId]?.let { correctCenter ->
+                    if (contentCenter != Offset.Zero) {
+                        HandHintOverlay(contentCenter, correctCenter, gameAreaTopLeft)
+                    }
+                }
+            }
+        }
+        MatchAttemptsRow(state.attemptsLeft)
+        Spacer(Modifier.height(8.dp))
     }
 }
 
 @Composable
-private fun AnimalQuestionCard(
-    state: MatchCardState.AnimalHabitatCard,
-    isCalmMode: Boolean
+private fun VisualImageLayout(
+    state: MatchCardState.VisualImageCard,
+    wiggleTick: Int,
+    snappedId: String?,
+    onContentCenter: (Offset) -> Unit,
+    onOptionCenter: (String, Offset) -> Unit
+) {
+    if (!state.isTest) {
+        val option = state.options.firstOrNull() ?: return
+        val wiggle = wiggleOffset(if (state.showCorrectWiggle) wiggleTick else 0)
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(Modifier.height(LEARNING_TOP_PAD))
+            Box(Modifier.size(CONTENT_CARD_LEARN_DP).onGloballyPositioned { coords ->
+                val p = coords.positionInRoot(); val s = coords.size
+                onContentCenter(Offset(p.x + s.width / 2f, p.y + s.height / 2f))
+            }) { VisualTargetCard(state) }
+            Spacer(Modifier.height(LEARNING_MODE_GAP_DP))
+            Box(
+                Modifier.size(OPT_CARD_LEARN_DP).graphicsLayer { translationX = wiggle }
+                    .onGloballyPositioned { coords ->
+                        val p = coords.positionInRoot(); val s = coords.size
+                        onOptionCenter(option.entity.id, Offset(p.x + s.width / 2f, p.y + s.height / 2f))
+                    }
+            ) {
+                DrawableAnswerCard(option, true, option.entity.id == snappedId, state.answerState, state.lastWrongId)
+            }
+            Spacer(Modifier.weight(1f))
+        }
+        return
+    }
+
+    val density = LocalDensity.current
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val contentHalf = with(density) { (CONTENT_SIZE_TEST_DP / 2).toPx() }
+        val optionHalf = with(density) { (OPT_SIZE_TEST_DP / 2).toPx() }
+        val dx = contentHalf + with(density) { OPT_GAP_DP.toPx() } + optionHalf +
+            with(density) { OPT_PAIR_SPREAD_DP.toPx() }
+        val dy = contentHalf + with(density) { OPT_GAP_DP.toPx() } + optionHalf
+        val cx = constraints.maxWidth / 2f
+        val cy = constraints.maxHeight / 2f
+        val signs = listOf(-1f to -1f, 1f to -1f, -1f to 1f, 1f to 1f)
+        state.options.take(4).forEachIndexed { index, option ->
+            val (sx, sy) = signs[index]
+            val correct = option.entity.id == state.correctOptionId
+            val wiggle = wiggleOffset(if (correct && state.showCorrectWiggle) wiggleTick else 0)
+            Box(
+                Modifier.offset {
+                    IntOffset(
+                        (cx + sx * dx - optionHalf).roundToInt(),
+                        (cy + sy * dy - optionHalf).roundToInt()
+                    )
+                }.size(OPT_SIZE_TEST_DP).graphicsLayer { translationX = wiggle }
+                    .onGloballyPositioned { coords ->
+                        val p = coords.positionInRoot(); val s = coords.size
+                        onOptionCenter(option.entity.id, Offset(p.x + s.width / 2f, p.y + s.height / 2f))
+                    }
+            ) {
+                DrawableAnswerCard(option, correct, option.entity.id == snappedId, state.answerState, state.lastWrongId)
+            }
+        }
+        Box(
+            Modifier.offset {
+                IntOffset((cx - contentHalf).roundToInt(), (cy - contentHalf).roundToInt())
+            }.size(CONTENT_SIZE_TEST_DP).onGloballyPositioned { coords ->
+                val p = coords.positionInRoot(); val s = coords.size
+                onContentCenter(Offset(p.x + s.width / 2f, p.y + s.height / 2f))
+            }
+        ) { VisualTargetCard(state) }
+    }
+}
+
+@Composable
+private fun VisualTargetCard(state: MatchCardState.VisualImageCard) {
+    val colors = LocalGameColorScheme.current
+    val context = LocalContext.current
+    val resId = context.resources.getIdentifier(
+        state.target.contentId, "drawable", context.packageName
+    )
+    val borderColor by animateColorAsState(
+        when (state.answerState) {
+            AnswerState.Correct -> colors.correct
+            AnswerState.Revealed -> RevealGold
+            else -> colors.accent
+        }, tween(300), label = "visualTargetBorder"
+    )
+    Box(
+        Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp))
+            .border(3.dp, borderColor, RoundedCornerShape(20.dp)).background(colors.background),
+        contentAlignment = Alignment.Center
+    ) {
+        if (resId != 0) {
+            Image(
+                painter = painterResource(resId),
+                contentDescription = state.target.labelAr,
+                modifier = Modifier.fillMaxSize().padding(18.dp),
+                contentScale = ContentScale.Fit,
+                colorFilter = if (state.target.category == "SHAPE") {
+                    ColorFilter.tint(colors.accent)
+                } else {
+                    null
+                }
+            )
+        } else {
+            Text(
+                state.target.labelAr,
+                fontSize = 36.sp,
+                fontWeight = FontWeight.Bold,
+                color = colors.accent
+            )
+        }
+    }
+}
+
+@Composable
+private fun DrawableAnswerCard(
+    option: VisualMatchOption,
+    isCorrect: Boolean,
+    isSnapped: Boolean,
+    answerState: AnswerState,
+    lastWrongId: String?
+) {
+    val colors = LocalGameColorScheme.current
+    val context = LocalContext.current
+    val imageUri = AssetPathResolver.androidAssetUri(option.imagePath)
+    val isWrong = option.entity.id == lastWrongId && answerState == AnswerState.Wrong
+    val showCorrect = isCorrect && answerState in listOf(AnswerState.Correct, AnswerState.Revealed)
+    val borderColor by animateColorAsState(
+        when {
+            isCorrect && answerState == AnswerState.Correct -> colors.correct
+            isCorrect && answerState == AnswerState.Revealed -> RevealGold
+            isWrong -> colors.wrong
+            isSnapped -> colors.accent
+            else -> colors.accent.copy(alpha = 0.28f)
+        }, tween(250), label = "visualOptionBorder"
+    )
+    Box(
+        Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp))
+            .border(if (isSnapped || showCorrect || isWrong) 3.dp else 2.dp, borderColor, RoundedCornerShape(18.dp))
+            .background(colors.background), contentAlignment = Alignment.Center
+    ) {
+        AsyncImage(
+            model = ImageRequest.Builder(context).data(imageUri).crossfade(true).build(),
+            contentDescription = option.entity.labelAr,
+            modifier = Modifier.fillMaxSize().padding(10.dp),
+            contentScale = ContentScale.Fit
+        )
+        if (showCorrect) Box(Modifier.fillMaxSize().background(
+            if (answerState == AnswerState.Revealed) RevealGold.copy(alpha = 0.20f)
+            else colors.correct.copy(alpha = 0.18f)
+        ))
+        if (isWrong) Box(Modifier.fillMaxSize().background(colors.wrong.copy(alpha = 0.22f)))
+        OptionCornerBadge(isCorrect, isWrong, answerState)
+    }
+}
+
+@Composable
+private fun AnimalContentCard(
+    animal      : ActivityContent,
+    isCalmMode  : Boolean,
+    answerState : AnswerState,
+    modifier    : Modifier = Modifier
 ) {
     val colors  = LocalGameColorScheme.current
     val context = LocalContext.current
-    val mood    = if (isCalmMode) "calm" else "active"
-    val path    = "file:///android_asset/learning_content/visual/$mood/${state.animal.contentId}.png"
-
+    val path    = AssetPathResolver.androidAssetUri(
+        AssetPathResolver.animalImagePathFor(animal.contentId, isCalmMode))
     val borderColor by animateColorAsState(
-        targetValue = when (state.answerState) {
+        when (answerState) {
             AnswerState.Correct  -> colors.correct
-            AnswerState.Wrong    -> colors.wrong
             AnswerState.Revealed -> RevealGold
-            AnswerState.Idle     -> colors.accent
-        },
-        animationSpec = tween(300), label = "qBorder"
+            else                 -> colors.accent
+        }, tween(300), label = "acBorder"
     )
-
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .border(3.dp, borderColor, RoundedCornerShape(24.dp))
+        modifier = modifier.fillMaxSize()
+            .clip(RoundedCornerShape(20.dp))
+            .border(3.dp, borderColor, RoundedCornerShape(20.dp))
             .background(colors.background)
-            .padding(20.dp),
-        contentAlignment = Alignment.Center
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(
+            modifier            = Modifier.fillMaxSize().padding(4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Image takes all remaining space above the label
             AsyncImage(
-                model              = ImageRequest.Builder(context).data(path).build(),
-                contentDescription = state.animal.labelAr,
-                modifier           = Modifier.size(100.dp),
+                model              = ImageRequest.Builder(context).data(path).crossfade(true).build(),
+                contentDescription = animal.labelAr,
+                modifier           = Modifier.weight(1f).fillMaxWidth(),
                 contentScale       = ContentScale.Fit
             )
-            Spacer(Modifier.width(12.dp))
+            // Label always sits in its own row — never overlaps the image
             Text(
-                text       = state.animal.labelAr,
-                fontSize   = 28.sp,
+                text       = animal.labelAr,
+                fontSize   = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color      = colors.accent
+                color      = colors.accent,
+                textAlign  = TextAlign.Center,
+                maxLines   = 1,
+                modifier   = Modifier.padding(bottom = 4.dp)
             )
-            Spacer(Modifier.width(12.dp))
-            FeedbackIcon(state.answerState)
         }
     }
 }
 
 @Composable
-private fun HabitatGrid(
-    options: List<Habitat>,
-    correctId: String,
-    answerState: AnswerState,
-    lastWrongId: String?,
-    isCalmMode: Boolean,
-    wiggleTick: Int,
-    showWiggle: Boolean,
-    onSelected: (String) -> Unit
+private fun LetterContentCard(
+    letter           : ActivityContent,
+    letterImageAsset : ImageAsset,
+    answerState      : AnswerState,
+    modifier         : Modifier = Modifier
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        options.chunked(2).forEachIndexed { rowIdx, row ->
-            Row(
-                modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                row.forEachIndexed { colIdx, habitat ->
-                    val colorIdx  = rowIdx * 2 + colIdx
-                    val isCorrect = habitat.id == correctId
-                    HabitatOptionCard(
-                        habitat     = habitat,
-                        isCorrect   = isCorrect,
-                        answerState = answerState,
-                        lastWrongId = lastWrongId,
-                        isCalmMode  = isCalmMode,
-                        colorIdx    = colorIdx,
-                        wiggleTick  = if (isCorrect && showWiggle) wiggleTick else 0,
-                        onSelected  = onSelected,
-                        modifier    = Modifier.weight(1f)
-                    )
-                }
-                if (row.size == 1) Spacer(Modifier.weight(1f))
+    val colors  = LocalGameColorScheme.current
+    val context = LocalContext.current
+    val borderColor by animateColorAsState(
+        when (answerState) {
+            AnswerState.Correct  -> colors.correct
+            AnswerState.Revealed -> RevealGold
+            else                 -> colors.accent
+        }, tween(300), label = "lcBorder"
+    )
+    Box(
+        modifier = modifier.fillMaxSize()
+            .clip(RoundedCornerShape(20.dp))
+            .border(3.dp, borderColor, RoundedCornerShape(20.dp))
+            .background(colors.background)
+            .background(colors.accent.copy(alpha = 0.08f)),
+        contentAlignment = Alignment.Center
+    ) {
+        when (letterImageAsset) {
+            is ImageAsset.SvgDrawable -> {
+                val resId = context.resources.getIdentifier(
+                    letterImageAsset.drawableName, "drawable", context.packageName)
+                if (resId != 0) Image(painterResource(resId), letter.labelAr,
+                    Modifier.fillMaxSize().padding(14.dp).offset(x = SVG_LETTER_NUDGE_DP),
+                    alignment    = Alignment.Center,
+                    colorFilter = ColorFilter.tint(colors.accent),
+                    contentScale = ContentScale.Fit)
+                else Text(letter.labelAr, fontSize = 52.sp, fontWeight = FontWeight.Black,
+                    color = colors.accent)
             }
+            is ImageAsset.PngAsset -> AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(AssetPathResolver.androidAssetUri(letterImageAsset.path))
+                    .crossfade(true).build(),
+                contentDescription = letter.labelAr,
+                modifier = Modifier.fillMaxSize().padding(14.dp),
+                contentScale = ContentScale.Fit
+            )
         }
     }
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Option cards
+// ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun HabitatOptionCard(
-    habitat: Habitat,
-    isCorrect: Boolean,
-    answerState: AnswerState,
-    lastWrongId: String?,
-    isCalmMode: Boolean,
-    colorIdx: Int,
-    wiggleTick: Int,
-    onSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
+    habitat     : Habitat,
+    isCorrect   : Boolean,
+    isSnapped   : Boolean,
+    answerState : AnswerState,
+    lastWrongId : String?,
+    isCalmMode  : Boolean,
+    modifier    : Modifier = Modifier
 ) {
-    val colors        = LocalGameColorScheme.current
-    val context       = LocalContext.current
-    val mood          = if (isCalmMode) "calm" else "active"
-    val imgFile       = if (isCalmMode) habitat.calmImage else habitat.activeImage
-    val habitatPath   = "file:///android_asset/learning_content/visual/$mood/$imgFile"
-    val habitatLabel  = stringResource(habitat.labelResId)
-
-    val showCorrectOverlay = isCorrect &&
-            (answerState == AnswerState.Correct || answerState == AnswerState.Revealed)
-    val isWrongTapped = habitat.id == lastWrongId && answerState == AnswerState.Wrong
+    val colors       = LocalGameColorScheme.current
+    val context      = LocalContext.current
+    val imgFile      = if (isCalmMode) habitat.calmImage else habitat.activeImage
+    val mood         = if (isCalmMode) "calm" else "active"
+    val habitatPath  = "file:///android_asset/learning_content/visual/$mood/$imgFile"
+    val habitatLabel = stringResource(habitat.labelResId)
+    val isWrong      = habitat.id == lastWrongId && answerState == AnswerState.Wrong
+    val showCorrect  = isCorrect && answerState in listOf(AnswerState.Correct, AnswerState.Revealed)
 
     val borderColor by animateColorAsState(
-        targetValue = when {
+        when {
             isCorrect && answerState == AnswerState.Correct  -> colors.correct
             isCorrect && answerState == AnswerState.Revealed -> RevealGold
-            isWrongTapped                                    -> colors.wrong
-            else                                             -> colors.accent.copy(alpha = 0.35f)
-        },
-        animationSpec = tween(300), label = "hBorder"
+            isWrong                                          -> colors.wrong
+            isSnapped                                        -> colors.accent
+            else                                             -> colors.accent.copy(alpha = 0.28f)
+        }, tween(250), label = "habBorder"
     )
-
-    val shake   = wiggleOffset(wiggleTick)
-    val enabled = answerState in listOf(AnswerState.Idle, AnswerState.Wrong)
+    val borderWidth = if (isSnapped || showCorrect || isWrong) 3.dp else 2.dp
 
     Box(
-        modifier = modifier
-            .aspectRatio(1f)
-            .graphicsLayer { translationX = shake }
-            .clip(RoundedCornerShape(20.dp))
-            .border(3.dp, borderColor, RoundedCornerShape(20.dp))
-            .background(Color.Transparent)
-            .clickable(enabled = enabled) { onSelected(habitat.id) }
+        modifier = modifier.fillMaxSize()
+            .clip(RoundedCornerShape(18.dp))
+            .border(borderWidth, borderColor, RoundedCornerShape(18.dp))
+            .background(if (isSnapped && !showCorrect) colors.accent.copy(alpha = 0.07f)
+            else Color.Transparent)
     ) {
-        // Layer 1: habitat photo — always visible
-        Image(
-            painter            = rememberAsyncImagePainter(
-                ImageRequest.Builder(context).data(habitatPath).build()
-            ),
-            contentDescription = habitatLabel,
-            modifier           = Modifier.fillMaxSize(),
-            contentScale       = ContentScale.Crop
-        )
+        Image(rememberAsyncImagePainter(ImageRequest.Builder(context).data(habitatPath).build()),
+            habitatLabel, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
 
-        // Layer 2: correct overlay tint
-        if (showCorrectOverlay) {
-            Box(
-                modifier = Modifier.fillMaxSize().background(
-                    if (answerState == AnswerState.Revealed) RevealGold.copy(alpha = 0.18f)
-                    else colors.correct.copy(alpha = 0.15f)
-                )
-            )
-        }
+        if (showCorrect)
+            Box(Modifier.fillMaxSize().background(
+                if (answerState == AnswerState.Revealed) RevealGold.copy(alpha = 0.20f)
+                else colors.correct.copy(alpha = 0.18f)))
 
-        // Layer 3: wrong tint
-        if (isWrongTapped) {
-            Box(modifier = Modifier.fillMaxSize().background(colors.wrong.copy(alpha = 0.22f)))
-        }
+        if (isWrong)
+            Box(Modifier.fillMaxSize().background(colors.wrong.copy(alpha = 0.22f)))
 
-        // Layer 4: label bar
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .background(
-                    color = Color.Black.copy(alpha = 0.55f),
-                    shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp)
-                )
-                .padding(vertical = 6.dp),
+            Modifier.fillMaxWidth().align(Alignment.BottomCenter)
+                .background(Color.Black.copy(alpha = 0.55f),
+                    RoundedCornerShape(bottomStart = 18.dp, bottomEnd = 18.dp))
+                .padding(vertical = 5.dp),
             contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text       = habitatLabel,
-                fontSize   = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color      = Color.White
-            )
-        }
+        ) { Text(habitatLabel, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1) }
 
-        CornerBadge(isCorrect = isCorrect, isWrongTapped = isWrongTapped, answerState = answerState)
+        OptionCornerBadge(isCorrect, isWrong, answerState)
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// GAME 2 — Letter → Animal
-// ═══════════════════════════════════════════════════════════════════════════════
-
+// FIX: animal image and name label were overlapping because the image used
+// fillMaxHeight(0.9f) while the label was absolutely positioned at the bottom.
+// Now the image and label live in a Column inside the Box so they are stacked
+// properly — image takes weight(1f), label takes its natural height below it.
 @Composable
-private fun LetterAnimalLayout(
-    state: MatchCardState.LetterAnimalCard,
-    isCalmMode: Boolean,
-    wiggleTick: Int,
-    onSelected: (String) -> Unit
+private fun AnimalAnswerCard(
+    option      : AnimalOption,
+    isCorrect   : Boolean,
+    isSnapped   : Boolean,
+    answerState : AnswerState,
+    lastWrongId : String?,
+    isCalmMode  : Boolean,
+    modifier    : Modifier = Modifier
 ) {
-    Column(
-        modifier            = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Spacer(Modifier.height(4.dp))
-        TopRow(state.questionIndex, state.totalQuestions, state.attemptsLeft)
-        MatchPromptBanner(stringResource(R.string.match_prompt_choose_animal))
-        LetterQuestionCard(state)
-        AnimalGrid(
-            options     = state.options,
-            correctId   = state.correctAnimalId,
-            answerState = state.answerState,
-            lastWrongId = state.lastWrongId,
-            isCalmMode  = isCalmMode,
-            wiggleTick  = wiggleTick,
-            showWiggle  = state.showCorrectWiggle,
-            onSelected  = onSelected
-        )
-    }
-}
-
-@Composable
-private fun LetterQuestionCard(state: MatchCardState.LetterAnimalCard) {
-    val colors  = LocalGameColorScheme.current
-    val context = LocalContext.current
+    val colors      = LocalGameColorScheme.current
+    val context     = LocalContext.current
+    val animalPath  = AssetPathResolver.androidAssetUri(
+        AssetPathResolver.animalImagePathFor(option.entity.id, isCalmMode))
+    val habitat     = ALL_HABITATS.firstOrNull { it.id == option.habitatId } ?: ALL_HABITATS.first()
+    val mood        = if (isCalmMode) "calm" else "active"
+    val habitatPath = "file:///android_asset/learning_content/visual/$mood/${
+        if (isCalmMode) habitat.calmImage else habitat.activeImage}"
+    val isWrong     = option.entity.id == lastWrongId && answerState == AnswerState.Wrong
+    val showCorrect = isCorrect && answerState in listOf(AnswerState.Correct, AnswerState.Revealed)
 
     val borderColor by animateColorAsState(
-        targetValue = when (state.answerState) {
-            AnswerState.Correct  -> colors.correct
-            AnswerState.Wrong    -> colors.wrong
-            AnswerState.Revealed -> RevealGold
-            AnswerState.Idle     -> colors.accent
-        },
-        animationSpec = tween(300), label = "lBorder"
+        when {
+            isCorrect && answerState == AnswerState.Correct  -> colors.correct
+            isCorrect && answerState == AnswerState.Revealed -> RevealGold
+            isWrong                                          -> colors.wrong
+            isSnapped                                        -> colors.accent
+            else                                             -> colors.accent.copy(alpha = 0.28f)
+        }, tween(250), label = "anOptBorder"
     )
+    val habitatAlpha by animateFloatAsState(if (showCorrect) 1f else 0f, tween(400), label = "habFade")
+    val borderWidth = if (isSnapped || showCorrect || isWrong) 3.dp else 2.dp
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .border(3.dp, borderColor, RoundedCornerShape(24.dp))
-            .background(colors.background)
-            .padding(24.dp),
+        modifier = modifier.fillMaxSize()
+            .clip(RoundedCornerShape(18.dp))
+            .border(borderWidth, borderColor, RoundedCornerShape(18.dp))
+            .background(if (isSnapped && !showCorrect) colors.accent.copy(alpha = 0.07f)
+            else Color.Transparent)
+    ) {
+        // Background habitat (fades in on correct)
+        Image(
+            rememberAsyncImagePainter(ImageRequest.Builder(context).data(habitatPath).build()),
+            null,
+            Modifier.fillMaxSize().graphicsLayer { alpha = habitatAlpha },
+            contentScale = ContentScale.Crop
+        )
+
+        if (showCorrect) Box(Modifier.fillMaxSize().background(
+            if (answerState == AnswerState.Revealed) RevealGold.copy(alpha = 0.20f)
+            else colors.correct.copy(alpha = 0.18f)))
+
+        if (isWrong) Box(Modifier.fillMaxSize().background(colors.wrong.copy(alpha = 0.22f)))
+
+        // Animal image + label in a Column so they never overlap
+        Column(modifier = Modifier.fillMaxSize()) {
+            AsyncImage(
+                model              = ImageRequest.Builder(context).data(animalPath).crossfade(true).build(),
+                contentDescription = option.entity.labelAr,
+                modifier           = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(vertical = 1.dp, horizontal = 1.dp),
+                contentScale       = ContentScale.Fit
+            )
+            // Label always in its own row at the bottom — no overlap possible
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        if (showCorrect) Color.Black.copy(alpha = 0.55f)
+                        else colors.accent.copy(alpha = 0.10f),
+                        RoundedCornerShape(bottomStart = 18.dp, bottomEnd = 18.dp)
+                    )
+                    .padding(vertical = 1.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text       = option.entity.labelAr,
+                    fontSize   = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color      = if (showCorrect) Color.White else colors.accent,
+                    maxLines   = 1
+                )
+            }
+        }
+
+        OptionCornerBadge(isCorrect, isWrong, answerState)
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Shared composables
+// ══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun BoxScope.OptionCornerBadge(
+    isCorrect: Boolean, isWrong: Boolean, answerState: AnswerState
+) {
+    val colors = LocalGameColorScheme.current
+    if (answerState == AnswerState.Idle) return
+    val showGreen = isCorrect && answerState == AnswerState.Correct
+    val showGold  = isCorrect && answerState == AnswerState.Revealed
+    if (!showGreen && !showGold && !isWrong) return
+    val bg = when { showGreen -> colors.correct; showGold -> RevealGold; else -> colors.wrong }
+    Box(
+        Modifier.align(Alignment.TopEnd).padding(5.dp).size(24.dp).clip(CircleShape).background(bg),
         contentAlignment = Alignment.Center
     ) {
-        Row(
-            verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            // Replicating CountingGameScreen pattern: use painterResource + ColorFilter.tint(accent)
-            val asset = state.letterImageAsset
-            var shown = false
-            if (asset is ImageAsset.SvgDrawable) {
-                val resId = context.resources.getIdentifier(
-                    asset.drawableName, "drawable", context.packageName
-                )
-                if (resId != 0) {
-                    Image(
-                        painter            = painterResource(id = resId),
-                        contentDescription = state.letter.labelAr,
-                        modifier           = Modifier.size(120.dp),
-                        colorFilter        = ColorFilter.tint(colors.accent),
-                        contentScale       = ContentScale.Fit
-                    )
-                    shown = true
-                }
-            } else if (asset is ImageAsset.PngAsset) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data("file:///android_asset/${asset.path}")
-                        .build(),
-                    contentDescription = state.letter.labelAr,
-                    modifier           = Modifier.size(120.dp),
-                    contentScale       = ContentScale.Fit
-                )
-                shown = true
-            }
-
-            // Fallback if asset loading fails, show text label in accent
-            if (!shown) {
-                Text(
-                    text       = state.letter.labelAr,
-                    fontSize   = 64.sp,
-                    fontWeight = FontWeight.Black,
-                    color      = colors.accent
-                )
-            }
-            
-            Spacer(Modifier.width(12.dp))
-            FeedbackIcon(state.answerState)
-        }
+        Icon(if (isWrong) Icons.Default.Close else Icons.Default.Check, null,
+            tint = Color.White, modifier = Modifier.size(14.dp))
     }
 }
 
 @Composable
-private fun AnimalGrid(
-    options: List<AnimalOption>,
-    correctId: String,
-    answerState: AnswerState,
-    lastWrongId: String?,
-    isCalmMode: Boolean,
-    wiggleTick: Int,
-    showWiggle: Boolean,
-    onSelected: (String) -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        options.chunked(2).forEachIndexed { rowIdx, row ->
-            Row(
-                modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                row.forEachIndexed { colIdx, option ->
-                    val colorIdx  = rowIdx * 2 + colIdx
-                    val isCorrect = option.entity.id == correctId
-                    AnimalOptionCard(
-                        option      = option,
-                        isCorrect   = isCorrect,
-                        answerState = answerState,
-                        lastWrongId = lastWrongId,
-                        isCalmMode  = isCalmMode,
-                        colorIdx    = colorIdx,
-                        wiggleTick  = if (isCorrect && showWiggle) wiggleTick else 0,
-                        onSelected  = onSelected,
-                        modifier    = Modifier.weight(1f)
-                    )
-                }
-                if (row.size == 1) Spacer(Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-@Composable
-private fun AnimalOptionCard(
-    option: AnimalOption,
-    isCorrect: Boolean,
-    answerState: AnswerState,
-    lastWrongId: String?,
-    isCalmMode: Boolean,
-    colorIdx: Int,
-    wiggleTick: Int,
-    onSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val colors        = LocalGameColorScheme.current
-    val context       = LocalContext.current
-    val mood          = if (isCalmMode) "calm" else "active"
-    val animalPath    = "file:///android_asset/learning_content/visual/$mood/${option.entity.id}.png"
-    val habitat       = ALL_HABITATS.firstOrNull { it.id == option.habitatId } ?: ALL_HABITATS.first()
-    val habitatFile   = if (isCalmMode) habitat.calmImage else habitat.activeImage
-    val habitatPath   = "file:///android_asset/learning_content/visual/$mood/$habitatFile"
-    val isWrongTapped = option.entity.id == lastWrongId && answerState == AnswerState.Wrong
-    val showHabitatBg = isCorrect &&
-            (answerState == AnswerState.Correct || answerState == AnswerState.Revealed)
-
-    val borderColor by animateColorAsState(
-        targetValue = when {
-            isCorrect && answerState == AnswerState.Correct  -> colors.correct
-            isCorrect && answerState == AnswerState.Revealed -> RevealGold
-            isWrongTapped                                    -> colors.wrong
-            else                                             -> colors.accent.copy(alpha = 0.35f)
-        },
-        animationSpec = tween(300), label = "aBorder"
-    )
-
-    val habitatAlpha by animateFloatAsState(
-        targetValue   = if (showHabitatBg) 1f else 0f,
-        animationSpec = tween(400), label = "habFade"
-    )
-
-    val shake   = wiggleOffset(wiggleTick)
-    val enabled = answerState in listOf(AnswerState.Idle, AnswerState.Wrong)
-
-    Box(
-        modifier = modifier
-            .aspectRatio(1f)
-            .graphicsLayer { translationX = shake }
-            .clip(RoundedCornerShape(20.dp))
-            .border(3.dp, borderColor, RoundedCornerShape(20.dp))
-            // No background tint — transparent like habitat cards
-            .background(Color.Transparent)
-            .clickable(enabled = enabled) { onSelected(option.entity.id) }
-    ) {
-        // Layer 1: habitat bg — fades in on correct answer
-        Image(
-            painter            = rememberAsyncImagePainter(
-                ImageRequest.Builder(context).data(habitatPath).build()
-            ),
-            contentDescription = null,
-            modifier           = Modifier
-                .fillMaxSize()
-                .graphicsLayer { alpha = habitatAlpha },
-            contentScale       = ContentScale.Crop
-        )
-
-        // Layer 2: correct overlay tint
-        if (showHabitatBg) {
-            Box(
-                modifier = Modifier.fillMaxSize().background(
-                    if (answerState == AnswerState.Revealed) RevealGold.copy(alpha = 0.18f)
-                    else colors.correct.copy(alpha = 0.15f)
-                )
-            )
-        }
-
-        // Layer 3: wrong tint
-        if (isWrongTapped) {
-            Box(modifier = Modifier.fillMaxSize().background(colors.wrong.copy(alpha = 0.22f)))
-        }
-
-        // Layer 4: animal image
-        AsyncImage(
-            model              = ImageRequest.Builder(context).data(animalPath).build(),
-            contentDescription = option.entity.labelAr,
-            modifier           = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.72f)
-                .align(Alignment.TopCenter)
-                .padding(8.dp),
-            contentScale       = ContentScale.Fit
-        )
-
-        // Layer 5: label bar — dark when habitat visible, faint accent tint when idle
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .background(
-                    color = if (showHabitatBg)
-                        Color.Black.copy(alpha = 0.55f)
-                    else
-                        colors.accent.copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp)
-                )
-                .padding(vertical = 6.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text       = option.entity.labelAr,
-                fontSize   = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color      = if (showHabitatBg) Color.White else colors.accent
-            )
-        }
-
-        CornerBadge(isCorrect = isCorrect, isWrongTapped = isWrongTapped, answerState = answerState)
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Shared composables
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * Top row: question counter + attempt dots.
- * Dots follow the same pattern as all other games:
- *   used attempt → colors.wrong  (red = attempt spent)
- *   remaining    → colors.accent.copy(alpha = 0.25f)
- */
-@Composable
-private fun TopRow(questionIndex: Int, totalQuestions: Int, attemptsLeft: Int) {
-    val colors = LocalGameColorScheme.current
+private fun MatchAttemptsRow(attemptsLeft: Int) {
+    val colors       = LocalGameColorScheme.current
+    val attemptsUsed = 3 - attemptsLeft
     Row(
-        modifier              = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier              = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.Center,
         verticalAlignment     = Alignment.CenterVertically
     ) {
-        Text(
-            text       = "${questionIndex + 1} / $totalQuestions",
-            fontSize   = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color      = colors.accent
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            repeat(3) { i ->
-                // i=0 is the first dot; dot is "used" when that attempt slot is gone
-                val used = i >= attemptsLeft
-                val color by animateColorAsState(
-                    targetValue   = if (used) colors.wrong else colors.accent.copy(alpha = 0.25f),
-                    animationSpec = tween(300),
-                    label         = "matchDot$i"
-                )
-                Box(
-                    modifier = Modifier
-                        .size(if (used) 14.dp else 11.dp)
-                        .clip(CircleShape)
-                        .background(color)
-                )
-            }
+        repeat(3) { i ->
+            val isFilled = i < attemptsUsed
+            val borderColor by animateColorAsState(
+                if (isFilled) colors.wrong else colors.accent.copy(alpha = 0.5f),
+                tween(300), label = "mDot$i"
+            )
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 6.dp)
+                    .size(ATTEMPT_DOT_SIZE)
+                    .border(2.dp, borderColor, CircleShape)
+                    .background(if (isFilled) colors.wrong else Color.Transparent, CircleShape)
+            )
         }
     }
 }
 
-/**
- * Prompt banner — identical structure to TraceInstructionBadge in TraceScreen.
- * Uses the same fixed TraceBadgeBorder / TraceBadgeText tokens.
- */
 @Composable
 private fun MatchPromptBanner(text: String) {
     Box(
@@ -661,64 +1191,72 @@ private fun MatchPromptBanner(text: String) {
             verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            Text(
-                text       = text,
-                fontSize   = 17.sp,
-                fontWeight = FontWeight.Bold,
-                color      = TraceBadgeText,
-                maxLines   = 1,
-                style      = LocalTextStyle.current.copy(textDirection = TextDirection.Rtl)
-            )
+            Text(text, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TraceBadgeText,
+                maxLines = 1,
+                style = LocalTextStyle.current.copy(textDirection = TextDirection.Rtl))
             Spacer(Modifier.width(8.dp))
-            Image(
-                painter            = painterResource(R.drawable.front_hand),
-                contentDescription = null,
-                modifier           = Modifier.size(26.dp)
-            )
+            Image(painterResource(R.drawable.ic_pointing_finger), null, Modifier.size(26.dp))
         }
     }
 }
 
-@Composable
-private fun FeedbackIcon(answerState: AnswerState) {
-    val colors = LocalGameColorScheme.current
-    when (answerState) {
-        AnswerState.Correct  -> Icon(Icons.Default.Check, null, tint = colors.correct, modifier = Modifier.size(32.dp))
-        AnswerState.Wrong    -> Icon(Icons.Default.Close, null, tint = colors.wrong,   modifier = Modifier.size(32.dp))
-        AnswerState.Revealed -> Icon(Icons.Default.Check, null, tint = RevealGold,     modifier = Modifier.size(32.dp))
-        AnswerState.Idle     -> Spacer(Modifier.size(32.dp))
-    }
-}
+// ══════════════════════════════════════════════════════════════════════════════
+//  Hand drawing hint
+// ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-private fun BoxScope.CornerBadge(
-    isCorrect: Boolean,
-    isWrongTapped: Boolean,
-    answerState: AnswerState
+private fun HandHintOverlay(
+    startRoot       : Offset,
+    endRoot         : Offset,
+    gameAreaTopLeft : Offset
 ) {
-    val colors = LocalGameColorScheme.current
-    if (answerState == AnswerState.Idle) return
-    val showGreen = isCorrect && answerState == AnswerState.Correct
-    val showGold  = isCorrect && answerState == AnswerState.Revealed
-    val showRed   = isWrongTapped
-    if (!showGreen && !showGold && !showRed) return
+    val colors     = LocalGameColorScheme.current
+    val density    = LocalDensity.current
+    val handSizeDp = 52.dp
+    val handHalfPx = with(density) { (handSizeDp / 2).toPx() }
 
-    val bg = when { showGreen -> colors.correct; showGold -> RevealGold; else -> colors.wrong }
+    val infiniteTransition = rememberInfiniteTransition(label = "handHint")
+    val progress by infiniteTransition.animateFloat(
+        initialValue  = 0f,
+        targetValue   = 1f,
+        animationSpec = infiniteRepeatable(
+            animation          = tween(durationMillis = 1_700, easing = EaseInOutCubic),
+            repeatMode         = RepeatMode.Restart,
+            initialStartOffset = StartOffset(500)
+        ),
+        label = "handProgress"
+    )
 
-    Box(
-        modifier = Modifier
-            .align(Alignment.TopEnd)
-            .padding(6.dp)
-            .size(26.dp)
-            .clip(RoundedCornerShape(50))
-            .background(bg),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector        = if (showRed) Icons.Default.Close else Icons.Default.Check,
+    val handRootX  = lerp(startRoot.x, endRoot.x, progress)
+    val handRootY  = lerp(startRoot.y, endRoot.y, progress)
+    val startLocal = startRoot - gameAreaTopLeft
+    val handLocalX = handRootX - gameAreaTopLeft.x
+    val handLocalY = handRootY - gameAreaTopLeft.y
+
+    Box(modifier = Modifier.fillMaxSize().zIndex(6f)) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawLine(
+                color       = colors.accent.copy(alpha = 0.42f),
+                start       = startLocal,
+                end         = Offset(handLocalX, handLocalY),
+                strokeWidth = 6.dp.toPx(),
+                cap         = StrokeCap.Round
+            )
+            drawCircle(colors.accent.copy(alpha = 0.55f), 9.dp.toPx(), startLocal)
+        }
+
+        Image(
+            painter            = painterResource(R.drawable.ic_pointing_finger),
             contentDescription = null,
-            tint               = Color.White,
-            modifier           = Modifier.size(16.dp)
+            modifier           = Modifier
+                .size(handSizeDp)
+                .zIndex(7f)
+                .offset {
+                    IntOffset(
+                        (handLocalX - handHalfPx).roundToInt(),
+                        (handLocalY - handHalfPx).roundToInt()
+                    )
+                }
         )
     }
 }

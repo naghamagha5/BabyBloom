@@ -1,7 +1,9 @@
 package com.babybloom.data.repository
 
 import com.babybloom.data.local.dao.ChildProfileDao
+import com.babybloom.data.local.dao.ChildProfileSnapshotDao
 import com.babybloom.data.local.entity.ChildProfileEntity
+import com.babybloom.data.local.entity.ChildProfileSnapshotEntity
 import com.babybloom.domain.model.ChildProfile
 import com.babybloom.domain.repository.ChildProfileRepository
 import kotlinx.coroutines.flow.Flow
@@ -9,21 +11,88 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class ChildProfileRepositoryImpl @Inject constructor(
-    private val childProfileDao: ChildProfileDao
+    private val childProfileDao: ChildProfileDao,
+    private val snapshotDao: ChildProfileSnapshotDao
 ) : ChildProfileRepository {
 
-    override suspend fun createProfile(profile: ChildProfile) =
+    override suspend fun createProfile(profile: ChildProfile) {
         childProfileDao.insert(profile.toEntity())
+        snapshotDao.insert(profile.toSnapshot())
+    }
 
-    override suspend fun updateProfile(profile: ChildProfile) =
+    override suspend fun updateProfile(profile: ChildProfile) {
         childProfileDao.update(profile.toEntity())
+        snapshotDao.insert(profile.toSnapshot())
+    }
 
-    override suspend fun getProfile(childId: Long): ChildProfile? =
+    override suspend fun getByChildId(childId: Long): ChildProfile? =
         childProfileDao.getByChildId(childId)?.toDomain()
 
     override fun observeProfile(childId: Long): Flow<ChildProfile?> =
         childProfileDao.observeByChildId(childId).map { it?.toDomain() }
+
+    override suspend fun upsert(profile: ChildProfile) {
+        childProfileDao.upsert(profile.toEntity())
+        snapshotDao.insert(profile.toSnapshot())
+    }
 }
 
-fun ChildProfileEntity.toDomain() = ChildProfile(childId, visualScore, audioScore, gameScore, languageLevel, numeracyLevel, motorLevel, totalSessionCount, lastUpdated)
-fun ChildProfile.toEntity() = ChildProfileEntity(childId, visualScore, audioScore, gameScore, languageLevel, numeracyLevel, motorLevel, totalSessionCount, lastUpdated)
+// ── Mappers ───────────────────────────────────────────────────────────────────
+
+fun ChildProfileEntity.toDomain() = ChildProfile(
+    childId                  = childId,
+    visualScore              = visualScore,
+    audioScore               = audioScore,
+    gameScore                = gameScore,
+    visualPreferencePercent  = visualPreferencePercent,
+    audioPreferencePercent   = audioPreferencePercent,
+    interactivePreferencePercent = interactivePreferencePercent,
+    languageLevel            = languageLevel,
+    numeracyLevel            = numeracyLevel,
+    motorLevel               = motorLevel,
+    languageProgress         = languageProgress,
+    numeracyProgress         = numeracyProgress,
+    motorProgress            = motorProgress,
+    dominantModality         = dominantModality,
+    weakSkillAreas           = weakSkillAreas,
+    totalSessionCount        = totalSessionCount,
+    totalActivitiesCompleted = totalActivitiesCompleted,
+    overallProgressPercent   = overallProgressPercent,
+    assessmentCompleted      = assessmentCompleted,
+    lastUpdated              = lastUpdated
+)
+
+fun ChildProfile.toEntity() = ChildProfileEntity(
+    childId                  = childId,
+    visualScore              = visualScore,
+    audioScore               = audioScore,
+    gameScore                = gameScore,
+    visualPreferencePercent  = visualPreferencePercent,
+    audioPreferencePercent   = audioPreferencePercent,
+    interactivePreferencePercent = interactivePreferencePercent,
+    languageLevel            = languageLevel,
+    numeracyLevel            = numeracyLevel,
+    motorLevel               = motorLevel,
+    languageProgress         = languageProgress,
+    numeracyProgress         = numeracyProgress,
+    motorProgress            = motorProgress,
+    dominantModality         = dominantModality,
+    weakSkillAreas           = weakSkillAreas,
+    totalSessionCount        = totalSessionCount,
+    totalActivitiesCompleted = totalActivitiesCompleted,
+    overallProgressPercent   = overallProgressPercent,
+    assessmentCompleted      = assessmentCompleted,
+    lastUpdated              = lastUpdated
+)
+
+private fun ChildProfile.toSnapshot() = ChildProfileSnapshotEntity(
+    childId = childId,
+    visualPreferencePercent = visualPreferencePercent,
+    audioPreferencePercent = audioPreferencePercent,
+    interactivePreferencePercent = interactivePreferencePercent,
+    dominantModality = dominantModality,
+    languageLevel = languageLevel,
+    numeracyLevel = numeracyLevel,
+    motorLevel = motorLevel,
+    capturedAt = lastUpdated
+)

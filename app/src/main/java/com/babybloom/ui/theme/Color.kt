@@ -24,12 +24,9 @@ val DividerGray             = Color(0xFFCCC5E0)
 val ButtonText              = Color(0xFFFFFFFF)
 val LinkColor               = Color(0xFF6B4EFF)
 
-// ── Register Screen ───────────────────────────────────────────────────────────
-val GradientTop             = Color(0xFFB8A9E8)
-val GradientBottom          = Color(0xFFD8D0F0)
-val CardWhite               = Color(0xFFFFFFFF)
-val SunBackground           = Color(0xFFF0E8FF)
-val TextFieldBorderFocused  = Color(0xFF7B68C8)
+// ── Notification panel ───────────────────────────────────────────────────────────
+val GradientTop             = Color(0xFF2E2645)
+val GradientBottom          = Color(0xFF7C4DBC)
 
 // ── Gradient Palette ──────────────────────────────────────────────────────────
 val GradientPurpleLight     = Color(0xFFE1E3F7)
@@ -170,6 +167,22 @@ const val DragColorGreenHex  : Long = 0xFF43A047L
 const val DragColorGrayHex   : Long = 0xFF333333L
 const val DragColorMidGrayHex: Long = 0xFF9E9E9EL
 
+val DragLearningColorFallback = Color(DragColorMidGrayHex)
+
+fun dragColorForContentId(colorId: String): Color = when (colorId) {
+    "color_red"    -> Color(0xFFE53935)
+    "color_blue"   -> Color(0xFF1E88E5)
+    "color_yellow" -> Color(0xFFFDD835)
+    "color_green"  -> Color(0xFF43A047)
+    "color_black"  -> Color(0xFF212121)
+    "color_white"  -> Color(0xFFF5F5F5)
+    "color_orange" -> Color(0xFFFF8A65)
+    "color_purple" -> Color(0xFF9C27B0)
+    "color_pink"   -> Color(0xFFF48FB1)
+    "color_brown"  -> Color(0xFF6D4C41)
+    else           -> DragLearningColorFallback
+}
+
 // ── Trace Game ────────────────────────────────────────────────────────────────
 val TraceCardBackground     = Color(0xFFFFF8E7)   // warm cream card background
 val TraceSvgGray            = Color(0xFFC8C8C8)   // uniform gray tint for trace SVG
@@ -203,13 +216,23 @@ val GameCalmCorrect    = Color(0xFFADF3B0) // soft green              → correc
 
 // ── Game Mode – Active palette ────────────────────────────────────────────────
 //   Accent swatches
-val GameActiveSwatch1  = Color(0xFFEB6584)  // hot pink
-val GameActiveSwatch2  = Color(0xFFF0B362)  // vivid orange
-val GameActiveSwatch3  = Color(0xFFFFEA80)  // bright yellow
-val GameActiveSwatch4  = Color(0xFFA4EBA2)  // vivid mint
-val GameActiveSwatch5  = Color(0xFF95ADF0)  // bright periwinkle
+val GameActiveSwatch1  = Color(0xFFE1316B)  // hot pink
+val GameActiveSwatch2  = Color(0xFFE5C404)  // vivid orange
+val GameActiveSwatch3  = Color(0xFFFD7D07)  // bright yellow
+val GameActiveSwatch4  = Color(0xFF82E34B)  // vivid mint
+val GameActiveSwatch5  = Color(0xFF0683FC)  // bright periwinkle
 
 //   Semantic colors
 val GameActiveBackground = Color(0xFFFFFFFF) // pure white              → card & screen BG
 val GameActiveWrong      = Color(0xFFFF0606) // pure red                → wrong answer
 val GameActiveCorrect    = Color(0xFF00FF0D) // pure green              → correct answer
+
+// ── Progress bar – Active palette ────────────────────────────────────────────────
+val ProgressActiveSwatch1  = Color(0xFF0FD187)
+val ProgressActiveSwatch2  = Color(0xFF56F277)
+val ProgressActiveSwatch3  = Color(0xFF08F30E)
+
+// ── Progress bar – Calm palette ──────────────────────────────────────────
+val ProgressCalmSwatch1  = Color(0xFFA8DBBF)
+val ProgressCalmSwatch2  = Color(0xFFC0DD97)
+val ProgressCalmSwatch3  = Color(0xFFB8E4C2)

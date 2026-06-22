@@ -2,8 +2,6 @@ package com.babybloom.presentation.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -54,30 +52,16 @@ fun SpeechScreen(
     currentItem: ActivityContent,
     isCalmMode: Boolean,
     onComplete: (elapsedMs: Long, attempts: Int, confidence: Float?, isCorrect: Boolean) -> Unit,
+    onOffline: () -> Unit,
     viewModel: SpeechViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val colors  = LocalGameColorScheme.current
 
-    var hasPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context, Manifest.permission.RECORD_AUDIO
-            ) == PackageManager.PERMISSION_GRANTED
-        )
-    }
-    var permissionDenied by remember { mutableStateOf(false) }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        hasPermission = granted
-        permissionDenied = !granted
-    }
-
-    LaunchedEffect(Unit) {
-        if (!hasPermission) permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-    }
+    val hasPermission = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.RECORD_AUDIO
+    ) == PackageManager.PERMISSION_GRANTED
 
     LaunchedEffect(currentItem.contentId, hasPermission) {
         if (hasPermission) viewModel.loadCard(currentItem, isCalmMode, onComplete)
@@ -85,18 +69,27 @@ fun SpeechScreen(
 
     val cardState by viewModel.cardState.collectAsStateWithLifecycle()
 
+    LaunchedEffect(cardState) {
+        if (cardState is SpeechCardState.Offline) {
+            onOffline()
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when {
-            permissionDenied -> PermissionDeniedBlock()
-            !hasPermission   -> CircularProgressIndicator(color = colors.accent)
+            !hasPermission   -> PermissionDeniedBlock()
             else -> when (val state = cardState) {
                 is SpeechCardState.Loading -> CircularProgressIndicator(color = colors.accent)
                 is SpeechCardState.Offline -> OfflineBlock()
                 is SpeechCardState.Card    -> {
-                    SpeechCardLayout(state, isCalmMode)
+                    if (state.item.contentId != currentItem.contentId) {
+                        CircularProgressIndicator(color = colors.accent)
+                    } else {
+                        SpeechCardLayout(state, isCalmMode)
                     // ── Unified celebration popup ──────────────────────────
-                    if (state.showSuccess) {
-                        GoodJobPopup()
+                        if (state.showSuccess) {
+                            GoodJobPopup(coverage = -1f)
+                        }
                     }
                 }
             }

@@ -42,6 +42,8 @@ import com.babybloom.presentation.viewmodels.TraceUiState
 import com.babybloom.presentation.viewmodels.TraceViewModel
 import com.babybloom.ui.theme.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlin.math.*
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -74,12 +76,67 @@ fun TraceScreen(
     onComplete:  (TraceResult) -> Unit,
     viewModel:   TraceViewModel = hiltViewModel()
 ) {
+    // Collected only for rendering — NOT used for completion detection.
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(currentItem.contentId) { viewModel.loadItem(currentItem, isCalmMode) }
-    LaunchedEffect(uiState) {
-        if (uiState is TraceUiState.ItemComplete)
-            onComplete((uiState as TraceUiState.ItemComplete).result)
+    // ─────────────────────────────────────────────────────────────────────────
+    // BUG THAT WAS HERE — two-LaunchedEffect pattern with a race condition:
+    //
+    //   LaunchedEffect(currentItem.contentId) {
+    //       viewModel.loadItem(...)
+    //       loadedContentId = currentItem.contentId   ← updates immediately
+    //   }
+    //   LaunchedEffect(uiState, loadedContentId, currentItem.contentId) {
+    //       if (loadedContentId == currentItem.contentId
+    //               && uiState is ItemComplete) onComplete(...)
+    //   }
+    //
+    // When the assessment advanced to the NEXT trace step, loadedContentId and
+    // currentItem.contentId both updated to the new item's id in the same frame,
+    // but the Compose-collected `uiState` was still holding the PREVIOUS trace's
+    // ItemComplete (StateFlow → Compose state has a one-recomposition-frame lag).
+    // The guard passed: ids matched, type matched → onComplete fired for the new
+    // item before the user had even seen it. The ViewModel's instruction audio
+    // was already playing (loadItem ran fine) while the UI jumped past.
+    //
+    // FIX — single LaunchedEffect that subscribes to the ViewModel's raw
+    // StateFlow AFTER calling loadItem:
+    //
+    //   loadItem() sets _uiState = Tracing synchronously.
+    //   viewModel.uiState.filter { terminal }.first() is then subscribed.
+    //   StateFlow replays its current value, which is now Tracing — never the
+    //   previous ItemComplete. The stale state is unreachable.
+    // ─────────────────────────────────────────────────────────────────────────
+    LaunchedEffect(currentItem.contentId) {
+        // 1. Load — synchronously sets ViewModel uiState to Tracing or NoPath.
+        viewModel.loadItem(currentItem, isCalmMode)
+
+        // 2. Collect the raw StateFlow from this point forward.
+        //    Current value is Tracing/NoPath — a stale ItemComplete is impossible.
+        val terminal = viewModel.uiState
+            .filter { it is TraceUiState.ItemComplete || it is TraceUiState.NoPath }
+            .first()
+
+        // 3. Report result.
+        when (terminal) {
+            is TraceUiState.ItemComplete -> onComplete(terminal.result)
+            is TraceUiState.NoPath -> {
+                // Path data missing — show fallback briefly then unblock the step.
+                delay(1_500L)
+                onComplete(
+                    TraceResult(
+                        isSuccess       = false,
+                        coverage        = 0f,
+                        elapsedMs       = 1_500L,
+                        attempts        = 1,
+                        touchQualityScore = 0f,
+                        averageMovementDistance = 0f,
+                        correctionCount = 0
+                    )
+                )
+            }
+            else -> Unit
+        }
     }
 
     val context = LocalContext.current
@@ -95,18 +152,15 @@ fun TraceScreen(
     }
     val contentType = remember(currentItem.contentId) { contentTypeOf(currentItem.contentId) }
 
-    // ── Colors from the shell-provided scheme ─────────────────────────────────
-    // accent  → card borders, SVG dot rings, label, progress bar fill
-    // correct → colored-in dots (the "covered" fill) — green = "you got it"
-    // background → reveal card background
-    // The instruction badge (TraceInstructionBadge) is left completely
-    // unchanged — it uses its own fixed TraceBadgeBorder / TraceBadgeText tokens.
     val colors = LocalGameColorScheme.current
 
     Box(Modifier.fillMaxSize()) {
         when (val s = uiState) {
 
-            is TraceUiState.Idle   -> TraceLoadingContent()
+            is TraceUiState.Idle -> TraceLoadingContent()
+
+            // NoPath: the LaunchedEffect above handles the 1 500 ms delay and
+            // onComplete call. This branch only renders the error message.
             is TraceUiState.NoPath -> TraceNoPathFallback(s.contentId)
 
             is TraceUiState.Tracing -> TraceGameScreen(
@@ -136,7 +190,7 @@ fun TraceScreen(
                     cardBackground   = colors.background,
                     contentType      = contentType
                 )
-                TraceSuccessPopup(coverage = s.finalScore)
+                GoodJobPopup(coverage = s.finalScore)
             }
 
             is TraceUiState.ShowEncouraging -> {
@@ -156,7 +210,7 @@ fun TraceScreen(
                 TraceEncouragingPopup(s.attemptsDone, s.isLastAttempt)
             }
 
-            is TraceUiState.ItemComplete -> { /* parent navigates */ }
+            is TraceUiState.ItemComplete -> { /* LaunchedEffect above already called onComplete */ }
         }
     }
 }
@@ -201,7 +255,6 @@ private fun TraceGameScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(4.dp))
-        // ── Banner is left exactly as it was — uses its own fixed tokens ──────
         TraceInstructionBadge(text = instructionText(contentType), accentColor = accentColor)
         Spacer(Modifier.height(8.dp))
         TraceProgressBar(progress = animCoverage, accentColor = accentColor)
@@ -299,7 +352,6 @@ private fun TraceGameScreen(
             }
         }
 
-        // Label — accent from scheme instead of hardcoded calm/active color
         Text(
             text       = state.item.labelAr,
             fontSize   = 50.sp,
@@ -318,12 +370,11 @@ private fun TraceGameScreen(
 
 @Composable
 private fun TraceRevealScreen(
-    state:           TraceState,
+    state:            TraceState,
     letterDrawableId: Int?,
-    accentColor:     Color,
-    // Card background from scheme (colors.background) instead of fixed TraceCardBackground
-    cardBackground:  Color,
-    contentType:     TraceContentType
+    accentColor:      Color,
+    cardBackground:   Color,
+    contentType:      TraceContentType
 ) {
     var popped by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { delay(60L); popped = true }
@@ -343,7 +394,6 @@ private fun TraceRevealScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(4.dp))
-        // ── Banner unchanged ──────────────────────────────────────────────────
         TraceInstructionBadge(text = instructionText(contentType), accentColor = accentColor)
         Spacer(Modifier.height(8.dp))
         TraceProgressBar(progress = 1f, accentColor = accentColor)
@@ -354,10 +404,8 @@ private fun TraceRevealScreen(
             modifier = Modifier
                 .aspectRatio(1f)
                 .fillMaxWidth(0.85f)
-                // Border uses accent from scheme
                 .border(6.dp, accentColor, RoundedCornerShape(24.dp))
                 .clip(RoundedCornerShape(24.dp))
-                // Card background from scheme instead of fixed TraceCardBackground
                 .background(cardBackground)
                 .graphicsLayer(scaleX = scale, scaleY = scale, alpha = revealAlpha),
             contentAlignment = Alignment.Center
@@ -374,7 +422,6 @@ private fun TraceRevealScreen(
                         painter            = painterResource(letterDrawableId),
                         contentDescription = state.item.labelAr,
                         contentScale       = ContentScale.Fit,
-                        // SVG tinted with accent from scheme
                         colorFilter        = ColorFilter.tint(accentColor, BlendMode.SrcIn),
                         modifier           = Modifier
                             .fillMaxWidth(0.6f)
@@ -410,7 +457,6 @@ private fun TraceRevealScreen(
 // Shared sub-composables
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Banner — UNCHANGED, uses its own fixed tokens (TraceBadgeBorder / TraceBadgeText)
 @Composable
 private fun TraceInstructionBadge(text: String, accentColor: Color) {
     Box(
@@ -459,7 +505,6 @@ private fun TraceProgressBar(progress: Float, accentColor: Color) {
                     .fillMaxHeight()
                     .fillMaxWidth(progress.coerceIn(0f, 1f))
                     .clip(RoundedCornerShape(50))
-                    // Full bar (≥80%) → TraceStartPulse green; otherwise accent from scheme
                     .background(if (progress >= 0.8f) TraceStartPulse else accentColor)
             )
         }
@@ -473,76 +518,12 @@ private fun TraceProgressBar(progress: Float, accentColor: Color) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Popups — unchanged (use their own fixed TraceOverlayScrim / TraceSuccessText tokens)
+// Popups
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-fun TraceSuccessPopup(coverage: Float) {
-    val infinite = rememberInfiniteTransition(label = "lp")
-    val lottieProgress by infinite.animateFloat(
-        0f, 1f, infiniteRepeatable(tween(2_000), RepeatMode.Restart), "lv"
-    )
-    val scale by animateFloatAsState(
-        1f,
-        spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow),
-        label = "sc"
-    )
-    val popAlpha by animateFloatAsState(1f, tween(350), label = "al")
-
-    val lottieComposition by rememberLottieComposition(
-        LottieCompositionSpec.RawRes(R.raw.confetti)
-    )
-
-    Box(
-        modifier         = Modifier
-            .fillMaxSize()
-            .background(TraceOverlayScrim),
-        contentAlignment = Alignment.Center
-    ) {
-        LottieAnimation(
-            composition = lottieComposition,
-            progress    = { (lottieProgress % 1f).coerceIn(0f, 1f) },
-            modifier    = Modifier.fillMaxSize()
-        )
-
-        Column(
-            modifier = Modifier
-                .graphicsLayer(scaleX = scale, scaleY = scale, alpha = popAlpha)
-                .background(TracePopupBackground, RoundedCornerShape(28.dp))
-                .padding(horizontal = 64.dp, vertical = 48.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text     = stringResource(R.string.trace_success_emoji),
-                fontSize = 76.sp
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text       = stringResource(R.string.trace_success_title),
-                fontSize   = 34.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color      = TraceSuccessText,
-                textAlign  = TextAlign.Center,
-                style      = LocalTextStyle.current.copy(textDirection = TextDirection.Rtl)
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text      = stringResource(R.string.trace_coverage_format, (coverage * 100).toInt()),
-                style     = MaterialTheme.typography.titleLarge,
-                color     = TraceSecondaryText,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-@Composable
 fun TraceEncouragingPopup(attemptsDone: Int, isLastAttempt: Boolean) {
-    val scale by animateFloatAsState(
-        1f,
-        spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow),
-        label = "es"
-    )
+    val scale    by animateFloatAsState(1f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow), label = "es")
     val popAlpha by animateFloatAsState(1f, tween(350), label = "ea")
 
     val remaining     = TraceViewModel.MAX_ATTEMPTS - attemptsDone
@@ -552,9 +533,7 @@ fun TraceEncouragingPopup(attemptsDone: Int, isLastAttempt: Boolean) {
         stringResource(R.string.trace_remaining_format, remaining)
 
     Box(
-        modifier         = Modifier
-            .fillMaxSize()
-            .background(TraceOverlayScrim),
+        modifier         = Modifier.fillMaxSize().background(TraceOverlayScrim),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -602,20 +581,14 @@ private fun DrawScope.drawDotCircles(
     borderColor:  Color
 ) {
     val strokeWidth = 7f
-
     state.pathData.circles.forEachIndexed { i, circle ->
-        val cx     = circle.center.x * size.width
-        val cy     = circle.center.y * size.height
-        val r      = circle.radius   * size.width
-        val center = Offset(cx, cy)
+        val cx      = circle.center.x * size.width
+        val cy      = circle.center.y * size.height
+        val r       = circle.radius   * size.width
+        val center  = Offset(cx, cy)
         val touched = i in state.coloredIndices
 
-        drawCircle(
-            color  = borderColor,
-            radius = r + strokeWidth / 2,
-            center = center,
-            style  = Stroke(width = strokeWidth)
-        )
+        drawCircle(color = borderColor, radius = r + strokeWidth / 2, center = center, style = Stroke(width = strokeWidth))
 
         if (touched) {
             drawCircle(
@@ -623,11 +596,9 @@ private fun DrawScope.drawDotCircles(
                     0.0f to coveredColor,
                     0.7f to coveredColor.copy(alpha = 0.95f),
                     1.0f to coveredColor.copy(alpha = 0.75f),
-                    center = center,
-                    radius = r * 1.05f
+                    center = center, radius = r * 1.05f
                 ),
-                radius = r * 1.05f,
-                center = center
+                radius = r * 1.05f, center = center
             )
             drawCircle(Color.White.copy(alpha = 0.30f), r * 0.38f, center)
         } else {
@@ -644,44 +615,23 @@ private fun DrawScope.drawStartPulse(center: Offset, scale: Float) {
 
 private fun DrawScope.drawHandHint(position: Offset, prev: Offset?, alpha: Float) {
     if (alpha <= 0f) return
-
-    drawCircle(
-        Brush.radialGradient(
-            listOf(HintOrbColor.copy(alpha = 0.28f * alpha), Color.Transparent),
-            center = position, radius = 36.dp.toPx()
-        ),
-        36.dp.toPx(), position
-    )
-    drawCircle(
-        Brush.radialGradient(
-            listOf(Color.White.copy(alpha = alpha), HintOrbColor.copy(alpha = alpha)),
-            center = position, radius = 18.dp.toPx()
-        ),
-        18.dp.toPx(), position
-    )
+    drawCircle(Brush.radialGradient(listOf(HintOrbColor.copy(alpha = 0.28f * alpha), Color.Transparent), center = position, radius = 36.dp.toPx()), 36.dp.toPx(), position)
+    drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = alpha), HintOrbColor.copy(alpha = alpha)), center = position, radius = 18.dp.toPx()), 18.dp.toPx(), position)
     prev?.let { p ->
         val dx  = position.x - p.x; val dy = position.y - p.y
         val len = sqrt(dx * dx + dy * dy).coerceAtLeast(1f)
-        val nx  = dx / len; val ny = dy / len
+        val nx  = dx / len;          val ny  = dy / len
         val tip   = Offset(position.x + nx * 30.dp.toPx(), position.y + ny * 30.dp.toPx())
         val left  = Offset(position.x - ny *  9.dp.toPx(), position.y + nx *  9.dp.toPx())
         val right = Offset(position.x + ny *  9.dp.toPx(), position.y - nx *  9.dp.toPx())
         drawPath(
-            Path().apply {
-                moveTo(left.x, left.y)
-                lineTo(tip.x, tip.y)
-                lineTo(right.x, right.y)
-            },
+            Path().apply { moveTo(left.x, left.y); lineTo(tip.x, tip.y); lineTo(right.x, right.y) },
             HintOrbColor.copy(alpha = 0.85f * alpha),
             style = Stroke(3.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
     }
     val fw = 10.dp.toPx(); val fh = 17.dp.toPx()
-    drawRoundRect(
-        HintFingerColor.copy(alpha = alpha),
-        Offset(position.x - fw / 2f, position.y + 16.dp.toPx()),
-        Size(fw, fh), CornerRadius(fw / 2f)
-    )
+    drawRoundRect(HintFingerColor.copy(alpha = alpha), Offset(position.x - fw / 2f, position.y + 16.dp.toPx()), Size(fw, fh), CornerRadius(fw / 2f))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

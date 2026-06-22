@@ -4,34 +4,32 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babybloom.R
 import com.babybloom.di.SessionManager
+import com.babybloom.domain.repository.ChildProfileRepository
 import com.babybloom.domain.repository.ChildRepository
 import com.babybloom.presentation.screens.ChildUiModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import com.babybloom.domain.repository.ChildProfileRepository
 
-// ─────────────────────────────────────────────
-//  UI State
-// ─────────────────────────────────────────────
 data class MyChildrenUiState(
     val isLoading: Boolean = true,
     val children: List<ChildUiModel> = emptyList(),
     val errorMessage: String? = null
 )
 
-// ─────────────────────────────────────────────
-//  ViewModel
-// ─────────────────────────────────────────────
 @HiltViewModel
 class MyChildrenViewModel @Inject constructor(
-    private val childRepository       : ChildRepository,
-    private val childProfileRepository: ChildProfileRepository,   // ← add this
-    private val sessionManager        : SessionManager
+    private val childRepository        : ChildRepository,
+    private val childProfileRepository : ChildProfileRepository,
+    private val sessionManager         : SessionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MyChildrenUiState())
@@ -46,34 +44,42 @@ class MyChildrenViewModel @Inject constructor(
                 if (userId == -1L) {
                     _uiState.value = MyChildrenUiState(
                         isLoading    = false,
-                        errorMessage = "لم يتم تسجيل الدخول"
+                        errorMessage = "Ù„Ù… ÙŠØªÙ… ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„"
                     )
                     return@launch
                 }
 
-                childRepository.getChildrenByUser(userId).collectLatest { children ->
-                    // fetch profiles for all children in parallel
-                    val uiModels = children.map { child ->
-                        val profile = childProfileRepository.getProfile(child.id)
-                        val progress = if (profile != null) {
-                            val scoreAvg = (profile.visualScore + profile.audioScore + profile.gameScore) / 3f
-                            val levelAvg = (profile.languageLevel + profile.numeracyLevel + profile.motorLevel) / 9f
-                            ((scoreAvg * 0.6f + levelAvg * 0.4f) * 100).toInt().coerceIn(0, 100)
-                        } else 0
-
-                        ChildUiModel(
-                            id              = child.id,
-                            name            = child.name,
-                            ageYears        = child.age,
-                            progressPercent = progress,
-                            status = child.status,
-                            avatarRes       = resolveAvatar(child.avatar)
-                        )
+                childRepository.getChildrenByUser(userId)
+                    .flatMapLatest { children ->
+                        if (children.isEmpty()) {
+                            flowOf(emptyList())
+                        } else {
+                            combine(
+                                children.map { child ->
+                                    childProfileRepository.observeProfile(child.id)
+                                        .map { profile -> child to profile }
+                                }
+                            ) { pairs -> pairs.toList() }
+                        }
                     }
-                    _uiState.value = MyChildrenUiState(isLoading = false, children = uiModels)
-                }
+                    .collectLatest { childProfiles ->
+                        val uiModels = childProfiles.map { (child, profile) ->
+                            ChildUiModel(
+                                id              = child.id,
+                                name            = child.name,
+                                ageYears        = child.age,
+                                progressPercent = profile?.overallProgressPercent?.toInt()?.coerceIn(0, 100) ?: 0,
+                                status          = child.status,
+                                avatarRes       = resolveAvatar(child.avatar)
+                            )
+                        }
+                        _uiState.value = MyChildrenUiState(isLoading = false, children = uiModels)
+                    }
             } catch (e: Exception) {
-                _uiState.value = MyChildrenUiState(isLoading = false, errorMessage = e.message)
+                _uiState.value = MyChildrenUiState(
+                    isLoading    = false,
+                    errorMessage = e.message
+                )
             }
         }
     }

@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface ActivityResultRepository {
     suspend fun saveResult(result: ActivityResult): Long
+    suspend fun updateScore(resultId: Long, score: Float)
     suspend fun getBySession(sessionId: Long): List<ActivityResult>
     suspend fun getByChild(childId: Long): List<ActivityResult>
     suspend fun getRecentBySkillArea(
@@ -22,6 +23,7 @@ interface ActivityResultRepository {
     fun observeByChild(childId: Long): Flow<List<ActivityResult>>
     suspend fun getRecentActivities(childId: Long, limit: Int = 3): List<RecentActivity>
     suspend fun getSkillScoresForChart(childId: Long): List<SkillScoreRow>
+    fun observeSkillScoresForChart(childId: Long): Flow<List<SkillScoreRow>>
 
     // New — used by personalization algorithm to get multimodal signals
     suspend fun getResultsWithAttention(
@@ -36,4 +38,6 @@ interface ActivityResultRepository {
         childId: Long,
         limit: Int = 20
     ): List<ActivityResult>
+
+    suspend fun getForSession(sessionId: Long): List<ActivityResult>
 }

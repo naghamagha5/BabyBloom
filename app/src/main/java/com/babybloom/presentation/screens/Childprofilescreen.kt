@@ -60,6 +60,7 @@ private fun resolveAvatarResId(avatar: String): Int = when (avatar) {
 fun ChildProfileScreen(
     onNavigateToHome          : () -> Unit = {},
     onNavigateToWelcomeLearning: (childId: Long) -> Unit = {},
+    onNavigateToAssessment    : (childId: Long) -> Unit = {},
     initialTab                  : ChildProfileTab = ChildProfileTab.ANALYTICS,  // ← add this
     viewModel: ChildProfileViewModel = hiltViewModel()
 ) {
@@ -94,20 +95,30 @@ fun ChildProfileScreen(
                     child                      = uiState.child,
                     sessionCount               = uiState.sessionCount,
                     progressPercent            = uiState.progressPercent,
+                    assessmentCompleted        = uiState.childProfile?.assessmentCompleted == true,
                     onBackClick                = onNavigateToHome,
                     onStartLearningClick       = {
-                        uiState.child?.id?.let { onNavigateToWelcomeLearning(it) }
+                        uiState.child?.id?.let { childId ->
+                            if (uiState.childProfile?.assessmentCompleted == true) {
+                                onNavigateToWelcomeLearning(childId)
+                            } else {
+                                onNavigateToAssessment(childId)
+                            }
+                        }
                     }
                 )
                 when (selectedTab) {
                     ChildProfileTab.ANALYTICS -> ChildAnalyticsTab(
                         childProfile     = uiState.childProfile,
                         recentActivities = uiState.recentActivities,
-                        weeklyChartData  = uiState.weeklyChartData
+                        chartData        = uiState.chartData
                     )
                     ChildProfileTab.AI_INSIGHTS -> ChildAiInsightsTab(
                         parsedInsight = uiState.parsedInsight,
                         isLoading     = uiState.isLoadingInsight,
+                        canGenerate   = uiState.canGenerateInsight,
+                        generationMessage = uiState.insightGenerationMessage,
+                        generationError = uiState.insightGenerationError,
                         onRefresh     = viewModel::onRefreshInsight
                     )
                     ChildProfileTab.SETTINGS -> ChildSettingsTab(
@@ -137,6 +148,7 @@ internal fun ChildProfileHeader(
     child                  : Child?,
     sessionCount           : Int,
     progressPercent        : Int,
+    assessmentCompleted    : Boolean,
     onBackClick            : () -> Unit,
     onStartLearningClick   : () -> Unit
 ) {
@@ -324,7 +336,7 @@ internal fun ChildProfileHeader(
                                 ChildStatus.ACTIVE        -> stringResource(R.string.stat_status_active)
                                 ChildStatus.CALM          -> stringResource(R.string.stat_status_calm)
                                 ChildStatus.NEEDS_SUPPORT -> stringResource(R.string.stat_status_needs_support)
-                                null                      -> stringResource(R.string.stat_status_active)
+                                null                      -> stringResource(R.string.stat_status_calm)
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -364,7 +376,7 @@ internal fun ChildProfileHeader(
                                 modifier           = Modifier.size(35.dp)
                             )
                             Text(
-                                text  = stringResource(R.string.btn_start_learning),
+                                text  = if (assessmentCompleted) "اِبْدَأِ الْمُغَامَرَةَ" else "اِبْدَأْ رِحْلَةَ الِاكْتِشَافِ",
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     color      = White,

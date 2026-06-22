@@ -6,9 +6,11 @@ import android.media.MediaPlayer
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.babybloom.di.AppSoundSettings
 import com.babybloom.domain.model.ActivityContent
 import com.babybloom.util.AssetPathResolver
 import com.babybloom.util.ImageAsset
+import com.babybloom.util.SoundEffect
 import com.babybloom.util.speech.SpeechRecognitionManager
 import com.babybloom.util.speech.SpeechResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,7 +42,8 @@ sealed class SpeechCardState {
 @HiltViewModel
 class SpeechViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val speechRecognitionManager: SpeechRecognitionManager
+    private val speechRecognitionManager: SpeechRecognitionManager,
+    private val appSoundSettings: AppSoundSettings
 ) : ViewModel() {
 
     private val _cardState = MutableStateFlow<SpeechCardState>(SpeechCardState.Loading)
@@ -98,6 +101,7 @@ class SpeechViewModel @Inject constructor(
         ) return
 
         attemptJob?.cancel()
+        speechRecognitionManager.cancelCurrent()
         releasePlayer()
         isRunning = true
 
@@ -157,11 +161,15 @@ class SpeechViewModel @Inject constructor(
                     )
                     delay(300)
 
+                    val activeCard = _cardState.value as? SpeechCardState.Card
+                    if (activeCard?.item?.contentId != item.contentId) return@launch
+
                     when {
-                        result == null -> Unit // timeout — loop continues
+                        result == null -> appSoundSettings.playSoundEffect(SoundEffect.WRONG)
 
                         result is SpeechResult.Success &&
                                 isMatch(result.recognizedText, item.labelAr) -> {
+                            appSoundSettings.playSoundEffect(SoundEffect.CORRECT)
                             _cardState.value = SpeechCardState.Card(
                                 item = item, imageAsset = imageAsset,
                                 attempts = attempt, micState = MicState.Idle,
@@ -171,7 +179,12 @@ class SpeechViewModel @Inject constructor(
                             onCardComplete(
                                 System.currentTimeMillis() - startTime,
                                 attempt,
-                                result.confidence,
+                                speechConfidence(
+                                    recognized = result.recognizedText,
+                                    expected = item.labelAr,
+                                    recognizerConfidence = result.confidence,
+                                    attempts = attempt
+                                ),
                                 true
                             )
                             return@launch
@@ -182,7 +195,7 @@ class SpeechViewModel @Inject constructor(
                             return@launch
                         }
 
-                        else -> Unit // wrong or error — loop continues
+                        else -> appSoundSettings.playSoundEffect(SoundEffect.WRONG)
                     }
                 }
 
@@ -256,6 +269,23 @@ class SpeechViewModel @Inject constructor(
         return similarity(n1, n2) >= 0.8f
     }
 
+    private fun speechConfidence(
+        recognized: String,
+        expected: String,
+        recognizerConfidence: Float,
+        attempts: Int
+    ): Float {
+        val pronunciationConfidence = similarity(normalize(recognized), normalize(expected))
+            .coerceIn(0f, 1f)
+        val attemptConfidence = (1f / attempts.coerceAtLeast(1)).coerceIn(0f, 1f)
+
+        return (
+            recognizerConfidence.coerceIn(0f, 1f) * 0.45f +
+                pronunciationConfidence * 0.40f +
+                attemptConfidence * 0.15f
+            ).coerceIn(0f, 1f)
+    }
+
     private fun normalize(text: String): String {
         val result = text
             .replace(Regex("[\u064B-\u065F\u0670]"), "") // strip diacritics
@@ -303,6 +333,7 @@ class SpeechViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         attemptJob?.cancel()
+        speechRecognitionManager.cancelCurrent()
         releasePlayer()
     }
 }

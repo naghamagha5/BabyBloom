@@ -1,48 +1,92 @@
 package com.babybloom.presentation.components
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.babybloom.presentation.viewmodels.ActivityViewModel
-import com.babybloom.util.attention.AttentionDetector
 import com.babybloom.util.attention.AttentionSample
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
-import kotlinx.coroutines.guava.await
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 @Composable
 fun AttentionCameraOverlay(
     onSample: (AttentionSample?) -> Unit,
-    attentionDetector: AttentionDetector = hiltViewModel<ActivityViewModel>()
-        .let { hiltViewModel() }  // inject directly
+    analyzeImage: suspend (ImageProxy) -> AttentionSample?,
+    sampleIntervalMs: Long = 2_000L
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
+    val currentOnSample = rememberUpdatedState(onSample)
+    val currentAnalyzeImage = rememberUpdatedState(analyzeImage)
 
-    LaunchedEffect(Unit) {
-        val cameraProvider = ProcessCameraProvider.getInstance(context).await()
+    DisposableEffect(context, lifecycleOwner, sampleIntervalMs) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            return@DisposableEffect onDispose { }
+        }
+
+        val executor = Executors.newSingleThreadExecutor()
+        val analysisScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val lastSampleMs = AtomicLong(0L)
+        val isAnalyzing = AtomicBoolean(false)
+        var cameraProvider: ProcessCameraProvider? = null
+
         val imageAnalyzer = ImageAnalysis.Builder()
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
 
-        imageAnalyzer.setAnalyzer(Executors.newSingleThreadExecutor()) { imageProxy ->
-            // Only sample every 2 seconds
+        imageAnalyzer.setAnalyzer(executor) { imageProxy ->
+            val now = System.currentTimeMillis()
+            if (now - lastSampleMs.get() < sampleIntervalMs || !isAnalyzing.compareAndSet(false, true)) {
+                imageProxy.close()
+                return@setAnalyzer
+            }
+            lastSampleMs.set(now)
+            analysisScope.launch {
+                try {
+                    currentOnSample.value(currentAnalyzeImage.value(imageProxy))
+                } finally {
+                    runCatching { imageProxy.close() }
+                    isAnalyzing.set(false)
+                }
+            }
         }
 
-        val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
-        cameraProvider.bindToLifecycle(
-            lifecycleOwner, cameraSelector, imageAnalyzer
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+        cameraProviderFuture.addListener(
+            {
+                runCatching {
+                    cameraProvider = cameraProviderFuture.get().also { provider ->
+                        provider.unbind(imageAnalyzer)
+                        provider.bindToLifecycle(
+                            lifecycleOwner,
+                            CameraSelector.DEFAULT_FRONT_CAMERA,
+                            imageAnalyzer
+                        )
+                    }
+                }
+            },
+            ContextCompat.getMainExecutor(context)
         )
 
-        // Ticker: sample every 2 seconds
-        while (true) {
-            delay(2_000)
-            // imageProxy is captured inside analyzer — see full implementation note below
+        onDispose {
+            cameraProvider?.unbind(imageAnalyzer)
+            imageAnalyzer.clearAnalyzer()
+            analysisScope.cancel()
+            executor.shutdown()
         }
     }
 }

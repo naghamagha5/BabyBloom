@@ -3,6 +3,7 @@ package com.babybloom.presentation.viewmodels
 import android.content.Context
 import android.media.MediaPlayer
 import android.util.Log
+import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babybloom.R
@@ -13,6 +14,7 @@ import com.babybloom.domain.model.ActivityContent
 import com.babybloom.util.AssetPathResolver
 import com.babybloom.util.ImageAsset
 import com.babybloom.util.SoundEffect
+import com.babybloom.util.touch.TouchPatternAnalyzer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -23,25 +25,24 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// ── Habitat definition ────────────────────────────────────────────────────────
+// ── Habitat ───────────────────────────────────────────────────────────────────
 data class Habitat(
-    val id: String,
-    val labelResId: Int,
-    val activeImage: String,
-    val calmImage: String
+    val id          : String,
+    val labelResId  : Int,
+    val activeImage : String,
+    val calmImage   : String
 )
 
 val ALL_HABITATS = listOf(
-    Habitat("savanna",  R.string.habitat_savanna,  "Savanna_active.jpeg",  "Savanna_calm.jpeg"),
-    Habitat("forest",   R.string.habitat_forest,   "Jungle_active.jpeg",   "Jungle_calm.jpeg"),
-    Habitat("desert",   R.string.habitat_desert,   "Desert_active.jpg",    "Desert_calm.jpeg"),
-    Habitat("farm",     R.string.habitat_farm,     "Farm_active.jpeg",     "Farm_calm.jpeg"),
-    Habitat("wetlands", R.string.habitat_wetlands, "Wetlands_active.jpeg", "Wetlands_calm.jpeg"),
-    Habitat("sea",      R.string.habitat_sea,      "Sea_active.jpeg",      "Sea_active.jpeg"),
-    Habitat("birds",    R.string.habitat_birds,    "Birds_active.jpeg",    "Birds_calm.jpeg")
+    Habitat("savanna",  R.string.habitat_savanna,  "Savanna_active.jpeg", "Savanna_calm.jpeg"),
+    Habitat("forest",   R.string.habitat_forest,   "Jungle_active.jpeg",  "Jungle_calm.jpeg"),
+    Habitat("desert",   R.string.habitat_desert,   "Desert_active.jpg",   "Desert_calm.jpeg"),
+    Habitat("farm",     R.string.habitat_farm,     "Farm_active.jpeg",    "Farm_calm.jpeg"),
+    Habitat("wetlands", R.string.habitat_wetlands, "Wetlands_active.jpeg","Wetlands_calm.jpeg"),
+    Habitat("sea",      R.string.habitat_sea,      "Sea_active.jpeg",     "Sea_calm.jpeg"),
+    Habitat("birds",    R.string.habitat_birds,    "Birds_active.jpeg",   "Birds_calm.jpeg")
 )
 
-// ── Animal → Habitat mapping ──────────────────────────────────────────────────
 val ANIMAL_HABITAT_MAP = mapOf(
     "animal_lion"       to "savanna",
     "animal_giraffe"    to "savanna",
@@ -73,78 +74,89 @@ val ANIMAL_HABITAT_MAP = mapOf(
     "animal_peacock"    to "birds"
 )
 
-// ── Audio path helpers ────────────────────────────────────────────────────────
-fun letterNameAudioPath(contentId: String) =
-    "learning_content/audio/name of letters/$contentId.ogg"
+data class AnimalOption(
+    val entity    : LearningContentEntity,
+    val habitatId : String
+)
 
-fun letterSoundAudioPath(contentId: String) =
-    "learning_content/audio/sound of letters/${contentId}_s.ogg"
+data class VisualMatchOption(
+    val entity: LearningContentEntity,
+    val imagePath: String
+)
 
-fun animalAudioPath(contentId: String) =
-    "learning_content/audio/animals/$contentId.ogg"
+enum class AnswerState { Idle, Correct, Wrong, Revealed }
 
-// ── Instruction audio paths ───────────────────────────────────────────────────
+// ── Timings ───────────────────────────────────────────────────────────────────
+private const val WIGGLE_HINT_DELAY_MS = 4_000L
+private const val ATTEMPT_TIMEOUT_MS   = 15_000L
+private const val WRONG_HIGHLIGHT_MS   = 650L
+private const val REVEAL_PAUSE_MS      = 1_500L
+private const val CELEBRATION_MS       = 1_800L
+private const val LETTER_ANIMAL_GAP_MS = 150L   // gap between letter-name and animal-name audio
+private const val MAX_ATTEMPTS         = 3
+private const val QUESTIONS_PER_ROUND  = 6
+
 private const val INSTRUCTION_ANIMALS = "activities/audio/match/match_instruction_animals.ogg"
 private const val INSTRUCTION_LETTERS = "activities/audio/match/match_instruction_letters.ogg"
 
-// ── Timings & limits ──────────────────────────────────────────────────────────
-private const val HINT_WIGGLE_MS      = 5_000L
-private const val MAX_ATTEMPTS        = 3
-private const val QUESTIONS_PER_ROUND = 6
-
-// ── Data classes ──────────────────────────────────────────────────────────────
-data class AnimalOption(
-    val entity: LearningContentEntity,
-    val habitatId: String
-)
-
-// ── UI State ──────────────────────────────────────────────────────────────────
+// ── UI state ──────────────────────────────────────────────────────────────────
 sealed class MatchCardState {
     object Loading : MatchCardState()
     data class Done(val elapsedMs: Long, val correctCount: Int) : MatchCardState()
 
     data class AnimalHabitatCard(
-        val animal: ActivityContent,
-        val options: List<Habitat>,
-        val correctHabitatId: String,
-        val answerState: AnswerState = AnswerState.Idle,
-        val attemptsLeft: Int = MAX_ATTEMPTS,
-        val showCorrectWiggle: Boolean = false,
-        val questionIndex: Int = 0,
-        val totalQuestions: Int = QUESTIONS_PER_ROUND,
-        val lastWrongId: String? = null,
-        // ── unified celebration popup ──────────────────────────────────────
-        val showCelebration: Boolean = false
+        val animal           : ActivityContent,
+        val options          : List<Habitat>,
+        val correctHabitatId : String,
+        val answerState      : AnswerState = AnswerState.Idle,
+        val attemptsLeft     : Int         = MAX_ATTEMPTS,
+        val showCorrectWiggle: Boolean     = false,
+        val questionIndex    : Int         = 0,
+        val totalQuestions   : Int         = QUESTIONS_PER_ROUND,
+        val lastWrongId      : String?     = null,
+        val showCelebration  : Boolean     = false,
+        val isTest           : Boolean     = false,
+        val showHandHint     : Boolean     = false
     ) : MatchCardState()
 
     data class LetterAnimalCard(
-        val letter: ActivityContent,
-        val letterImageAsset: ImageAsset,
-        val options: List<AnimalOption>,
-        val correctAnimalId: String,
-        val answerState: AnswerState = AnswerState.Idle,
-        val attemptsLeft: Int = MAX_ATTEMPTS,
-        val showCorrectWiggle: Boolean = false,
-        val questionIndex: Int = 0,
-        val totalQuestions: Int = QUESTIONS_PER_ROUND,
-        val lastWrongId: String? = null,
-        // ── unified celebration popup ──────────────────────────────────────
-        val showCelebration: Boolean = false
+        val letter           : ActivityContent,
+        val letterImageAsset : ImageAsset,
+        val options          : List<AnimalOption>,
+        val correctAnimalId  : String,
+        val answerState      : AnswerState = AnswerState.Idle,
+        val attemptsLeft     : Int         = MAX_ATTEMPTS,
+        val showCorrectWiggle: Boolean     = false,
+        val questionIndex    : Int         = 0,
+        val totalQuestions   : Int         = QUESTIONS_PER_ROUND,
+        val lastWrongId      : String?     = null,
+        val showCelebration  : Boolean     = false,
+        val isTest           : Boolean     = false,
+        val showHandHint     : Boolean     = false
+    ) : MatchCardState()
+
+    data class VisualImageCard(
+        val target           : ActivityContent,
+        val options          : List<VisualMatchOption>,
+        val correctOptionId  : String,
+        val prompt           : String,
+        val answerState      : AnswerState = AnswerState.Idle,
+        val attemptsLeft     : Int         = MAX_ATTEMPTS,
+        val showCorrectWiggle: Boolean     = false,
+        val questionIndex    : Int         = 0,
+        val totalQuestions   : Int         = QUESTIONS_PER_ROUND,
+        val lastWrongId      : String?     = null,
+        val showCelebration  : Boolean     = false,
+        val isTest           : Boolean     = false,
+        val showHandHint     : Boolean     = false
     ) : MatchCardState()
 }
-
-enum class AnswerState { Idle, Correct, Wrong, Revealed }
 
 // ── ViewModel ─────────────────────────────────────────────────────────────────
 @HiltViewModel
 class MatchViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val learningContentDao: LearningContentDao,
-    // ── Sound settings — same pattern as TraceViewModel ───────────────────────
-    // SFX (TAP / CORRECT / WRONG / COMPLETE) are routed through AppSoundSettings
-    // so the parent's sound-effects toggle is respected.
-    // Voice audio (letter name, animal name, instruction) still uses its own
-    // MediaPlayer because it plays content audio, not SFX.
     private val appSoundSettings: AppSoundSettings
 ) : ViewModel() {
 
@@ -155,154 +167,254 @@ class MatchViewModel @Inject constructor(
     val wiggleTick: StateFlow<Int> = _wiggleTick.asStateFlow()
 
     private var voicePlayer: MediaPlayer? = null
-    private var hintJob:     Job?         = null
 
-    private var items:          List<ActivityContent> = emptyList()
+    private var wiggleHintJob  : Job? = null
+    private var attemptTimerJob: Job? = null
+    private var questionJob    : Job? = null
+    private var answerJob      : Job? = null
+
+    private var items           : List<ActivityContent>                       = emptyList()
     private var matchType       = "ANIMAL_TO_HABITAT"
+    private var isTest          = false
     private var currentIndex    = 0
     private var correctCount    = 0
     private var cardCorrect     = 0
     private var cardIncorrect   = 0
     private var cardAttempts    = 0
     private var isCalmMode      = false
-    private var onComplete:     ((Long, Int) -> Unit)? = null
-    private var onCardResult:   ((String, Boolean, Int, Int, Int) -> Unit)? = null
+    private var onComplete      : ((Long, Int) -> Unit)?                             = null
+    private var onCardResult    : ((String, Boolean, Int, Int, Int, Float, Long) -> Unit)? = null
     private var startTime       = 0L
+    private var questionStartTime = 0L
     private var isLoaded        = false
+    private var loadedSignature = ""
+    private val touchAnalyzer   = TouchPatternAnalyzer()
 
-    private var currentContentId:       String  = ""
-    private var currentLetterPath:      String? = null
-    private var currentLetterSoundPath: String? = null
-    private var currentAnimalPath:      String? = null
+    private var currentContentId       = ""
+    private var currentLetterPath      : String? = null
+    private var currentLetterSoundPath : String? = null
+    private var currentAnimalPath      : String? = null
 
-    // ── Public API ────────────────────────────────────────────────────────────
+    // ═════════════════════════════════════════════════════════════════════════
+    // Public API
+    // ═════════════════════════════════════════════════════════════════════════
 
     fun loadActivity(
-        contentItems: List<ActivityContent>,
-        isCalmMode: Boolean,
-        configJson: String,
-        onCardResult: (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int) -> Unit,
-        onComplete: (elapsedMs: Long, correctCount: Int) -> Unit
+        contentItems : List<ActivityContent>,
+        isCalmMode   : Boolean,
+        isTest       : Boolean,
+        isAssessment : Boolean,   // reserved for future use
+        configJson   : String,
+        onCardResult : (contentId: String, isCorrect: Boolean, correct: Int, incorrect: Int, attempts: Int, touchQualityScore: Float, elapsedMs: Long) -> Unit,
+        onComplete   : (elapsedMs: Long, correctCount: Int) -> Unit
     ) {
-        if (isLoaded) return
-        isLoaded = true
-        this.items          = contentItems.shuffled().take(QUESTIONS_PER_ROUND)
-        this.isCalmMode     = isCalmMode
-        this.onComplete     = onComplete
-        this.onCardResult   = onCardResult
-        this.currentIndex   = 0
-        this.correctCount   = 0
-        this.cardCorrect    = 0
-        this.cardIncorrect  = 0
-        this.cardAttempts   = 0
-        this.startTime      = System.currentTimeMillis()
-        this.matchType      = when {
+        val signature = listOf(
+            configJson, isCalmMode, isTest, isAssessment,
+            contentItems.joinToString("|") { it.contentId }
+        ).joinToString("#")
+        if (isLoaded && loadedSignature == signature) return
+        isLoaded        = true
+        loadedSignature = signature
+
+        cancelAll()
+        this.items        = contentItems.shuffled().take(QUESTIONS_PER_ROUND)
+        this.isCalmMode   = isCalmMode
+        this.isTest       = isTest
+        this.onComplete   = onComplete
+        this.onCardResult = onCardResult
+        this.currentIndex = 0
+        this.correctCount = 0
+        this.startTime    = System.currentTimeMillis()
+        this.matchType    = when {
             configJson.contains("LETTER_TO_ANIMAL") -> "LETTER_TO_ANIMAL"
+            configJson.contains("SHAPE_TO_OBJECT") -> "SHAPE_TO_OBJECT"
+            configJson.contains("COLOR_TO_COLOR") -> "COLOR_TO_COLOR"
             else                                    -> "ANIMAL_TO_HABITAT"
         }
         showQuestion(0)
     }
 
-    fun onAnswerSelected(selectedId: String) {
+    fun onFirstInteraction() {
+        _cardState.value = when (val s = _cardState.value) {
+            is MatchCardState.AnimalHabitatCard -> s.copy(showHandHint = false)
+            is MatchCardState.LetterAnimalCard  -> s.copy(showHandHint = false)
+            is MatchCardState.VisualImageCard   -> s.copy(showHandHint = false)
+            else -> _cardState.value
+        }
+    }
+
+    fun onTouchStart(position: Offset) {
+        onFirstInteraction()
+        touchAnalyzer.onPointerEvent(position)
+    }
+
+    fun onTouchMove(position: Offset) {
+        touchAnalyzer.onPointerEvent(position)
+    }
+
+    fun onAnswerSelected(
+        selectedId: String,
+        releasePoint: Offset? = null,
+        targetCenter: Offset? = null,
+        snapRadiusPx: Float? = null
+    ) {
         val state = _cardState.value
-        if (currentAnswerState() !in listOf(AnswerState.Idle, AnswerState.Wrong)) return
+        if (currentAnswerState() != AnswerState.Idle) return
 
         val isCorrect = when (state) {
             is MatchCardState.AnimalHabitatCard -> selectedId == state.correctHabitatId
             is MatchCardState.LetterAnimalCard  -> selectedId == state.correctAnimalId
+            is MatchCardState.VisualImageCard   -> selectedId == state.correctOptionId
             else -> return
         }
 
-        cancelHints()
-        // TAP SFX — routed through AppSoundSettings
+        cancelAttemptTimers()
+        // Synchronous TAP gives instant auditory feedback and "warms up" the
+        // audio engine before the WRONG / CORRECT sound fires in the coroutine.
         appSoundSettings.playSoundEffect(SoundEffect.TAP)
+        cardAttempts++
+        val touchAnalysis = touchAnalyzer.analyze(
+            attempts = cardAttempts,
+            releasePoint = releasePoint,
+            targetCenter = targetCenter,
+            snapRadiusPx = snapRadiusPx
+        )
+        val responseElapsedMs = currentQuestionElapsedMs()
 
         if (isCorrect) {
-            correctCount++
             cardCorrect++
-            cardAttempts++
             updateAnswerState(AnswerState.Correct)
-            onCardResult?.invoke(currentContentId, true, cardCorrect, cardIncorrect, cardAttempts)
+            appSoundSettings.playSoundEffect(SoundEffect.CORRECT)
 
-            viewModelScope.launch {
-                delay(250)
-                // CORRECT SFX — routed through AppSoundSettings
-                appSoundSettings.playSoundEffect(SoundEffect.CORRECT)
-                delay(400)
-
-                // Show GoodJobPopup + COMPLETE SFX — then play voice content
-                appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
-                setCelebration(true)
-
-                // Play voice content (content audio, not SFX — stays on own player)
+            answerJob?.cancel()
+            answerJob = viewModelScope.launch {
+                // FIX: LETTER_TO_ANIMAL now plays letter name THEN animal name
+                // so the child hears both upon a correct connection.
                 when (matchType) {
-                    "LETTER_TO_ANIMAL"  -> currentLetterPath?.let { playVoiceAndWait(it) }
+                    "LETTER_TO_ANIMAL" -> {
+                        currentLetterPath?.let { playVoiceAndWait(it) }
+                        delay(LETTER_ANIMAL_GAP_MS)
+                        currentAnimalPath?.let { playVoiceAndWait(it) }
+                    }
                     "ANIMAL_TO_HABITAT" -> currentAnimalPath?.let { playVoiceAndWait(it) }
+                    else -> currentAnimalPath?.let { playVoiceAndWait(it) }
                 }
-
-                delay(1_800)       // let popup show for a moment after voice finishes
+                delay(400)
+                setCelebration(true)
+                delay(CELEBRATION_MS)
                 setCelebration(false)
                 delay(300)
+                onCardResult?.invoke(
+                    currentContentId,
+                    true,
+                    cardCorrect,
+                    cardIncorrect,
+                    cardAttempts,
+                    touchAnalysis.touchQualityScore,
+                    responseElapsedMs
+                )
                 advanceQuestion()
             }
+
         } else {
             cardIncorrect++
-            cardAttempts++
-            val attemptsLeft = when (state) {
-                is MatchCardState.AnimalHabitatCard -> state.attemptsLeft - 1
-                is MatchCardState.LetterAnimalCard  -> state.attemptsLeft - 1
-                else -> 0
-            }
+            val attemptsLeft = getAttemptsLeft() - 1
 
-            viewModelScope.launch {
-                delay(250)
-                // WRONG SFX — routed through AppSoundSettings
+            answerJob?.cancel()
+            answerJob = viewModelScope.launch {
                 appSoundSettings.playSoundEffect(SoundEffect.WRONG)
 
+                decrementAttempts(attemptsLeft, selectedId)
+                delay(WRONG_HIGHLIGHT_MS)
+
                 if (attemptsLeft <= 0) {
-                    onCardResult?.invoke(currentContentId, false, cardCorrect, cardIncorrect, cardAttempts)
-                    revealCorrect()
-                    delay(300)
-                    _wiggleTick.value++
-                    delay(400)
-                    when (matchType) {
-                        "LETTER_TO_ANIMAL" -> {
-                            currentLetterSoundPath?.let { playVoiceAndWait(it) }
-                            delay(150)
-                            currentAnimalPath?.let { playVoiceAndWait(it) }
-                        }
-                        "ANIMAL_TO_HABITAT" -> currentAnimalPath?.let { playVoiceAndWait(it) }
-                    }
-                    delay(1_200)
-                    advanceQuestion()
+                    revealAndAdvance(responseElapsedMs)
                 } else {
-                    decrementAttempts(attemptsLeft, selectedId)
-                    when (matchType) {
-                        "LETTER_TO_ANIMAL" -> {
-                            currentLetterSoundPath?.let { playVoiceAndWait(it) }
-                            delay(150)
-                            currentAnimalPath?.let { playVoiceAndWait(it) }
-                        }
-                        "ANIMAL_TO_HABITAT" -> currentAnimalPath?.let { playVoiceAndWait(it) }
-                    }
-                    startHintTimer()
+                    resetToIdle(attemptsLeft)
+                    startAttemptTimer()
                 }
             }
         }
     }
 
-    // ── Question builder ──────────────────────────────────────────────────────
+    // ═════════════════════════════════════════════════════════════════════════
+    // Timer
+    // ═════════════════════════════════════════════════════════════════════════
+
+    private fun startAttemptTimer() {
+        cancelAttemptTimers()
+
+        wiggleHintJob = viewModelScope.launch {
+            delay(WIGGLE_HINT_DELAY_MS)
+            if (currentAnswerState() == AnswerState.Idle) {
+                setWiggle(true)
+                _wiggleTick.value++
+            }
+        }
+
+        attemptTimerJob = viewModelScope.launch {
+            delay(ATTEMPT_TIMEOUT_MS)
+            if (currentAnswerState() == AnswerState.Idle) {
+                onAttemptTimeout()
+            }
+        }
+    }
+
+    private fun onAttemptTimeout() {
+        cancelAttemptTimers()
+        cardIncorrect++
+        cardAttempts++
+        val responseElapsedMs = currentQuestionElapsedMs()
+        appSoundSettings.playSoundEffect(SoundEffect.WRONG)
+        val attemptsLeft = (getAttemptsLeft() - 1).coerceAtLeast(0)
+        answerJob?.cancel()
+        answerJob = viewModelScope.launch {
+            if (attemptsLeft <= 0) revealAndAdvance(responseElapsedMs)
+            else { resetToIdle(attemptsLeft); startAttemptTimer() }
+        }
+    }
+
+    private suspend fun revealAndAdvance(responseElapsedMs: Long) {
+        revealCorrect()
+        delay(400)
+        _wiggleTick.value++
+        when (matchType) {
+            "LETTER_TO_ANIMAL" -> {
+                currentLetterSoundPath?.let { playVoiceAndWait(it) }
+                delay(LETTER_ANIMAL_GAP_MS)
+                currentAnimalPath?.let { playVoiceAndWait(it) }
+            }
+            "ANIMAL_TO_HABITAT" -> currentAnimalPath?.let { playVoiceAndWait(it) }
+            else -> currentAnimalPath?.let { playVoiceAndWait(it) }
+        }
+        delay(REVEAL_PAUSE_MS)
+        val touchAnalysis = touchAnalyzer.analyze(attempts = cardAttempts)
+        onCardResult?.invoke(
+            currentContentId,
+            false,
+            cardCorrect,
+            cardIncorrect,
+            cardAttempts,
+            touchAnalysis.touchQualityScore,
+            responseElapsedMs
+        )
+        advanceQuestion()
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // Question builder
+    // ═════════════════════════════════════════════════════════════════════════
 
     private fun showQuestion(index: Int) {
-        cancelHints()
+        cancelAttemptTimers()
         cardCorrect   = 0
         cardIncorrect = 0
         cardAttempts  = 0
+        touchAnalyzer.onSessionStart()
 
         val item = items.getOrNull(index) ?: run {
-            viewModelScope.launch {
-                // COMPLETE SFX when the whole round finishes — through AppSoundSettings
-                appSoundSettings.playSoundEffect(SoundEffect.COMPLETE)
+            questionJob?.cancel()
+            questionJob = viewModelScope.launch {
                 delay(1_500)
                 val elapsed = System.currentTimeMillis() - startTime
                 _cardState.value = MatchCardState.Done(elapsed, correctCount)
@@ -310,24 +422,30 @@ class MatchViewModel @Inject constructor(
             }
             return
         }
+
+        questionStartTime = System.currentTimeMillis()
         _cardState.value = MatchCardState.Loading
-        viewModelScope.launch {
+        questionJob?.cancel()
+        questionJob = viewModelScope.launch {
             when (matchType) {
                 "LETTER_TO_ANIMAL" -> buildLetterAnimalCard(item, index)
+                "SHAPE_TO_OBJECT", "COLOR_TO_COLOR" -> buildVisualImageCard(item, index)
                 else               -> buildAnimalHabitatCard(item, index)
             }
-            startHintTimer()
+            startAttemptTimer()
         }
     }
 
     private suspend fun buildAnimalHabitatCard(item: ActivityContent, index: Int) {
         val correctId = ANIMAL_HABITAT_MAP[item.contentId] ?: ALL_HABITATS.first().id
         val correct   = ALL_HABITATS.first { it.id == correctId }
-        val wrong     = ALL_HABITATS.filter { it.id != correctId }.shuffled().take(3)
-        val options   = (wrong + correct).shuffled()
+        val options: List<Habitat> = if (isTest) {
+            val wrong = ALL_HABITATS.filter { it.id != correctId }.shuffled().take(3)
+            (wrong + correct).shuffled()
+        } else listOf(correct)
 
         currentContentId       = item.contentId
-        currentAnimalPath      = animalAudioPath(item.contentId)
+        currentAnimalPath      = AssetPathResolver.audioPathFor(item.contentId, "ANIMAL")
         currentLetterPath      = null
         currentLetterSoundPath = null
 
@@ -336,9 +454,10 @@ class MatchViewModel @Inject constructor(
             options          = options,
             correctHabitatId = correctId,
             questionIndex    = index,
-            totalQuestions   = items.size
+            totalQuestions   = items.size,
+            isTest           = isTest,
+            showHandHint     = !isTest   // FIX: ALL learning-mode questions show hint
         )
-
         playVoiceAndWait(INSTRUCTION_ANIMALS)
         playVoice(currentAnimalPath!!)
     }
@@ -347,143 +466,191 @@ class MatchViewModel @Inject constructor(
         val animal = learningContentDao.getByLearningOrderAndCategory(
             item.learningOrder, "ANIMAL"
         )
-
         if (animal == null) {
-            Log.w("MatchVM", "No animal for learningOrder=${item.learningOrder}, skipping")
-            advanceQuestion()
-            return
+            Log.w("MatchVM", "No animal for learningOrder=${item.learningOrder}")
+            onCardResult?.invoke(item.contentId, false, 0, 1, 1, 0f, currentQuestionElapsedMs())
+            advanceQuestion(); return
         }
 
-        val wrongEntities = learningContentDao
-            .getByCategory("ANIMAL")
-            .filter { it.id != animal.id }
-            .shuffled()
-            .take(3)
-
-        val options = (wrongEntities + animal).shuffled().map { entity ->
-            AnimalOption(
-                entity    = entity,
-                habitatId = ANIMAL_HABITAT_MAP[entity.id] ?: ALL_HABITATS.first().id
-            )
+        val options: List<AnimalOption> = if (isTest) {
+            val wrongEntities = learningContentDao
+                .getByCategory("ANIMAL")
+                .filter { it.id != animal.id }
+                .shuffled().take(3)
+            (wrongEntities + animal).shuffled().map { entity ->
+                AnimalOption(entity = entity,
+                    habitatId = ANIMAL_HABITAT_MAP[entity.id] ?: ALL_HABITATS.first().id)
+            }
+        } else {
+            listOf(AnimalOption(entity = animal,
+                habitatId = ANIMAL_HABITAT_MAP[animal.id] ?: ALL_HABITATS.first().id))
         }
 
         currentContentId       = item.contentId
-        currentLetterPath      = letterNameAudioPath(item.contentId)
-        currentLetterSoundPath = letterSoundAudioPath(item.contentId)
-        currentAnimalPath      = animalAudioPath(animal.id)
+        currentLetterPath      = AssetPathResolver.audioPathFor(item.contentId, "LETTER_NAME")
+        currentLetterSoundPath = AssetPathResolver.audioPathFor("${item.contentId}_s", "LETTER_SOUND")
+        currentAnimalPath      = AssetPathResolver.audioPathFor(animal.id, "ANIMAL")
 
         _cardState.value = MatchCardState.LetterAnimalCard(
-            letter          = item,
-            letterImageAsset = AssetPathResolver.imageAssetFor(item.contentId, item.category, isCalmMode),
-            options         = options,
-            correctAnimalId = animal.id,
-            questionIndex   = index,
-            totalQuestions  = items.size
+            letter           = item,
+            letterImageAsset = AssetPathResolver.imageAssetFor(
+                item.contentId, item.category, isCalmMode),
+            options          = options,
+            correctAnimalId  = animal.id,
+            questionIndex    = index,
+            totalQuestions   = items.size,
+            isTest           = isTest,
+            showHandHint     = !isTest
         )
-
         playVoiceAndWait(INSTRUCTION_LETTERS)
         playVoice(currentLetterPath!!)
     }
 
-    private fun advanceQuestion() {
-        currentIndex++
-        showQuestion(currentIndex)
-    }
-
-    // ── Hint timer ────────────────────────────────────────────────────────────
-
-    private fun startHintTimer() {
-        hintJob?.cancel()
-        var hintCount = 0
-        hintJob = viewModelScope.launch {
-            delay(HINT_WIGGLE_MS)
-            if (currentAnswerState() !in listOf(AnswerState.Idle, AnswerState.Wrong)) return@launch
-
-            while (currentAnswerState() in listOf(AnswerState.Idle, AnswerState.Wrong)) {
-                hintCount++
-                when {
-                    hintCount == 1 -> {
-                        setWiggle(true); _wiggleTick.value++
-                        delay(1_500); setWiggle(false)
-                    }
-                    hintCount == 2 -> {
-                        setWiggle(true); _wiggleTick.value++
-                        currentAnimalPath?.let { playVoiceAndWait(it) }
-                        delay(500); setWiggle(false)
-                    }
-                    else -> {
-                        setWiggle(true); _wiggleTick.value++
-                        when (matchType) {
-                            "LETTER_TO_ANIMAL" -> {
-                                currentLetterSoundPath?.let { playVoiceAndWait(it) }
-                                delay(150)
-                                currentAnimalPath?.let { playVoiceAndWait(it) }
-                            }
-                            "ANIMAL_TO_HABITAT" -> currentAnimalPath?.let { playVoiceAndWait(it) }
-                        }
-                        delay(500); setWiggle(false)
-                    }
-                }
-                delay(2_000)
-            }
+    private suspend fun buildVisualImageCard(item: ActivityContent, index: Int) {
+        val category = if (matchType == "SHAPE_TO_OBJECT") "SHAPE" else "COLOR"
+        val allEntities = learningContentDao.getByCategory(category)
+        val correct = allEntities.firstOrNull { it.id == item.contentId } ?: run {
+            Log.w("MatchVM", "No $category content for ${item.contentId}")
+            onCardResult?.invoke(item.contentId, false, 0, 1, 1, 0f, currentQuestionElapsedMs())
+            advanceQuestion()
+            return
         }
+
+        fun optionFor(entity: LearningContentEntity) = VisualMatchOption(
+            entity = entity,
+            imagePath = AssetPathResolver.matchOptionImagePathFor(
+                entity.id, isCalmMode
+            )
+        )
+
+        val options = if (isTest) {
+            val wrong = allEntities.filter { it.id != correct.id }.shuffled().take(3)
+            (wrong + correct).shuffled().map(::optionFor)
+        } else {
+            listOf(optionFor(correct))
+        }
+
+        currentContentId = item.contentId
+        currentLetterPath = null
+        currentLetterSoundPath = null
+        currentAnimalPath = AssetPathResolver.audioPathFor(item.contentId, category)
+
+        _cardState.value = MatchCardState.VisualImageCard(
+            target = item,
+            options = options,
+            correctOptionId = correct.id,
+            prompt = if (category == "SHAPE") "اختر الصورة التي لها نفس الشكل" else "اختر اللون المطابق",
+            questionIndex = index,
+            totalQuestions = items.size,
+            isTest = isTest,
+            showHandHint = !isTest
+        )
+        playVoice(currentAnimalPath!!)
     }
 
-    private fun cancelHints() {
-        hintJob?.cancel(); hintJob = null
-        _wiggleTick.value = 0
-        setWiggle(false)
+    private fun advanceQuestion() { currentIndex++; showQuestion(currentIndex) }
+
+    private fun currentQuestionElapsedMs(): Long =
+        (System.currentTimeMillis() - questionStartTime).coerceAtLeast(0L)
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // State helpers
+    // ═════════════════════════════════════════════════════════════════════════
+
+    private fun getAttemptsLeft(): Int = when (val s = _cardState.value) {
+        is MatchCardState.AnimalHabitatCard -> s.attemptsLeft
+        is MatchCardState.LetterAnimalCard  -> s.attemptsLeft
+        is MatchCardState.VisualImageCard   -> s.attemptsLeft
+        else -> 0
     }
-
-    // ── State helpers ─────────────────────────────────────────────────────────
-
     private fun setCelebration(show: Boolean) {
         _cardState.value = when (val s = _cardState.value) {
             is MatchCardState.AnimalHabitatCard -> s.copy(showCelebration = show)
             is MatchCardState.LetterAnimalCard  -> s.copy(showCelebration = show)
+            is MatchCardState.VisualImageCard   -> s.copy(showCelebration = show)
             else -> _cardState.value
         }
     }
-
     private fun setWiggle(on: Boolean) {
         _cardState.value = when (val s = _cardState.value) {
             is MatchCardState.AnimalHabitatCard -> s.copy(showCorrectWiggle = on)
             is MatchCardState.LetterAnimalCard  -> s.copy(showCorrectWiggle = on)
+            is MatchCardState.VisualImageCard   -> s.copy(showCorrectWiggle = on)
             else -> _cardState.value
         }
     }
-
     private fun revealCorrect() {
         _cardState.value = when (val s = _cardState.value) {
-            is MatchCardState.AnimalHabitatCard -> s.copy(answerState = AnswerState.Revealed, attemptsLeft = 0)
-            is MatchCardState.LetterAnimalCard  -> s.copy(answerState = AnswerState.Revealed, attemptsLeft = 0)
+            is MatchCardState.AnimalHabitatCard ->
+                s.copy(answerState = AnswerState.Revealed, attemptsLeft = 0, showCorrectWiggle = false)
+            is MatchCardState.LetterAnimalCard ->
+                s.copy(answerState = AnswerState.Revealed, attemptsLeft = 0, showCorrectWiggle = false)
+            is MatchCardState.VisualImageCard ->
+                s.copy(answerState = AnswerState.Revealed, attemptsLeft = 0, showCorrectWiggle = false)
             else -> _cardState.value
         }
     }
-
-    private fun decrementAttempts(newCount: Int, wrongId: String) {
+    private fun decrementAttempts(newCount: Int, wrongId: String?) {
         _cardState.value = when (val s = _cardState.value) {
-            is MatchCardState.AnimalHabitatCard -> s.copy(attemptsLeft = newCount, answerState = AnswerState.Wrong, lastWrongId = wrongId)
-            is MatchCardState.LetterAnimalCard  -> s.copy(attemptsLeft = newCount, answerState = AnswerState.Wrong, lastWrongId = wrongId)
+            is MatchCardState.AnimalHabitatCard ->
+                s.copy(attemptsLeft = newCount, answerState = AnswerState.Wrong, lastWrongId = wrongId)
+            is MatchCardState.LetterAnimalCard ->
+                s.copy(attemptsLeft = newCount, answerState = AnswerState.Wrong, lastWrongId = wrongId)
+            is MatchCardState.VisualImageCard ->
+                s.copy(attemptsLeft = newCount, answerState = AnswerState.Wrong, lastWrongId = wrongId)
             else -> _cardState.value
         }
     }
-
+    private fun resetToIdle(newCount: Int) {
+        _cardState.value = when (val s = _cardState.value) {
+            is MatchCardState.AnimalHabitatCard ->
+                s.copy(attemptsLeft = newCount, answerState = AnswerState.Idle,
+                    lastWrongId = null, showCorrectWiggle = false)
+            is MatchCardState.LetterAnimalCard ->
+                s.copy(attemptsLeft = newCount, answerState = AnswerState.Idle,
+                    lastWrongId = null, showCorrectWiggle = false)
+            is MatchCardState.VisualImageCard ->
+                s.copy(attemptsLeft = newCount, answerState = AnswerState.Idle,
+                    lastWrongId = null, showCorrectWiggle = false)
+            else -> _cardState.value
+        }
+    }
     private fun updateAnswerState(state: AnswerState) {
         _cardState.value = when (val s = _cardState.value) {
             is MatchCardState.AnimalHabitatCard -> s.copy(answerState = state)
             is MatchCardState.LetterAnimalCard  -> s.copy(answerState = state)
+            is MatchCardState.VisualImageCard   -> s.copy(answerState = state)
             else -> _cardState.value
         }
     }
-
     private fun currentAnswerState(): AnswerState = when (val s = _cardState.value) {
         is MatchCardState.AnimalHabitatCard -> s.answerState
         is MatchCardState.LetterAnimalCard  -> s.answerState
+        is MatchCardState.VisualImageCard   -> s.answerState
         else -> AnswerState.Idle
     }
 
-    // ── Voice audio — own MediaPlayer (content audio, not SFX) ───────────────
+    // ═════════════════════════════════════════════════════════════════════════
+    // Cancellation
+    // ═════════════════════════════════════════════════════════════════════════
+
+    private fun cancelAttemptTimers() {
+        wiggleHintJob?.cancel();   wiggleHintJob   = null
+        attemptTimerJob?.cancel(); attemptTimerJob = null
+        setWiggle(false)
+    }
+    private fun cancelAll() {
+        cancelAttemptTimers()
+        questionJob?.cancel(); questionJob = null
+        answerJob?.cancel();   answerJob   = null
+        _wiggleTick.value = 0
+        runCatching { voicePlayer?.stop() }
+        voicePlayer?.release(); voicePlayer = null
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // Voice audio  (AppSoundSettings handles SFX; MediaPlayer handles speech)
+    // ═════════════════════════════════════════════════════════════════════════
 
     private fun playVoice(path: String) {
         try {
@@ -491,11 +658,10 @@ class MatchViewModel @Inject constructor(
             voicePlayer = MediaPlayer()
             val afd = context.assets.openFd(path)
             voicePlayer!!.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-            voicePlayer!!.setOnErrorListener { _, _, _ -> Log.w("MatchVM", "Voice err: $path"); true }
+            voicePlayer!!.setOnErrorListener { _, _, _ -> Log.w("MatchVM","Voice err: $path"); true }
             voicePlayer!!.prepare(); voicePlayer!!.start()
-        } catch (e: Exception) { Log.w("MatchVM", "Voice not found: $path") }
+        } catch (e: Exception) { Log.w("MatchVM","Voice not found: $path") }
     }
-
     private suspend fun playVoiceAndWait(path: String) {
         try {
             voicePlayer?.stop(); voicePlayer?.release()
@@ -504,12 +670,8 @@ class MatchViewModel @Inject constructor(
             voicePlayer!!.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
             voicePlayer!!.prepare(); voicePlayer!!.start()
             delay(voicePlayer!!.duration.toLong().coerceAtLeast(600L) + 150)
-        } catch (e: Exception) { Log.w("MatchVM", "Voice not found: $path"); delay(600) }
+        } catch (e: Exception) { Log.w("MatchVM","Voice not found: $path"); delay(600) }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        cancelHints()
-        voicePlayer?.stop(); voicePlayer?.release(); voicePlayer = null
-    }
+    override fun onCleared() { super.onCleared(); cancelAll() }
 }

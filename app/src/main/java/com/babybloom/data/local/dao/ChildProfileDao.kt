@@ -19,4 +19,7 @@ interface ChildProfileDao {
     // Flow version — dashboard auto-refreshes when profile updates
     @Query("SELECT * FROM child_profiles WHERE childId = :childId LIMIT 1")
     fun observeByChildId(childId: Long): Flow<ChildProfileEntity?>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: ChildProfileEntity)
 }

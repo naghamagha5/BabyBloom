@@ -1,28 +1,65 @@
 package com.babybloom.presentation.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.babybloom.domain.model.ActivityLaunchStep
+import com.babybloom.domain.model.SessionDecision
 import com.babybloom.R
+import com.babybloom.presentation.components.AttentionCameraOverlay
 import com.babybloom.presentation.viewmodels.ActivityUiState
 import com.babybloom.presentation.viewmodels.ActivityViewModel
+import com.babybloom.util.toArabicDigits
+import com.babybloom.ui.theme.GameActiveSwatch1
+import com.babybloom.ui.theme.GameActiveBackground
+import com.babybloom.ui.theme.ProgressActiveSwatch1
+import com.babybloom.ui.theme.ProgressActiveSwatch2
+import com.babybloom.ui.theme.ProgressActiveSwatch3
+import com.babybloom.ui.theme.GameCalmBackground
+import com.babybloom.ui.theme.GameCalmSwatch1
+import com.babybloom.ui.theme.ProgressCalmSwatch1
+import com.babybloom.ui.theme.ProgressCalmSwatch2
+import com.babybloom.ui.theme.ProgressCalmSwatch3
 import com.babybloom.ui.theme.LocalGameColorScheme
+import com.babybloom.ui.theme.DarkPurple
+import com.babybloom.ui.theme.TextSecondary
 import com.babybloom.ui.theme.gameColorSchemeFor
+import kotlinx.coroutines.delay
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ActivityShellScreen.kt
@@ -33,11 +70,29 @@ fun ActivityShellScreen(
     activityId        : String,
     sessionId         : Long,
     childId           : Long,
-    onActivityComplete: (score: Int, total: Int) -> Unit,
+    contentId         : String? = null,
+    queue             : List<ActivityLaunchStep> = emptyList(),
+    stepIndex         : Int = 0,
+    isAssessment      : Boolean = false,
+    isTest            : Boolean = false,
+    assessmentCurrent : Int = 0,
+    assessmentTotal   : Int = 0,
+    onActivityComplete: (score: Int, total: Int, sessionId: Long, decision: SessionDecision?) -> Unit,
     onExit            : () -> Unit,
     viewModel         : ActivityViewModel = hiltViewModel()
 ) {
-    LaunchedEffect(activityId) { viewModel.loadActivity(activityId, sessionId, childId) }
+    LaunchedEffect(activityId, contentId, stepIndex) {
+        viewModel.loadActivity(
+            activityId = activityId,
+            sessionId = sessionId,
+            childId = childId,
+            contentId = contentId,
+            queue = queue,
+            stepIndex = stepIndex,
+            isAssessment = isAssessment,
+            isTest = isTest
+        )
+    }
     BackHandler { viewModel.requestExit() }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -53,11 +108,42 @@ fun ActivityShellScreen(
 
         // ── Completed ─────────────────────────────────────────────────────────
         is ActivityUiState.Completed -> {
-            GoodJobScreen(
-                score      = state.score,
-                total      = state.total,
-                onFinished = { onActivityComplete(state.score, state.total) }
-            )
+            val isCurrentCompletion = state.activityId == activityId &&
+                    state.contentId == contentId &&
+                    state.stepIndex == stepIndex
+            if (!isCurrentCompletion) {
+                ActivityTransitionScreen()
+                return
+            }
+
+            val isFinalNormalSession = state.decision == null ||
+                    state.decision is SessionDecision.SessionComplete
+
+            if (isAssessment || !isFinalNormalSession) {
+                LaunchedEffect(state.sessionId, state.activityId, state.contentId, state.stepIndex) {
+                    onActivityComplete(
+                        state.score,
+                        state.total,
+                        state.sessionId,
+                        state.decision
+                    )
+                }
+                ActivityTransitionScreen()
+            } else {
+                GoodJobScreen(
+                    score      = state.score,
+                    total      = state.total,
+                    onFinished = {
+                        viewModel.stopSoundSession()
+                        onActivityComplete(
+                            state.score,
+                            state.total,
+                            state.sessionId,
+                            state.decision
+                        )
+                    }
+                )
+            }
         }
 
         // ── Playing ───────────────────────────────────────────────────────────
@@ -67,16 +153,49 @@ fun ActivityShellScreen(
             val currentItem = state.activityWithContent.contentItems
                 .getOrNull(state.currentIndex) ?: return
 
-            val progress = if (state.activityWithContent.contentItems.isEmpty()) 0f
-            else state.currentIndex.toFloat() / state.activityWithContent.contentItems.size
+            val isCurrentActivity = activity.id == activityId &&
+                    state.stepIndex == stepIndex &&
+                    (contentId == null || currentItem.contentId == contentId)
+            if (!isCurrentActivity) {
+                ActivityTransitionScreen()
+                return
+            }
+
+            val progress = if (isAssessment && assessmentTotal > 0) {
+                assessmentCurrent.toFloat() / assessmentTotal.toFloat()
+            } else {
+                val durationMs = settings.sessionDurationMs.coerceAtLeast(1L)
+                val elapsedMs = durationMs - state.sessionRemainingMs
+                elapsedMs.toFloat() / durationMs.toFloat()
+            }
 
             // ── Build the color scheme for this round ─────────────────────
             // seed = currentIndex  →  accent rotates each round automatically
-            val gameColors = remember(settings.isCalmMode, state.currentIndex) {
+            val colorSeed = state.stepIndex + state.currentIndex
+            val gameColors = remember(settings.isCalmMode, colorSeed) {
                 gameColorSchemeFor(
                     isCalmMode = settings.isCalmMode,
-                    seed       = state.currentIndex
+                    seed       = colorSeed
                 )
+            }
+            val progressBrush = remember(settings.isCalmMode) {
+                if (settings.isCalmMode) {
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            ProgressCalmSwatch1,
+                            ProgressCalmSwatch2,
+                            ProgressCalmSwatch3
+                        )
+                    )
+                } else {
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            ProgressActiveSwatch1,
+                            ProgressActiveSwatch2,
+                            ProgressActiveSwatch3
+                        )
+                    )
+                }
             }
 
             val backgroundRes = if (settings.isCalmMode)
@@ -88,6 +207,11 @@ fun ActivityShellScreen(
             CompositionLocalProvider(LocalGameColorScheme provides gameColors) {
 
                 Box(modifier = Modifier.fillMaxSize()) {
+                    AttentionCameraOverlay(
+                        onSample = viewModel::onAttentionSample,
+                        analyzeImage = viewModel::analyzeAttention,
+                        sampleIntervalMs = if (settings.isAssessment) 750L else 2_000L
+                    )
 
                     // ── Full-screen background ────────────────────────────
                     Image(
@@ -98,6 +222,10 @@ fun ActivityShellScreen(
                     )
 
                     // ── Top bar ───────────────────────────────────────────
+                    if (!settings.isCalmMode && !state.showParentLock) {
+                        ModeBirdsDecoration(isAnimated = true)
+                    }
+
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -117,7 +245,7 @@ fun ActivityShellScreen(
                                     .background(gameColors.background)
                             ) {
                                 Icon(
-                                    imageVector        = Icons.Default.ArrowBack,
+                                    imageVector        = Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "خروج",
                                     tint               = MaterialTheme.colorScheme.onSurface
                                 )
@@ -125,7 +253,7 @@ fun ActivityShellScreen(
 
                             Spacer(Modifier.width(12.dp))
 
-                            // Progress bar – track matches background; fill = correct (green)
+                            // Progress bar shows elapsed session time in normal sessions.
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
@@ -138,23 +266,29 @@ fun ActivityShellScreen(
                                         .fillMaxHeight()
                                         .fillMaxWidth(progress.coerceIn(0f, 1f))
                                         .clip(RoundedCornerShape(50))
-                                        .background(gameColors.correct)
+                                        .background(progressBrush)
                                 )
                             }
 
                             Spacer(Modifier.width(12.dp))
 
-                            // Timer – turns red when < 1 min
-                            val minutes = (state.sessionRemainingMs / 60_000).toInt()
-                            val seconds = ((state.sessionRemainingMs % 60_000) / 1_000).toInt()
-                            Text(
-                                text  = "%02d:%02d".format(minutes, seconds),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (state.sessionRemainingMs < 60_000)
-                                    gameColors.wrong          // reuse semantic wrong = red
-                                else
-                                    MaterialTheme.colorScheme.onSurface
-                            )
+                            if (isAssessment) {
+                                AssessmentStepBadge(
+                                    current = assessmentCurrent,
+                                    total = assessmentTotal
+                                )
+                            } else {
+                                val minutes = (state.sessionRemainingMs / 60_000).toInt()
+                                val seconds = ((state.sessionRemainingMs % 60_000) / 1_000).toInt()
+                                Text(
+                                    text  = "%02d:%02d".format(minutes, seconds),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (state.sessionRemainingMs < 60_000)
+                                        gameColors.wrong
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                         }
                     }
 
@@ -170,11 +304,6 @@ fun ActivityShellScreen(
                             .padding(16.dp)
                     ) {
                         Column(modifier = Modifier.fillMaxSize()) {
-
-                            if (state.showOfflineSpeechBanner) {
-                                OfflineSpeechBanner()
-                                Spacer(Modifier.height(8.dp))
-                            }
 
                             // ── Game router ───────────────────────────────
                             // Every game screen can now call:
@@ -195,30 +324,44 @@ fun ActivityShellScreen(
                                     }
                                 )
 
-                                "SPEECH" -> SpeechScreen(
-                                    currentItem = currentItem,
-                                    isCalmMode  = settings.isCalmMode,
-                                    onComplete  = { elapsedMs, attempts, confidence, isCorrect ->
-                                        viewModel.onAnswerSubmitted(
-                                            isCorrect        = isCorrect,
-                                            contentId        = currentItem.contentId,
-                                            responseTimeMs   = elapsedMs,
-                                            attempts         = attempts,
-                                            speechConfidence = confidence
+                                "SPEECH" -> {
+                                    if (state.showOfflineSpeechBanner) {
+                                        LaunchedEffect(currentItem.contentId, state.stepIndex) {
+                                            delay(3_000)
+                                            viewModel.skipSpeechActivityOffline()
+                                        }
+                                        OfflineSpeechFallbackContent(isCalmMode = settings.isCalmMode)
+                                    } else {
+                                        SpeechScreen(
+                                            currentItem = currentItem,
+                                            isCalmMode  = settings.isCalmMode,
+                                            onComplete  = { elapsedMs, attempts, confidence, isCorrect ->
+                                                viewModel.onAnswerSubmitted(
+                                                    isCorrect        = isCorrect,
+                                                    contentId        = currentItem.contentId,
+                                                    responseTimeMs   = elapsedMs,
+                                                    attempts         = attempts,
+                                                    speechConfidence = confidence
+                                                )
+                                            },
+                                            onOffline = viewModel::onSpeechOfflineDetected
                                         )
                                     }
-                                )
+                                }
 
                                 "MATCH" -> MatchScreen(
                                     contentItems = state.activityWithContent.contentItems,
                                     isCalmMode   = settings.isCalmMode,
+                                    isTest       = settings.isTest,
+                                    isAssessment = settings.isAssessment,
                                     configJson   = activity.configJson,
-                                    onCardResult = { contentId, isCorrect, _, _, attempts ->
+                                    onCardResult = { contentId, isCorrect, _, _, attempts, touchQualityScore, elapsedMs ->
                                         viewModel.onAnswerSubmitted(
                                             isCorrect      = isCorrect,
                                             contentId      = contentId,
-                                            responseTimeMs = System.currentTimeMillis(),
-                                            attempts       = attempts
+                                            responseTimeMs = elapsedMs,
+                                            attempts       = attempts,
+                                            touchQualityScore = touchQualityScore
                                         )
                                     },
                                     onComplete = { _, _ -> }
@@ -233,13 +376,13 @@ fun ActivityShellScreen(
                                             contentId       = currentItem.contentId,
                                             responseTimeMs  = result.elapsedMs,
                                             attempts        = result.attempts,
-                                            touchComplexity = result.touchComplexity,
+                                            touchQualityScore = result.touchQualityScore,
                                             scoreOverride   = result.coverage
                                         )
                                         viewModel.saveTraceInteractionEvent(
                                             contentId       = currentItem.contentId,
-                                            touchComplexity = result.touchComplexity,
-                                            avgStrokeLength = result.avgStrokeLength,
+                                            touchQualityScore = result.touchQualityScore,
+                                            averageMovementDistance = result.averageMovementDistance,
                                             correctionCount = result.correctionCount
                                         )
                                     }
@@ -249,31 +392,50 @@ fun ActivityShellScreen(
                                     currentItem     = currentItem,
                                     isCalmMode      = settings.isCalmMode,
                                     difficultyLevel = activity.difficultyLevel,
+                                    isTest       = settings.isTest,
                                     activityId      = activity.id,
                                     roundIndex      = state.currentIndex,
-                                    onComplete      = { isCorrect, elapsedMs, attempts, touchComplexity ->
+                                    onComplete      = { isCorrect, elapsedMs, attempts ->
                                         viewModel.onAnswerSubmitted(
                                             isCorrect       = isCorrect,
                                             contentId       = currentItem.contentId,
                                             responseTimeMs  = elapsedMs,
-                                            attempts        = attempts,
-                                            touchComplexity = touchComplexity
+                                            attempts        = attempts
                                         )
                                     }
                                 )
 
                                 "DRAG" -> DragGameScreen(
-                                    currentItem = currentItem,
-                                    isCalmMode  = settings.isCalmMode,
-                                    onComplete  = { isCorrect, encodedMs ->
+                                    currentItem  = currentItem,
+                                    isCalmMode   = settings.isCalmMode,
+                                    isTest       = settings.isTest,
+                                    onComplete   = { isCorrect, encodedMs, touchQualityScore ->
                                         val attempts     = (encodedMs / 100_000L).toInt()
                                             .coerceAtLeast(1)
                                         val responseTime = encodedMs % 100_000L
                                         viewModel.onAnswerSubmitted(
-                                            isCorrect      = isCorrect,
-                                            contentId      = currentItem.contentId,
+                                            isCorrect       = isCorrect,
+                                            contentId       = currentItem.contentId,
+                                            responseTimeMs  = responseTime,
+                                            attempts        = attempts,
+                                            touchQualityScore = touchQualityScore
+                                        )
+                                    }
+                                )
+
+                                "LISTEN_AND_CHOOSE" -> ListenAndChooseGameScreen(
+                                    currentItem = currentItem,
+                                    isCalmMode = settings.isCalmMode,
+                                    isTest = settings.isTest,
+                                    onComplete = { isCorrect, encodedMs ->
+                                        val attempts = (encodedMs / 100_000L).toInt()
+                                            .coerceAtLeast(1)
+                                        val responseTime = encodedMs % 100_000L
+                                        viewModel.onAnswerSubmitted(
+                                            isCorrect = isCorrect,
+                                            contentId = currentItem.contentId,
                                             responseTimeMs = responseTime,
-                                            attempts       = attempts
+                                            attempts = attempts
                                         )
                                     }
                                 )
@@ -287,6 +449,7 @@ fun ActivityShellScreen(
                     if (state.showParentLock) {
                         ParentLockScreen(
                             onUnlocked = {
+                                viewModel.pauseNormalSessionForExit()
                                 viewModel.dismissParentLock()
                                 onExit()
                             },
@@ -337,10 +500,108 @@ private fun GamePlaceholder(label: String) {
 }
 
 @Composable
+private fun ModeBirdsDecoration(isAnimated: Boolean) {
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val birdSize = (screenWidth * 0.18f).coerceIn(52.dp, 84.dp)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .zIndex(1f)
+    ) {
+        BirdDecoration(
+            resId = R.drawable.ic_bird2,
+            size = birdSize,
+            alignment = Alignment.TopStart,
+            top = 55.dp,
+            verticalRange = 8f,
+            horizontalRange = 4f,
+            rotationRange = 3.5f,
+            durationMs = 3600,
+            isAnimated = isAnimated
+        )
+        BirdDecoration(
+            resId = R.drawable.ic_bird1,
+            size = birdSize,
+            alignment = Alignment.TopEnd,
+            top = 35.dp,
+            verticalRange = 6f,
+            horizontalRange = 3f,
+            rotationRange = 2.5f,
+            durationMs = 3000,
+            isAnimated = isAnimated
+        )
+    }
+}
+
+@Composable
+private fun BoxScope.BirdDecoration(
+    resId: Int,
+    size: Dp,
+    alignment: Alignment,
+    top: Dp,
+    verticalRange: Float,
+    horizontalRange: Float,
+    rotationRange: Float,
+    durationMs: Int,
+    isAnimated: Boolean
+) {
+    val transition = rememberInfiniteTransition(label = "bird_motion_$resId")
+    val animatedFloatY by transition.animateFloat(
+        initialValue = -verticalRange,
+        targetValue = verticalRange,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = durationMs, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bird_y_$resId"
+    )
+    val animatedFloatX by transition.animateFloat(
+        initialValue = -horizontalRange,
+        targetValue = horizontalRange,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = durationMs + 700, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bird_x_$resId"
+    )
+    val animatedRotation by transition.animateFloat(
+        initialValue = -rotationRange,
+        targetValue = rotationRange,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = durationMs + 300, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bird_rotation_$resId"
+    )
+    val floatY = if (isAnimated) animatedFloatY else 0f
+    val floatX = if (isAnimated) animatedFloatX else 0f
+    val rotation = if (isAnimated) animatedRotation else 0f
+
+    Image(
+        painter = painterResource(id = resId),
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        modifier = Modifier
+            .align(alignment)
+            .padding(top = top)
+            .offset(x = floatX.dp, y = floatY.dp)
+            .rotate(rotation)
+            .size(size)
+    )
+}
+
+@Composable
 fun ActivityLoadingScreen() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
     }
+}
+
+@Composable
+private fun ActivityTransitionScreen() {
+    Box(Modifier.fillMaxSize())
 }
 
 @Composable
@@ -363,17 +624,127 @@ fun ActivityErrorScreen(message: String, onExit: () -> Unit) {
 }
 
 @Composable
-fun OfflineSpeechBanner() {
+private fun OfflineSpeechFallbackContent(isCalmMode: Boolean) {
+    val backgroundColor = if (isCalmMode) GameCalmBackground else GameActiveBackground
+    val accentColor = if (isCalmMode) GameCalmSwatch1 else GameActiveSwatch1
+
     Box(
-        modifier         = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.errorContainer)
-            .padding(8.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundColor),
         contentAlignment = Alignment.Center
     ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(CircleShape)
+                    .background(accentColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WifiOff,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+
+            Text(
+                text = stringResource(R.string.session_speech_fallback_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp,
+                color = DarkPurple,
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = stringResource(R.string.session_speech_fallback_subtitle),
+                style = MaterialTheme.typography.bodyLarge,
+                fontSize = 16.sp,
+                color = TextSecondary,
+                lineHeight = 26.sp,
+                textAlign = TextAlign.Center
+            )
+
+            OfflineCountdownBar(
+                durationMs = 3_000L,
+                accentColor = accentColor
+            )
+        }
+    }
+}
+
+@Composable
+private fun OfflineCountdownBar(durationMs: Long, accentColor: Color) {
+    var progress by remember(durationMs) { mutableStateOf(1f) }
+
+    LaunchedEffect(durationMs) {
+        val steps = 60
+        val stepDelay = (durationMs / steps).coerceAtLeast(1L)
+        repeat(steps) { index ->
+            progress = 1f - ((index + 1).toFloat() / steps.toFloat())
+            delay(stepDelay)
+        }
+        progress = 0f
+    }
+
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.session_speech_fallback_countdown),
+                style = MaterialTheme.typography.bodySmall,
+                fontSize = 13.sp,
+                color = TextSecondary,
+                textAlign = TextAlign.Center
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(accentColor.copy(alpha = 0.2f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                        .clip(RoundedCornerShape(50))
+                        .background(accentColor)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AssessmentStepBadge(
+    current: Int,
+    total: Int
+) {
+    val formattedCurrent = remember(current) { current.toArabicDigits() }
+    val formattedTotal = remember(total) { total.toArabicDigits() }
+
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
         Text(
-            text  = "وضع الكلام يحتاج إنترنت",
-            color = MaterialTheme.colorScheme.onErrorContainer
+            text = "$formattedTotal / $formattedCurrent",
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelMedium.copy(
+                textDirection = TextDirection.Ltr
+            ),
+            color = MaterialTheme.colorScheme.onPrimaryContainer
         )
     }
 }
