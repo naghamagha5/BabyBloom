@@ -106,56 +106,75 @@ fun ParentBottomNav(
     onTabSelected : (Int) -> Unit,
     modifier      : Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .height(100.dp)
-            .shadow(elevation = 12.dp, shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp), ambientColor = ProgressPurple.copy(alpha = 0.06f))
-            .background(color = Color.White, shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+    NavigationBar(
+        modifier = modifier,
+        containerColor = White,
+        tonalElevation = 8.dp
     ) {
-        Row(
-            modifier              = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment     = Alignment.CenterVertically
-        ) {
-            ParentNavTab(iconRes = R.drawable.ic_home,     label = stringResource(R.string.nav_home),     selected = selectedTab == 0, onClick = { onTabSelected(0) })
-            ParentNavTab(iconRes = R.drawable.ic_children, label = stringResource(R.string.nav_children), selected = selectedTab == 1, onClick = { onTabSelected(1) })
-            ParentNavTab(iconRes = R.drawable.ic_profile,  label = stringResource(R.string.nav_settings), selected = selectedTab == 2, onClick = { onTabSelected(2) })
-        }
+        NavigationBarItem(
+            selected = selectedTab == 0,
+            onClick = { onTabSelected(0) },
+            icon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_home),
+                    contentDescription = stringResource(R.string.nav_home)
+                )
+            },
+            label = {
+                Text(
+                    text = stringResource(R.string.nav_home),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            },
+            colors = parentNavBarColors()
+        )
+
+        NavigationBarItem(
+            selected = selectedTab == 1,
+            onClick = { onTabSelected(1) },
+            icon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_children),
+                    contentDescription = stringResource(R.string.nav_children)
+                )
+            },
+            label = {
+                Text(
+                    text = stringResource(R.string.nav_children),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            },
+            colors = parentNavBarColors()
+        )
+
+        NavigationBarItem(
+            selected = selectedTab == 2,
+            onClick = { onTabSelected(2) },
+            icon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_profile),
+                    contentDescription = stringResource(R.string.nav_settings)
+                )
+            },
+            label = {
+                Text(
+                    text = stringResource(R.string.nav_settings),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            },
+            colors = parentNavBarColors()
+        )
     }
 }
 
 @Composable
-private fun ParentNavTab(iconRes: Int, label: String, selected: Boolean, onClick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onClick() }
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .then(if (selected) Modifier.background(ProgressPurple.copy(alpha = 0.15f)) else Modifier)
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter            = painterResource(id = iconRes),
-                contentDescription = label,
-                tint               = if (selected) ProgressPurple else TextSecondary,
-                modifier           = Modifier.size(22.dp)
-            )
-        }
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text       = label,
-            fontSize   = 12.sp,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color      = if (selected) ProgressPurple else TextSecondary
-        )
-    }
-}
+private fun parentNavBarColors() = NavigationBarItemDefaults.colors(
+    selectedIconColor   = ProgressPurple,
+    selectedTextColor   = ProgressPurple,
+    unselectedIconColor = TextSecondary,
+    unselectedTextColor = TextSecondary,
+    indicatorColor      = CardPurple
+)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN SCREEN

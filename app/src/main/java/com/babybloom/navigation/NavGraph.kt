@@ -145,6 +145,8 @@ fun BabyBloomNavGraph(
         // ── ADD CHILD ──────────────────────────────────────────────────────
         composable(Routes.ADD_CHILD) {
             AddChildScreen(
+                showBackButton = navController.previousBackStackEntry?.destination?.route == Routes.HOME,
+                onBackClick = { navController.popBackStack() },
                 onSaveChild = { childId ->
                     navController.navigate("${Routes.CHILD_PROFILE}/$childId") {
                         popUpTo(Routes.ADD_CHILD) { inclusive = true }
@@ -199,10 +201,24 @@ fun BabyBloomNavGraph(
                     else -> ChildProfileTab.ANALYTICS
                 },
                 onNavigateToHome = {
-                    navController.previousBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("startTab", 1)
-                    navController.popBackStack()
+                    val homeEntry = runCatching {
+                        navController.getBackStackEntry(Routes.HOME)
+                    }.getOrNull()
+
+                    if (homeEntry != null) {
+                        homeEntry.savedStateHandle["startTab"] = 1
+                        navController.popBackStack(
+                            route = Routes.HOME,
+                            inclusive = false
+                        )
+                    } else {
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                        runCatching {
+                            navController.getBackStackEntry(Routes.HOME)
+                        }.getOrNull()?.savedStateHandle?.set("startTab", 1)
+                    }
                 },
                 onNavigateToWelcomeLearning = { childId ->
                     navController.navigate("${Routes.WELCOME_LEARNING}/$childId")
