@@ -48,6 +48,12 @@ class ActivityRepositoryImpl @Inject constructor(
             }
         return ActivityWithContent(activity = activity, contentItems = contentItems)
     }
+    override suspend fun getActivitiesForPlanning(
+        skillArea: String,
+        difficultyLevel: Int
+    ): List<Activity> =
+        activityDao.getActivitiesForPlanning(skillArea, difficultyLevel).map { it.toDomain() }
+
 }
 
 fun ActivityEntity.toDomain() = Activity(

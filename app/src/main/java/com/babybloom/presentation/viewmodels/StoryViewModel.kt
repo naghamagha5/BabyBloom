@@ -21,13 +21,14 @@ import javax.inject.Inject
 
 sealed class StoryCardState {
     object Loading : StoryCardState()
+    object Intro   : StoryCardState()
 
     data class LetterCard(
         val letter: ActivityContent,
         val animal: LearningContentEntity,
         val letterImageAsset: ImageAsset,
         val animalImageAsset: ImageAsset,
-        val repeatsDone: Int = 0             // 0–3, shown as progress dots in UI
+        val repeatsDone: Int = 0
     ) : StoryCardState()
 
     data class NumberCard(
@@ -50,30 +51,49 @@ class StoryViewModel @Inject constructor(
     private val learningContentDao: LearningContentDao
 ) : ViewModel() {
 
-    private val _cardState = MutableStateFlow<StoryCardState>(StoryCardState.Loading)
+    private val _cardState = MutableStateFlow<StoryCardState>(StoryCardState.Intro)
     val cardState: StateFlow<StoryCardState> = _cardState.asStateFlow()
 
     private var mediaPlayer: MediaPlayer? = null
     private val totalRepeats = 3
+    private var introPlayed = false
 
-    // Called from StoryScreen LaunchedEffect whenever the currentItem changes
     fun loadCard(
         item: ActivityContent,
         isCalmMode: Boolean,
         onCardComplete: (elapsedMs: Long) -> Unit
     ) {
         releasePlayer()
-        _cardState.value = StoryCardState.Loading
         val startTime = System.currentTimeMillis()
 
         viewModelScope.launch {
+            if (!introPlayed) {
+                introPlayed = true
+                _cardState.value = StoryCardState.Intro  // ✅ show intro screen
+                playAudioFile(
+                    path = "activities/audio/speech/listen_and_repeat.ogg",
+                    onDone = { loadCardContent(item, isCalmMode, startTime, onCardComplete) }
+                )
+            } else {
+                loadCardContent(item, isCalmMode, startTime, onCardComplete)
+            }
+        }
+    }
+
+    private fun loadCardContent(
+        item: ActivityContent,
+        isCalmMode: Boolean,
+        startTime: Long,
+        onCardComplete: (elapsedMs: Long) -> Unit
+    ) {
+        viewModelScope.launch {
+            _cardState.value = StoryCardState.Loading
             when (item.category) {
                 "LETTER_NAME" -> {
                     val animal = learningContentDao.getByLearningOrderAndCategory(
                         item.learningOrder, "ANIMAL"
                     )
                     if (animal == null) {
-                        // Fallback: treat as simple card if no matching animal
                         val state = StoryCardState.SimpleCard(
                             item = item,
                             imageAsset = AssetPathResolver.imageAssetFor(
@@ -107,7 +127,6 @@ class StoryViewModel @Inject constructor(
                     )
                     _cardState.value = state
 
-                    // 3 audio files per play: name → sound → animal
                     val soundContentId = "${item.contentId}_s"
                     val audioPaths = listOf(
                         AssetPathResolver.audioPathFor(item.contentId, "LETTER_NAME"),
@@ -126,10 +145,8 @@ class StoryViewModel @Inject constructor(
 
                 "NUMBER" -> {
                     val n = item.learningOrder.coerceAtLeast(1)
-                    val animals = learningContentDao
-                        .getByCategory("ANIMAL")
-                        .shuffled()
-                        .take(n)
+                    val oneAnimal = learningContentDao.getByCategory("ANIMAL").shuffled().firstOrNull()
+                    val animals = if (oneAnimal != null) List(n) { oneAnimal } else emptyList()
 
                     val state = StoryCardState.NumberCard(
                         number = item,
@@ -144,12 +161,8 @@ class StoryViewModel @Inject constructor(
                         AssetPathResolver.audioPathFor(item.contentId, item.category)
                     )
                     playSequence(audioPaths, totalRepeats,
-                        onRepeatDone = { done ->
-                            _cardState.value = state.copy(repeatsDone = done)
-                        },
-                        onAllDone = {
-                            onCardComplete(System.currentTimeMillis() - startTime)
-                        }
+                        onRepeatDone = { done -> _cardState.value = state.copy(repeatsDone = done) },
+                        onAllDone = { onCardComplete(System.currentTimeMillis() - startTime) }
                     )
                 }
 
@@ -178,7 +191,26 @@ class StoryViewModel @Inject constructor(
         }
     }
 
-    // Plays a list of audio files in sequence, repeats N times total
+    private fun playAudioFile(path: String, onDone: () -> Unit) {
+        try {
+            releasePlayer()
+            mediaPlayer = MediaPlayer()
+            val afd = context.assets.openFd(path)
+            mediaPlayer?.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+            mediaPlayer?.setOnCompletionListener { onDone() }
+            mediaPlayer?.setOnErrorListener { _, _, _ ->
+                Log.w("StoryViewModel", "Intro audio error, skipping")
+                onDone()
+                true
+            }
+            mediaPlayer?.prepare()
+            mediaPlayer?.start()
+        } catch (e: Exception) {
+            Log.w("StoryViewModel", "Intro audio not found: $path, skipping")
+            onDone()
+        }
+    }
+
     private fun playSequence(
         paths: List<String>,
         repeatsLeft: Int,
@@ -188,14 +220,13 @@ class StoryViewModel @Inject constructor(
         repeatsDone: Int = 0
     ) {
         if (pathIndex >= paths.size) {
-            // One full play of the sequence done
             val newDone = repeatsDone + 1
             onRepeatDone(newDone)
             if (newDone >= totalRepeats) {
                 onAllDone()
             } else {
                 viewModelScope.launch {
-                    delay(600) // brief pause between repeats
+                    delay(600)
                     playSequence(paths, repeatsLeft - 1, 0,
                         onRepeatDone, onAllDone, newDone)
                 }

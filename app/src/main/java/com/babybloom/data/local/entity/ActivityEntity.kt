@@ -11,8 +11,8 @@ data class ActivityEntity(
     val description: String = "",
     val modality: String,             // "VISUAL", "AUDIO", "INTERACTIVE"
     val skillArea: String,            // "LANGUAGE", "NUMERACY", "MOTOR"
-    val difficultyLevel: Int,         // 1, 2, or 3
-    val activityType: String,         // "STORY", "MATCH", "TRACE", "COUNT"
+    val difficultyLevel: Int,         // 1, 2,  3,  4 or 5
+    val activityType: String,         // "STORY", "MATCH", "TRACE", "COUNT","SPEECH" , "DRAG"
     val isActive: Boolean = true,
     val configJson: String = ""      // game config as JSON string
 

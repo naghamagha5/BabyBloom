@@ -3,9 +3,6 @@ package com.babybloom.presentation.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,17 +26,19 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.babybloom.R
 import com.babybloom.data.local.entity.LearningContentEntity
 import com.babybloom.domain.model.ActivityContent
 import com.babybloom.presentation.viewmodels.StoryCardState
 import com.babybloom.presentation.viewmodels.StoryViewModel
+import com.babybloom.ui.theme.LocalGameColorScheme
 import com.babybloom.util.ImageAsset
 
-// ── Mood-aware card colors ────────────────────────────────────────────────────
-private val ActiveCardColor = Color(0xFFFFF0B3)   // warm yellow for active mode
-private val CalmCardColor   = Color(0xFFE8F4F0)   // muted mint for calm mode
-private val ActiveCardBorder = Color(0xFFFFB347)  // orange border for active
-private val CalmCardBorder   = Color(0xFFB2CFCA)  // muted teal border for calm
+// ─────────────────────────────────────────────────────────────────────────────
+// StoryScreen.kt
+// All card/border/text/asset colors come from LocalGameColorScheme, which the
+// ActivityShellScreen provides and rotates each round via currentIndex seed.
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun StoryScreen(
@@ -54,21 +53,20 @@ fun StoryScreen(
 
     val cardState by viewModel.cardState.collectAsStateWithLifecycle()
 
+    // ── Single read of the scheme; every child composable receives it via
+    //    LocalGameColorScheme.current without any extra prop threading. ─────────
+    val colors = LocalGameColorScheme.current
+
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         when (val state = cardState) {
-            is StoryCardState.Loading -> CircularProgressIndicator()
-
-            is StoryCardState.LetterCard ->
-                LetterCardLayout(state, isCalmMode)
-
-            is StoryCardState.NumberCard ->
-                NumberCardLayout(state, isCalmMode)
-
-            is StoryCardState.SimpleCard ->
-                SimpleCardLayout(state, isCalmMode)
+            is StoryCardState.Intro      -> IntroScreen()
+            is StoryCardState.Loading    -> CircularProgressIndicator(color = colors.accent)
+            is StoryCardState.LetterCard -> LetterCardLayout(state)
+            is StoryCardState.NumberCard -> NumberCardLayout(state)
+            is StoryCardState.SimpleCard -> SimpleCardLayout(state)
         }
     }
 }
@@ -92,12 +90,6 @@ private fun ListenBanner() {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.PlayArrow,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(22.dp)
-            )
             Text(
                 text = "اسْتَمِع جَيِّداً",
                 style = MaterialTheme.typography.bodyLarge.copy(
@@ -105,59 +97,64 @@ private fun ListenBanner() {
                     fontSize = 18.sp
                 )
             )
+            Icon(
+                painter            = painterResource(id = R.drawable.ic_sound),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp)
+            )
             // Sound wave dots
-            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                listOf(12.dp, 18.dp, 14.dp).forEach { h ->
-                    Box(
-                        modifier = Modifier
-                            .width(3.dp)
-                            .height(h)
-                            .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
-                    )
-                }
-            }
+//            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+//                listOf(12.dp, 18.dp, 14.dp).forEach { h ->
+//                    Box(
+//                        modifier = Modifier
+//                            .width(3.dp)
+//                            .height(h)
+//                            .clip(RoundedCornerShape(50))
+//                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+//                    )
+//                }
+//            }
         }
     }
 }
 
-// ── Animal card with mood-aware background ────────────────────────────────────
+// ── Animal card ───────────────────────────────────────────────────────────────
 @Composable
 private fun AnimalCard(
     animal: LearningContentEntity,
-    isCalmMode: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val colors  = LocalGameColorScheme.current
     val context = LocalContext.current
-    val cardColor  = if (isCalmMode) CalmCardColor  else ActiveCardColor
-    val cardBorder = if (isCalmMode) CalmCardBorder else ActiveCardBorder
-    val mood = if (isCalmMode) "calm" else "active"
-    val fileName = animal.id
+    val mood    = if (colors.isCalmMode) "calm" else "active"
 
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(24.dp))
-            .border(3.dp, cardBorder, RoundedCornerShape(24.dp))
-            .background(cardColor)
+            .border(3.dp, colors.accent, RoundedCornerShape(24.dp))  // accent border
+            .background(colors.accent.copy(alpha = 0.2f))
             .padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             AsyncImage(
                 model = ImageRequest.Builder(context)
-                    .data("file:///android_asset/learning_content/visual/$mood/$fileName.png")
+                    .data("file:///android_asset/learning_content/visual/$mood/${animal.id}.png")
                     .build(),
                 contentDescription = animal.labelAr,
-                modifier = Modifier.size(160.dp),
-                contentScale = ContentScale.Fit
+                modifier           = Modifier.size(160.dp),
+                contentScale       = ContentScale.Fit
+                // No colorFilter — PNG assets render as-is; tinting is for SVG drawables only
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = animal.labelAr,
+                text  = animal.labelAr,
                 style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 28.sp
+                    fontWeight = FontWeight.Black,
+                    fontSize   = 28.sp
                 ),
+                color     = colors.accent,        // label matches accent
                 textAlign = TextAlign.Center
             )
         }
@@ -166,10 +163,7 @@ private fun AnimalCard(
 
 // ── Letter Card ───────────────────────────────────────────────────────────────
 @Composable
-private fun LetterCardLayout(
-    state: StoryCardState.LetterCard,
-    isCalmMode: Boolean
-) {
+private fun LetterCardLayout(state: StoryCardState.LetterCard) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -179,110 +173,41 @@ private fun LetterCardLayout(
     ) {
         Spacer(Modifier.height(8.dp))
 
-        // Listen banner
         ListenBanner()
 
-        // Letter SVG — large and centered
+        // Letter SVG — tinted with accent
         ContentImage(
-            asset = state.letterImageAsset,
-            label = state.letter.labelAr,
-            modifier = Modifier.size(120.dp)
+            asset     = state.letterImageAsset,
+            label     = state.letter.labelAr,
+            modifier  = Modifier.size(120.dp),
+            applyTint = true
         )
 
-        // Animal card below
         AnimalCard(
-            animal = state.animal,
-            isCalmMode = isCalmMode,
+            animal   = state.animal,
             modifier = Modifier.fillMaxWidth()
         )
 
-        // Repeat progress dots
         RepeatDots(repeatsDone = state.repeatsDone, total = 3)
-
         Spacer(Modifier.height(8.dp))
     }
 }
 
 // ── Number Card ───────────────────────────────────────────────────────────────
 @Composable
-private fun NumberCardLayout(
-    state: StoryCardState.NumberCard,
-    isCalmMode: Boolean
-) {
+private fun NumberCardLayout(state: StoryCardState.NumberCard) {
+    val colors  = LocalGameColorScheme.current
     val context = LocalContext.current
-    val cardColor  = if (isCalmMode) CalmCardColor  else ActiveCardColor
-    val cardBorder = if (isCalmMode) CalmCardBorder else ActiveCardBorder
-    val mood = if (isCalmMode) "calm" else "active"
+    val mood    = if (colors.isCalmMode) "calm" else "active"
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Spacer(Modifier.height(8.dp))
-
-        ListenBanner()
-
-        // Number SVG
-        ContentImage(
-            asset = state.numberImageAsset,
-            label = state.number.labelAr,
-            modifier = Modifier.size(100.dp)
-        )
-
-        Text(
-            text = state.number.labelAr,
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold
-            )
-        )
-
-        // Animals grid in mood card
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .border(3.dp, cardBorder, RoundedCornerShape(24.dp))
-                .background(cardColor)
-                .padding(16.dp)
-        ) {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 80.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.heightIn(max = 300.dp)
-            ) {
-                items(state.animals) { animal ->
-                    val fileName = animal.id.removePrefix("animal_")
-                        .replaceFirstChar { it.uppercase() }
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data("file:///android_asset/learning_content/visual/$mood/$fileName.png")
-                            .build(),
-                        contentDescription = animal.labelAr,
-                        modifier = Modifier
-                            .size(72.dp)
-                            .padding(4.dp),
-                        contentScale = ContentScale.Fit
-                    )
-                }
-            }
-        }
-
-        RepeatDots(repeatsDone = state.repeatsDone, total = 3)
+    val (animalSize, columns) = when (state.animals.size) {
+        1       -> 160.dp to 1
+        2       -> 130.dp to 2
+        in 3..4 -> 100.dp to 2
+        in 5..6 -> 90.dp  to 3
+        else    -> 80.dp  to 3
     }
-}
-
-// ── Simple Card — ANIMAL, SHAPE, COLOR ───────────────────────────────────────
-@Composable
-private fun SimpleCardLayout(
-    state: StoryCardState.SimpleCard,
-    isCalmMode: Boolean
-) {
-    val cardColor  = if (isCalmMode) CalmCardColor  else ActiveCardColor
-    val cardBorder = if (isCalmMode) CalmCardBorder else ActiveCardBorder
+    val rows = state.animals.chunked(columns)
 
     Column(
         modifier = Modifier
@@ -295,29 +220,114 @@ private fun SimpleCardLayout(
 
         ListenBanner()
 
-        // Content in mood card
+        // Number SVG — tinted with accent
+        ContentImage(
+            asset     = state.numberImageAsset,
+            label     = state.number.labelAr,
+            modifier  = Modifier.size(120.dp),
+            applyTint = true
+        )
+
+        // Card: animals + number label
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
-                .border(3.dp, cardBorder, RoundedCornerShape(24.dp))
-                .background(cardColor)
+                .border(3.dp, colors.accent, RoundedCornerShape(24.dp))  // accent border
+                .background(colors.accent.copy(alpha = 0.2f))
+                .padding(16.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier            = Modifier.fillMaxWidth()
+            ) {
+                rows.forEach { row ->
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        modifier              = Modifier.fillMaxWidth()
+                    ) {
+                        row.forEach { animal ->
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data("file:///android_asset/learning_content/visual/$mood/${animal.id}.png")
+                                    .build(),
+                                contentDescription = animal.labelAr,
+                                modifier           = Modifier
+                                    .size(animalSize)
+                                    .padding(4.dp),
+                                contentScale       = ContentScale.Fit
+                                // PNG assets — no tint
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                Text(
+                    text  = state.number.labelAr,
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Black,
+                        fontSize   = 28.sp
+                    ),
+                    color     = colors.accent,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+
+        RepeatDots(repeatsDone = state.repeatsDone, total = 3)
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+// ── Simple Card — ANIMAL · SHAPE · COLOR ─────────────────────────────────────
+@Composable
+private fun SimpleCardLayout(state: StoryCardState.SimpleCard) {
+    val colors = LocalGameColorScheme.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        Spacer(Modifier.height(8.dp))
+
+        ListenBanner()
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .border(3.dp, colors.accent, RoundedCornerShape(24.dp))  // accent border
+                .background(colors.accent.copy(alpha = 0.2f))
                 .padding(24.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 ContentImage(
-                    asset = state.imageAsset,
-                    label = state.item.labelAr,
-                    modifier = Modifier.size(180.dp)
+                    asset      = state.imageAsset,
+                    label      = state.item.labelAr,
+                    modifier   = Modifier.size(180.dp),
+                    // COLOR category SVGs represent the actual color — never tint them
+                    // everything else (shapes, animals as SVG) gets accent tint
+                    applyTint  = state.item.category != "COLOR"
                 )
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    text = state.item.labelAr,
+                    text  = state.item.labelAr,
                     style = MaterialTheme.typography.displaySmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 32.sp
+                        fontWeight = FontWeight.Black,
+                        fontSize   = 32.sp
                     ),
+                    // COLOR category: keep text neutral so it doesn't clash with the
+                    // color the child is learning; everything else uses accent
+                    color     = if (state.item.category == "COLOR")
+                        MaterialTheme.colorScheme.onSurface
+                    else
+                        colors.accent,
                     textAlign = TextAlign.Center
                 )
             }
@@ -328,45 +338,62 @@ private fun SimpleCardLayout(
 }
 
 // ── Shared image composable ───────────────────────────────────────────────────
+/**
+ * Renders a PNG asset or an SVG drawable.
+ *
+ * @param applyTint  When true the SVG is tinted with [LocalGameColorScheme].accent.
+ *                   Pass false for COLOR-category items whose SVG *is* the color.
+ */
 @Composable
 fun ContentImage(
-    asset: ImageAsset,
-    label: String,
-    modifier: Modifier = Modifier
+    asset     : ImageAsset,
+    label     : String,
+    modifier  : Modifier = Modifier,
+    applyTint : Boolean  = true
 ) {
+    val colors  = LocalGameColorScheme.current
     val context = LocalContext.current
+
     when (asset) {
         is ImageAsset.PngAsset -> {
+            // PNG assets carry their own colours — never tint
             AsyncImage(
                 model = ImageRequest.Builder(context)
                     .data("file:///android_asset/${asset.path}")
                     .build(),
                 contentDescription = label,
-                modifier = modifier,
-                contentScale = ContentScale.Fit
+                modifier           = modifier,
+                contentScale       = ContentScale.Fit
             )
         }
+
         is ImageAsset.SvgDrawable -> {
             val drawableId = context.resources.getIdentifier(
                 asset.drawableName, "drawable", context.packageName
             )
             if (drawableId != 0) {
                 androidx.compose.foundation.Image(
-                    painter = painterResource(id = drawableId),
+                    painter            = painterResource(id = drawableId),
                     contentDescription = label,
-                    modifier = modifier,
-                    colorFilter = ColorFilter.tint(colorResource(id = asset.tintColor))
+                    modifier           = modifier,
+                    // Tint SVG with the shell-provided accent; skip for COLOR category
+                    colorFilter        = if (applyTint)
+                        ColorFilter.tint(colors.accent)
+                    else
+                        null
                 )
             } else {
+                // Fallback: labelled box in accent color
                 Box(
                     modifier = modifier
                         .clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                        .background(colors.accent.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = label,
-                        style = MaterialTheme.typography.titleLarge,
+                        text      = label,
+                        style     = MaterialTheme.typography.titleLarge,
+                        color     = colors.accent,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -378,22 +405,95 @@ fun ContentImage(
 // ── Repeat progress dots ──────────────────────────────────────────────────────
 @Composable
 private fun RepeatDots(repeatsDone: Int, total: Int) {
+    val colors = LocalGameColorScheme.current
+
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment     = Alignment.CenterVertically
     ) {
         repeat(total) { i ->
+            val filled = i < repeatsDone
             Box(
                 modifier = Modifier
-                    .size(if (i < repeatsDone) 14.dp else 10.dp)
+                    .size(if (filled) 14.dp else 10.dp)
                     .background(
-                        color = if (i < repeatsDone)
-                            MaterialTheme.colorScheme.primary
+                        // Filled dots = correct (green) so the child sees progress
+                        // clearly; empty dots = a faded version of accent
+                        color = if (filled)
+                            colors.correct
                         else
-                            MaterialTheme.colorScheme.outlineVariant,
+                            colors.accent.copy(alpha = 0.25f),
                         shape = CircleShape
                     )
             )
+        }
+    }
+}
+
+// ── Intro screen ──────────────────────────────────────────────────────────────
+@Composable
+private fun IntroScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(32.dp)
+        ) {
+            // Animated sound wave rings
+            Box(contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .size(140.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                )
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                )
+                Box(
+                    modifier = Modifier
+                        .size(68.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = "استمع جيدًا وكرّر ورائي",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 28.sp
+                ),
+                textAlign = TextAlign.Center
+            )
+
+            // Sound wave dots
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                listOf(16.dp, 26.dp, 20.dp, 26.dp, 16.dp).forEach { h ->
+                    Box(
+                        modifier = Modifier
+                            .width(5.dp)
+                            .height(h)
+                            .clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                    )
+                }
+            }
         }
     }
 }

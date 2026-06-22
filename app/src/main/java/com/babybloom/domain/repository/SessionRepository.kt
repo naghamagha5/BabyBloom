@@ -7,8 +7,10 @@ import kotlinx.coroutines.flow.Flow
 interface SessionRepository {
     suspend fun startSession(session: Session): Long
     suspend fun endSession(sessionId: Long, endTime: Long)
+    suspend fun getSessionById(sessionId: Long): Session?
     fun getSessionsByChild(childId: Long): Flow<List<Session>>
     suspend fun getRecentSessions(childId: Long, limit: Int): List<Session>
+    suspend fun getAllSessions(childId: Long): List<Session>
     fun countByChild(childId: Long): Flow<Int>
     suspend fun getAttentionScoresForChart(childId: Long): List<AttentionScoreRow>
 }

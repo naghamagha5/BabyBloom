@@ -4,26 +4,34 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -35,6 +43,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.babybloom.R
 import com.babybloom.presentation.viewmodels.ChangePasswordViewModel
 import com.babybloom.ui.theme.*
+import kotlinx.coroutines.launch
 
 @Composable
 fun ChangePasswordScreen(
@@ -45,6 +54,12 @@ fun ChangePasswordScreen(
     val uiState           = viewModel.uiState.collectAsState().value
     val unexpectedErrorMessage = stringResource(R.string.error_generic_unexpected)
     val snackbarHostState = remember { SnackbarHostState() }
+    val focusManager = LocalFocusManager.current
+    val bringIntoViewScope = rememberCoroutineScope()
+    val nameBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val emailBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val newPasswordBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val confirmPasswordBringIntoViewRequester = remember { BringIntoViewRequester() }
 
     // Navigate back to Login on success
     LaunchedEffect(uiState.isSuccess) {
@@ -95,6 +110,9 @@ fun ChangePasswordScreen(
     val configuration = LocalConfiguration.current
     val screenWidth   = configuration.screenWidthDp.dp
     val screenHeight  = configuration.screenHeightDp.dp
+    val buttonGradient = Brush.horizontalGradient(
+        colors = listOf(GradientPurpleMedium, GradientPurpleDark)
+    )
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
 
@@ -122,21 +140,30 @@ fun ChangePasswordScreen(
                 )
 
                 // ── 2. Back Button (Top-End corner) ────────────────────────
-                IconButton(
-                    onClick  = onBackClick,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(end = 25.dp, top = 25.dp)
-                        .size(50.dp)
-                        .background(color = NavyDark.copy(alpha = 0.2f), shape = CircleShape)
-                ) {
-                    Image(
-                        painter            = painterResource(id = R.drawable.undo),
-                        contentDescription = "Back",
-                        contentScale       = ContentScale.Fit,
-                        modifier           = Modifier.size(28.dp),
-                        colorFilter        = ColorFilter.tint(NavyDark)
-                    )
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Box(
+                        modifier = Modifier
+                            .statusBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 14.dp)
+                            .align(Alignment.TopStart)
+                            .size(44.dp)
+                            .background(
+                                brush = buttonGradient,
+                                shape = CircleShape
+                            )
+                            .clickable(onClick = onBackClick),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_arrow_back),
+                            contentDescription = stringResource(R.string.cd_back),
+                            tint = White,
+                            modifier = Modifier
+                                .size(22.dp)
+                                .scale(scaleX = -1f, scaleY = 1f)
+                                .offset(x = 4.dp)
+                        )
+                    }
                 }
 
                 // ── 3. White Scrollable Card ───────────────────────────────
@@ -144,6 +171,7 @@ fun ChangePasswordScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = screenHeight * 0.26f, bottom = 20.dp)
+                        .imePadding()
                 ) {
                     val scrollState = rememberScrollState()
 
@@ -195,7 +223,16 @@ fun ChangePasswordScreen(
                                         )
                                     },
                                     textStyle      = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
-                                    modifier       = Modifier.fillMaxWidth(),
+                                    modifier       = Modifier
+                                        .fillMaxWidth()
+                                        .bringIntoViewRequester(nameBringIntoViewRequester)
+                                        .onFocusEvent { focusState ->
+                                            if (focusState.isFocused) {
+                                                bringIntoViewScope.launch {
+                                                    nameBringIntoViewRequester.bringIntoView()
+                                                }
+                                            }
+                                        },
                                     shape          = RoundedCornerShape(12.dp),
                                     isError        = uiState.nameError != null,
                                     supportingText = {
@@ -212,6 +249,13 @@ fun ChangePasswordScreen(
                                         focusedBorderColor   = NavyDark,
                                         unfocusedBorderColor = BorderGray,
                                         errorBorderColor     = MaterialTheme.colorScheme.error
+                                    ),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Text,
+                                        imeAction = ImeAction.Next
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
                                     ),
                                     singleLine = true
                                 )
@@ -233,7 +277,16 @@ fun ChangePasswordScreen(
                                         )
                                     },
                                     textStyle      = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
-                                    modifier       = Modifier.fillMaxWidth(),
+                                    modifier       = Modifier
+                                        .fillMaxWidth()
+                                        .bringIntoViewRequester(emailBringIntoViewRequester)
+                                        .onFocusEvent { focusState ->
+                                            if (focusState.isFocused) {
+                                                bringIntoViewScope.launch {
+                                                    emailBringIntoViewRequester.bringIntoView()
+                                                }
+                                            }
+                                        },
                                     shape          = RoundedCornerShape(12.dp),
                                     isError        = uiState.emailError != null,
                                     supportingText = {
@@ -251,7 +304,13 @@ fun ChangePasswordScreen(
                                         unfocusedBorderColor = BorderGray,
                                         errorBorderColor     = MaterialTheme.colorScheme.error
                                     ),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Email,
+                                        imeAction = ImeAction.Next
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                    ),
                                     singleLine      = true
                                 )
 
@@ -272,7 +331,16 @@ fun ChangePasswordScreen(
                                         )
                                     },
                                     textStyle      = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
-                                    modifier       = Modifier.fillMaxWidth(),
+                                    modifier       = Modifier
+                                        .fillMaxWidth()
+                                        .bringIntoViewRequester(newPasswordBringIntoViewRequester)
+                                        .onFocusEvent { focusState ->
+                                            if (focusState.isFocused) {
+                                                bringIntoViewScope.launch {
+                                                    newPasswordBringIntoViewRequester.bringIntoView()
+                                                }
+                                            }
+                                        },
                                     shape          = RoundedCornerShape(12.dp),
                                     isError        = uiState.newPasswordError != null,
                                     supportingText = {
@@ -292,7 +360,13 @@ fun ChangePasswordScreen(
                                     ),
                                     visualTransformation = if (uiState.newPasswordVisible)
                                         VisualTransformation.None else PasswordVisualTransformation(),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Password,
+                                        imeAction = ImeAction.Next
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                    ),
                                     singleLine      = true,
                                     trailingIcon    = {
                                         IconButton(onClick = { viewModel.toggleNewPasswordVisibility() }) {
@@ -325,7 +399,16 @@ fun ChangePasswordScreen(
                                         )
                                     },
                                     textStyle      = LocalTextStyle.current.copy(textAlign = TextAlign.Start),
-                                    modifier       = Modifier.fillMaxWidth(),
+                                    modifier       = Modifier
+                                        .fillMaxWidth()
+                                        .bringIntoViewRequester(confirmPasswordBringIntoViewRequester)
+                                        .onFocusEvent { focusState ->
+                                            if (focusState.isFocused) {
+                                                bringIntoViewScope.launch {
+                                                    confirmPasswordBringIntoViewRequester.bringIntoView()
+                                                }
+                                            }
+                                        },
                                     shape          = RoundedCornerShape(12.dp),
                                     isError        = uiState.confirmPasswordError != null,
                                     supportingText = {
@@ -345,7 +428,16 @@ fun ChangePasswordScreen(
                                     ),
                                     visualTransformation = if (uiState.confirmPwdVisible)
                                         VisualTransformation.None else PasswordVisualTransformation(),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Password,
+                                        imeAction = ImeAction.Done
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onDone = {
+                                            focusManager.clearFocus()
+                                            viewModel.saveNewPassword()
+                                        }
+                                    ),
                                     singleLine      = true,
                                     trailingIcon    = {
                                         IconButton(onClick = { viewModel.toggleConfirmPasswordVisibility() }) {

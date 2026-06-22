@@ -748,6 +748,7 @@ private fun PinSettingItem(
             .fillMaxWidth()
             .shadow(elevation = 4.dp, shape = RoundedCornerShape(14.dp))
             .background(Color.White, RoundedCornerShape(14.dp))
+            .clickable { onSetPin() }                          // ← whole box is now the button
             .padding(horizontal = 14.dp, vertical = 10.dp)
     ) {
         Row(
@@ -757,7 +758,7 @@ private fun PinSettingItem(
         ) {
             if (hasPin) {
                 TextButton(
-                    onClick = onRemovePin,
+                    onClick = onRemovePin,                     // ← inner click consumed here, won't bubble
                     colors  = ButtonDefaults.textButtonColors(contentColor = ErrorRed)
                 ) {
                     Text("إزالة الرقم", fontSize = 13.sp)
@@ -774,14 +775,14 @@ private fun PinSettingItem(
                 ) {
                     Text(
                         text       = if (hasPin) "تغيير رقم قفل الوالدين"
-                        else "تعيين رقم قفل الوالدين",
+                        else        "تعيين رقم قفل الوالدين",
                         fontSize   = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color      = NavyDark
                     )
                     Text(
                         text  = if (hasPin) "رقم القفل مفعل ✓"
-                        else "يمنع الطفل من الخروج من اللعبة",
+                        else         "يمنع الطفل من الخروج من اللعبة",
                         fontSize = 12.sp,
                         color    = if (hasPin) SuccessGreen else TextSecondary
                     )
@@ -790,8 +791,8 @@ private fun PinSettingItem(
                 Box(
                     modifier         = Modifier
                         .size(40.dp)
-                        .background(PurpleLavender.copy(alpha = 0.5f), RoundedCornerShape(30.dp))
-                        .clickable { onSetPin() },
+                        .background(PurpleLavender.copy(alpha = 0.5f), RoundedCornerShape(30.dp)),
+                    // ← no clickable here anymore
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -864,15 +865,17 @@ fun SetPinDialog(
                     items(keys) { key ->
                         when (key) {
                             "" -> Box(Modifier.size(56.dp))
-                            "⌫" -> OutlinedButton(
-                                onClick  = {
-                                    if (step == 0 && pin.isNotEmpty())
-                                        pin = pin.dropLast(1)
-                                    else if (step == 1 && confirmPin.isNotEmpty())
-                                        confirmPin = confirmPin.dropLast(1)
+                            "⌫" -> Button(
+                                onClick = {
+                                    if (step == 0 && pin.isNotEmpty()) pin = pin.dropLast(1)
+                                    else if (step == 1 && confirmPin.isNotEmpty()) confirmPin = confirmPin.dropLast(1)
                                 },
-                                modifier = Modifier.size(56.dp)
-                            ) { Text(key) }
+                                modifier = Modifier.size(56.dp),
+                                colors   = ButtonDefaults.buttonColors(containerColor = ProgressPurple),
+                                shape    = RoundedCornerShape(30.dp)
+                            ) {
+                                Text("⌫", fontSize = 20.sp, color = Color.White)
+                            }
                             else -> Button(
                                 onClick = {
                                     if (step == 0 && pin.length < dotCount) {

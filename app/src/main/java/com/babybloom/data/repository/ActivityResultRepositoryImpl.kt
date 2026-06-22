@@ -18,6 +18,9 @@ class ActivityResultRepositoryImpl @Inject constructor(
     override suspend fun saveResult(result: ActivityResult): Long =
         activityResultDao.insert(result.toEntity())
 
+    override suspend fun updateScore(resultId: Long, score: Float) =
+        activityResultDao.updateScore(resultId, score)
+
     override suspend fun getBySession(sessionId: Long): List<ActivityResult> =
         activityResultDao.getBySession(sessionId).map { it.toDomain() }
 
@@ -54,6 +57,9 @@ class ActivityResultRepositoryImpl @Inject constructor(
     override suspend fun getSkillScoresForChart(childId: Long): List<SkillScoreRow> =
         activityResultDao.getSkillScoresForChart(childId)
 
+    override fun observeSkillScoresForChart(childId: Long): Flow<List<SkillScoreRow>> =
+        activityResultDao.observeSkillScoresForChart(childId)
+
     override suspend fun getResultsWithAttention(
         childId: Long,
         limit: Int
@@ -71,6 +77,9 @@ class ActivityResultRepositoryImpl @Inject constructor(
         limit: Int
     ): List<ActivityResult> =
         activityResultDao.getResultsWithTouch(childId, limit).map { it.toDomain() }
+
+    override suspend fun getForSession(sessionId: Long): List<ActivityResult> =
+        activityResultDao.getForSession(sessionId).map { it.toDomain() }
 
     // ── Time formatting ───────────────────────────────────────────────────────
 
@@ -103,7 +112,7 @@ fun ActivityResultEntity.toDomain() = ActivityResult(
     incorrectCount   = incorrectCount,
     attempts         = attempts,
     speechConfidence = speechConfidence,
-    touchComplexity  = touchComplexity,
+    touchQualityScore = touchQualityScore,
     attentionScore   = attentionScore,
     timestamp        = timestamp
 )
@@ -120,7 +129,7 @@ fun ActivityResult.toEntity() = ActivityResultEntity(
     incorrectCount   = incorrectCount,
     attempts         = attempts,
     speechConfidence = speechConfidence,
-    touchComplexity  = touchComplexity,
+    touchQualityScore = touchQualityScore,
     attentionScore   = attentionScore,
     timestamp        = timestamp
 )

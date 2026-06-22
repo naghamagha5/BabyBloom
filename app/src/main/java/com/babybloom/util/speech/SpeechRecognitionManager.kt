@@ -9,35 +9,26 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
 import javax.inject.Singleton
 
 sealed class SpeechResult {
-    data class Success(
-        val recognizedText: String,
-        val confidence: Float
-    ) : SpeechResult()
+    data class Success(val recognizedText: String, val confidence: Float) : SpeechResult()
     data class Error(val errorCode: Int) : SpeechResult()
-    object Listening : SpeechResult()
     object Offline : SpeechResult()
-}
-
-interface SpeechRecognitionService {
-    fun isOnline(): Boolean
-    fun startListening(): Flow<SpeechResult>
 }
 
 @Singleton
 class SpeechRecognitionManager @Inject constructor(
     @ApplicationContext private val context: Context
-) : SpeechRecognitionService {
+) {
+    private var activeRecognizer: SpeechRecognizer? = null
 
-    private var recognizer: SpeechRecognizer? = null
-
-    override fun isOnline(): Boolean {
+    fun isOnline(): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         return cm.activeNetwork?.let {
             cm.getNetworkCapabilities(it)
@@ -45,52 +36,68 @@ class SpeechRecognitionManager @Inject constructor(
         } ?: false
     }
 
-    override fun startListening(): Flow<SpeechResult> = callbackFlow {
-        if (!isOnline()) {
-            trySend(SpeechResult.Offline)
-            close()
-            return@callbackFlow
-        }
+    fun cancelCurrent() {
+        activeRecognizer?.cancel()
+        activeRecognizer?.destroy()
+        activeRecognizer = null
+    }
 
-        recognizer = SpeechRecognizer.createSpeechRecognizer(context)
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ar-EG")
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ar")
-            putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-        }
+    suspend fun listenOnce(): SpeechResult = withContext(Dispatchers.Main) {
+        suspendCancellableCoroutine { cont ->
+            cancelCurrent()
+            val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
+            activeRecognizer = recognizer
 
-        recognizer?.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) {
-                trySend(SpeechResult.Listening)
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ar-EG")
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ar")
+                putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, true)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH)
+                // ✅ very low minimum — catches even the fastest short word
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 150L)
+                // ✅ short possibly-complete — triggers processing quickly after a fast word ends
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1_000L)
+                // ✅ longer complete — gives the engine time to finish processing before giving up
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 5_000L)
             }
-            override fun onResults(results: Bundle?) {
-                val matches = results
-                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                val scores = results
-                    ?.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES)
-                val text = matches?.firstOrNull() ?: ""
-                val confidence = scores?.firstOrNull() ?: 0f
-                trySend(SpeechResult.Success(text, confidence))
-                close()
-            }
-            override fun onError(error: Int) {
-                trySend(SpeechResult.Error(error))
-                close()
-            }
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() {}
-            override fun onPartialResults(partialResults: Bundle?) {}
-            override fun onEvent(eventType: Int, params: Bundle?) {}
-        })
 
-        recognizer?.startListening(intent)
+            var settled = false
+            fun settle(result: SpeechResult) {
+                if (settled) return
+                settled = true
+                if (activeRecognizer == recognizer) activeRecognizer = null
+                recognizer.destroy()
+                if (cont.isActive) cont.resume(result)
+            }
 
-        awaitClose {
-            recognizer?.destroy()
-            recognizer = null
+            cont.invokeOnCancellation {
+                if (activeRecognizer == recognizer) activeRecognizer = null
+                recognizer.cancel()
+                recognizer.destroy()
+            }
+
+            recognizer.setRecognitionListener(object : RecognitionListener {
+                override fun onResults(results: Bundle?) {
+                    val allMatches = results
+                        ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    val scores = results
+                        ?.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES)
+                    val text       = allMatches?.firstOrNull() ?: ""
+                    val confidence = scores?.firstOrNull() ?: 0f
+                    settle(SpeechResult.Success(text, confidence))
+                }
+                override fun onError(error: Int)                        { settle(SpeechResult.Error(error)) }
+                override fun onReadyForSpeech(params: Bundle?)          {}
+                override fun onBeginningOfSpeech()                      {}
+                override fun onEndOfSpeech()                            {}
+                override fun onPartialResults(partialResults: Bundle?)  {}
+                override fun onRmsChanged(rmsdB: Float)                 {}
+                override fun onBufferReceived(buffer: ByteArray?)       {}
+                override fun onEvent(eventType: Int, params: Bundle?)   {}
+            })
+
+            recognizer.startListening(intent)
         }
     }
 }

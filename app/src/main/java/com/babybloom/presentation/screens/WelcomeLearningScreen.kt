@@ -1,8 +1,22 @@
 package com.babybloom.presentation.screens
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -14,17 +28,23 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material3.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.babybloom.R
 import com.babybloom.presentation.viewmodels.WelcomeLearningViewModel
 import com.babybloom.ui.theme.DarkPurple
-import com.babybloom.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 
 @Composable
 fun WelcomeLearningScreen(
-    onNavigateToActivity: (activityId: String, sessionId: Long, childId: Long) -> Unit,
+    onNavigateToActivity: (
+        activityId: String,
+        sessionId: Long,
+        childId: Long,
+        contentId: String?,
+        encodedQueue: String,
+        stepIndex: Int
+    ) -> Unit,
+    onExitToChildProfile: () -> Unit,
     viewModel: WelcomeLearningViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -32,20 +52,35 @@ fun WelcomeLearningScreen(
 
     LaunchedEffect(uiState.childId) {
         if (uiState.childId == 0L) return@LaunchedEffect
-        delay(3_000)
-        onNavigateToActivity("story_letters_d1", 0L, uiState.childId)
+        viewModel.onScreenReady()
     }
 
-    val backgroundRes = if (isCalmMode) R.drawable.ic_welcome_calm
-    else R.drawable.ic_welcome_active
-    val animalsRes    = if (isCalmMode) R.drawable.ic_calm_animals
-    else R.drawable.ic_active_animals
-    val decorationRes = if (isCalmMode) R.drawable.ic_calm_decoration
-    else R.drawable.ic_active_decoration
+    LaunchedEffect(uiState.encodedQueue, uiState.childId, uiState.showSpeechInternetDialog) {
+        if (
+            uiState.childId == 0L ||
+            uiState.sessionQueue.isEmpty() ||
+            uiState.showSpeechInternetDialog
+        ) return@LaunchedEffect
+
+        delay(3_000)
+        val firstStep = uiState.sessionQueue.getOrNull(uiState.stepIndex)
+            ?: uiState.sessionQueue.first()
+        onNavigateToActivity(
+            firstStep.activityId,
+            uiState.sessionId,
+            uiState.childId,
+            firstStep.contentId,
+            uiState.encodedQueue,
+            uiState.stepIndex
+        )
+    }
+
+    val backgroundRes = if (isCalmMode) R.drawable.ic_welcome_calm else R.drawable.ic_welcome_active
+    val animalsRes = if (isCalmMode) R.drawable.ic_calm_animals else R.drawable.ic_active_animals
+    val decorationRes = if (isCalmMode) R.drawable.ic_calm_decoration else R.drawable.ic_active_decoration
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Box(modifier = Modifier.fillMaxSize()) {
-
             Image(
                 painter = painterResource(backgroundRes),
                 contentDescription = null,
@@ -86,10 +121,7 @@ fun WelcomeLearningScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = stringResource(
-                            R.string.welcome_learning_greeting,
-                            uiState.childName
-                        ),
+                        text = stringResource(R.string.welcome_learning_greeting, uiState.childName),
                         style = MaterialTheme.typography.displaySmall.copy(
                             fontWeight = FontWeight.Black,
                             color = DarkPurple,
@@ -115,6 +147,17 @@ fun WelcomeLearningScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
                 }
+            }
+
+            if (uiState.showSpeechInternetDialog) {
+                SessionInternetDialog(
+                    message = stringResource(R.string.session_internet_learning_message),
+                    onRetry = viewModel::onScreenReady,
+                    onExit = {
+                        viewModel.dismissSpeechInternetDialog()
+                        onExitToChildProfile()
+                    }
+                )
             }
         }
     }

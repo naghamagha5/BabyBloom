@@ -1,242 +1,620 @@
 package com.babybloom.presentation.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.babybloom.domain.model.ActivityLaunchStep
+import com.babybloom.domain.model.SessionDecision
 import com.babybloom.R
+import com.babybloom.presentation.components.AttentionCameraOverlay
 import com.babybloom.presentation.viewmodels.ActivityUiState
 import com.babybloom.presentation.viewmodels.ActivityViewModel
+import com.babybloom.util.toArabicDigits
+import com.babybloom.ui.theme.GameActiveSwatch1
+import com.babybloom.ui.theme.GameActiveBackground
+import com.babybloom.ui.theme.ProgressActiveSwatch1
+import com.babybloom.ui.theme.ProgressActiveSwatch2
+import com.babybloom.ui.theme.ProgressActiveSwatch3
+import com.babybloom.ui.theme.GameCalmBackground
+import com.babybloom.ui.theme.GameCalmSwatch1
+import com.babybloom.ui.theme.ProgressCalmSwatch1
+import com.babybloom.ui.theme.ProgressCalmSwatch2
+import com.babybloom.ui.theme.ProgressCalmSwatch3
+import com.babybloom.ui.theme.LocalGameColorScheme
+import com.babybloom.ui.theme.DarkPurple
+import com.babybloom.ui.theme.TextSecondary
+import com.babybloom.ui.theme.gameColorSchemeFor
+import kotlinx.coroutines.delay
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ActivityShellScreen.kt
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun ActivityShellScreen(
-    activityId: String,
-    sessionId: Long,
-    childId: Long,
-    onActivityComplete: (score: Int, total: Int) -> Unit,
-    onExit: () -> Unit,
-    viewModel: ActivityViewModel = hiltViewModel()
+    activityId        : String,
+    sessionId         : Long,
+    childId           : Long,
+    contentId         : String? = null,
+    queue             : List<ActivityLaunchStep> = emptyList(),
+    stepIndex         : Int = 0,
+    isAssessment      : Boolean = false,
+    isTest            : Boolean = false,
+    assessmentCurrent : Int = 0,
+    assessmentTotal   : Int = 0,
+    onActivityComplete: (score: Int, total: Int, sessionId: Long, decision: SessionDecision?) -> Unit,
+    onExit            : () -> Unit,
+    viewModel         : ActivityViewModel = hiltViewModel()
 ) {
-    LaunchedEffect(activityId) {
-        viewModel.loadActivity(activityId, sessionId, childId)
+    LaunchedEffect(activityId, contentId, stepIndex) {
+        viewModel.loadActivity(
+            activityId = activityId,
+            sessionId = sessionId,
+            childId = childId,
+            contentId = contentId,
+            queue = queue,
+            stepIndex = stepIndex,
+            isAssessment = isAssessment,
+            isTest = isTest
+        )
     }
-
-    BackHandler {
-        viewModel.requestExit()
-    }
+    BackHandler { viewModel.requestExit() }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     when (val state = uiState) {
+
         is ActivityUiState.Loading -> ActivityLoadingScreen()
 
         is ActivityUiState.Error -> ActivityErrorScreen(
             message = state.message,
-            onExit = onExit
+            onExit  = onExit
         )
 
+        // ── Completed ─────────────────────────────────────────────────────────
         is ActivityUiState.Completed -> {
-            LaunchedEffect(Unit) { onActivityComplete(state.score, state.total) }
-            ActivityCompletedScreen(
-                score = state.score,
-                total = state.total,
-                onFinish = { onActivityComplete(state.score, state.total) }
-            )
+            val isCurrentCompletion = state.activityId == activityId &&
+                    state.contentId == contentId &&
+                    state.stepIndex == stepIndex
+            if (!isCurrentCompletion) {
+                ActivityTransitionScreen()
+                return
+            }
+
+            val isFinalNormalSession = state.decision == null ||
+                    state.decision is SessionDecision.SessionComplete
+
+            if (isAssessment || !isFinalNormalSession) {
+                LaunchedEffect(state.sessionId, state.activityId, state.contentId, state.stepIndex) {
+                    onActivityComplete(
+                        state.score,
+                        state.total,
+                        state.sessionId,
+                        state.decision
+                    )
+                }
+                ActivityTransitionScreen()
+            } else {
+                GoodJobScreen(
+                    score      = state.score,
+                    total      = state.total,
+                    onFinished = {
+                        viewModel.stopSoundSession()
+                        onActivityComplete(
+                            state.score,
+                            state.total,
+                            state.sessionId,
+                            state.decision
+                        )
+                    }
+                )
+            }
         }
 
+        // ── Playing ───────────────────────────────────────────────────────────
         is ActivityUiState.Playing -> {
-            val settings = state.sessionSettings
-            val activity = state.activityWithContent.activity
+            val settings    = state.sessionSettings
+            val activity    = state.activityWithContent.activity
             val currentItem = state.activityWithContent.contentItems
                 .getOrNull(state.currentIndex) ?: return
 
-            val progress = if (state.activityWithContent.contentItems.isEmpty()) 0f
-            else state.currentIndex.toFloat() / state.activityWithContent.contentItems.size
+            val isCurrentActivity = activity.id == activityId &&
+                    state.stepIndex == stepIndex &&
+                    (contentId == null || currentItem.contentId == contentId)
+            if (!isCurrentActivity) {
+                ActivityTransitionScreen()
+                return
+            }
+
+            val progress = if (isAssessment && assessmentTotal > 0) {
+                assessmentCurrent.toFloat() / assessmentTotal.toFloat()
+            } else {
+                val durationMs = settings.sessionDurationMs.coerceAtLeast(1L)
+                val elapsedMs = durationMs - state.sessionRemainingMs
+                elapsedMs.toFloat() / durationMs.toFloat()
+            }
+
+            // ── Build the color scheme for this round ─────────────────────
+            // seed = currentIndex  →  accent rotates each round automatically
+            val colorSeed = state.stepIndex + state.currentIndex
+            val gameColors = remember(settings.isCalmMode, colorSeed) {
+                gameColorSchemeFor(
+                    isCalmMode = settings.isCalmMode,
+                    seed       = colorSeed
+                )
+            }
+            val progressBrush = remember(settings.isCalmMode) {
+                if (settings.isCalmMode) {
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            ProgressCalmSwatch1,
+                            ProgressCalmSwatch2,
+                            ProgressCalmSwatch3
+                        )
+                    )
+                } else {
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            ProgressActiveSwatch1,
+                            ProgressActiveSwatch2,
+                            ProgressActiveSwatch3
+                        )
+                    )
+                }
+            }
 
             val backgroundRes = if (settings.isCalmMode)
                 R.drawable.ic_game_background_calm
             else
                 R.drawable.ic_game_background_active
 
-            // ── Root box: background image fills entire screen ────────────
-            Box(modifier = Modifier.fillMaxSize()) {
+            // ── Provide the scheme to the entire game sub-tree ────────────
+            CompositionLocalProvider(LocalGameColorScheme provides gameColors) {
 
-                Image(
-                    painter = painterResource(id = backgroundRes),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    AttentionCameraOverlay(
+                        onSample = viewModel::onAttentionSample,
+                        analyzeImage = viewModel::analyzeAttention,
+                        sampleIntervalMs = if (settings.isAssessment) 750L else 2_000L
+                    )
 
-                // ── Top bar: back button + progress bar ───────────────────
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                    // ── Full-screen background ────────────────────────────
+                    Image(
+                        painter            = painterResource(id = backgroundRes),
+                        contentDescription = null,
+                        contentScale       = ContentScale.Crop,
+                        modifier           = Modifier.fillMaxSize()
+                    )
+
+                    // ── Top bar ───────────────────────────────────────────
+                    if (!settings.isCalmMode && !state.showParentLock) {
+                        ModeBirdsDecoration(isAnimated = true)
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
-                        // Circular back button
-                        IconButton(
-                            onClick = { viewModel.requestExit() },
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier          = Modifier.fillMaxWidth()
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.ArrowBack,
-                                contentDescription = "خروج",
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+                            // Back button – same color as card background so it blends quietly
+                            IconButton(
+                                onClick  = { viewModel.requestExit() },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(gameColors.background)
+                            ) {
+                                Icon(
+                                    imageVector        = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "خروج",
+                                    tint               = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
 
-                        Spacer(Modifier.width(12.dp))
+                            Spacer(Modifier.width(12.dp))
 
-                        // Rounded pill progress bar
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(10.dp)
-                                .clip(RoundedCornerShape(50))
-                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
-                        ) {
+                            // Progress bar shows elapsed session time in normal sessions.
                             Box(
                                 modifier = Modifier
-                                    .fillMaxHeight()
-                                    .fillMaxWidth(progress.coerceIn(0f, 1f))
+                                    .weight(1f)
+                                    .height(10.dp)
                                     .clip(RoundedCornerShape(50))
-                                    .background(MaterialTheme.colorScheme.primary)
-                            )
-                        }
+                                    .background(gameColors.background.copy(alpha = 0.6f))
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                                        .clip(RoundedCornerShape(50))
+                                        .background(progressBrush)
+                                )
+                            }
 
-                        // Session timer
-                        Spacer(Modifier.width(12.dp))
-                        val minutes = (state.sessionRemainingMs / 60_000).toInt()
-                        val seconds = ((state.sessionRemainingMs % 60_000) / 1_000).toInt()
-                        Text(
-                            text = "%02d:%02d".format(minutes, seconds),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (state.sessionRemainingMs < 60_000)
-                                MaterialTheme.colorScheme.error
-                            else
-                                MaterialTheme.colorScheme.onSurface
+                            Spacer(Modifier.width(12.dp))
+
+                            if (isAssessment) {
+                                AssessmentStepBadge(
+                                    current = assessmentCurrent,
+                                    total = assessmentTotal
+                                )
+                            } else {
+                                val minutes = (state.sessionRemainingMs / 60_000).toInt()
+                                val seconds = ((state.sessionRemainingMs % 60_000) / 1_000).toInt()
+                                Text(
+                                    text  = "%02d:%02d".format(minutes, seconds),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (state.sessionRemainingMs < 60_000)
+                                        gameColors.wrong
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
+                    // ── Content card (bottom 88%) ─────────────────────────
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.88f)
+                            .align(Alignment.BottomCenter)
+                            .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+                            // Card background comes from the semantic palette
+                            .background(gameColors.background)
+                            .padding(16.dp)
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+
+                            // ── Game router ───────────────────────────────
+                            // Every game screen can now call:
+                            //   val colors = LocalGameColorScheme.current
+                            // to get accent / background / correct / wrong.
+
+                            when (activity.activityType) {
+
+                                "STORY" -> StoryScreen(
+                                    currentItem = currentItem,
+                                    isCalmMode  = settings.isCalmMode,
+                                    onComplete  = { elapsedMs ->
+                                        viewModel.onAnswerSubmitted(
+                                            isCorrect      = true,
+                                            contentId      = currentItem.contentId,
+                                            responseTimeMs = elapsedMs
+                                        )
+                                    }
+                                )
+
+                                "SPEECH" -> {
+                                    if (state.showOfflineSpeechBanner) {
+                                        LaunchedEffect(currentItem.contentId, state.stepIndex) {
+                                            delay(3_000)
+                                            viewModel.skipSpeechActivityOffline()
+                                        }
+                                        OfflineSpeechFallbackContent(isCalmMode = settings.isCalmMode)
+                                    } else {
+                                        SpeechScreen(
+                                            currentItem = currentItem,
+                                            isCalmMode  = settings.isCalmMode,
+                                            onComplete  = { elapsedMs, attempts, confidence, isCorrect ->
+                                                viewModel.onAnswerSubmitted(
+                                                    isCorrect        = isCorrect,
+                                                    contentId        = currentItem.contentId,
+                                                    responseTimeMs   = elapsedMs,
+                                                    attempts         = attempts,
+                                                    speechConfidence = confidence
+                                                )
+                                            },
+                                            onOffline = viewModel::onSpeechOfflineDetected
+                                        )
+                                    }
+                                }
+
+                                "MATCH" -> MatchScreen(
+                                    contentItems = state.activityWithContent.contentItems,
+                                    isCalmMode   = settings.isCalmMode,
+                                    isTest       = settings.isTest,
+                                    isAssessment = settings.isAssessment,
+                                    configJson   = activity.configJson,
+                                    onCardResult = { contentId, isCorrect, _, _, attempts, touchQualityScore, elapsedMs ->
+                                        viewModel.onAnswerSubmitted(
+                                            isCorrect      = isCorrect,
+                                            contentId      = contentId,
+                                            responseTimeMs = elapsedMs,
+                                            attempts       = attempts,
+                                            touchQualityScore = touchQualityScore
+                                        )
+                                    },
+                                    onComplete = { _, _ -> }
+                                )
+
+                                "TRACE" -> TraceScreen(
+                                    currentItem = currentItem,
+                                    isCalmMode  = settings.isCalmMode,
+                                    onComplete  = { result ->
+                                        viewModel.onAnswerSubmitted(
+                                            isCorrect       = result.isSuccess,
+                                            contentId       = currentItem.contentId,
+                                            responseTimeMs  = result.elapsedMs,
+                                            attempts        = result.attempts,
+                                            touchQualityScore = result.touchQualityScore,
+                                            scoreOverride   = result.coverage
+                                        )
+                                        viewModel.saveTraceInteractionEvent(
+                                            contentId       = currentItem.contentId,
+                                            touchQualityScore = result.touchQualityScore,
+                                            averageMovementDistance = result.averageMovementDistance,
+                                            correctionCount = result.correctionCount
+                                        )
+                                    }
+                                )
+
+                                "COUNT" -> CountingGameScreen(
+                                    currentItem     = currentItem,
+                                    isCalmMode      = settings.isCalmMode,
+                                    difficultyLevel = activity.difficultyLevel,
+                                    isTest       = settings.isTest,
+                                    activityId      = activity.id,
+                                    roundIndex      = state.currentIndex,
+                                    onComplete      = { isCorrect, elapsedMs, attempts ->
+                                        viewModel.onAnswerSubmitted(
+                                            isCorrect       = isCorrect,
+                                            contentId       = currentItem.contentId,
+                                            responseTimeMs  = elapsedMs,
+                                            attempts        = attempts
+                                        )
+                                    }
+                                )
+
+                                "DRAG" -> DragGameScreen(
+                                    currentItem  = currentItem,
+                                    isCalmMode   = settings.isCalmMode,
+                                    isTest       = settings.isTest,
+                                    onComplete   = { isCorrect, encodedMs, touchQualityScore ->
+                                        val attempts     = (encodedMs / 100_000L).toInt()
+                                            .coerceAtLeast(1)
+                                        val responseTime = encodedMs % 100_000L
+                                        viewModel.onAnswerSubmitted(
+                                            isCorrect       = isCorrect,
+                                            contentId       = currentItem.contentId,
+                                            responseTimeMs  = responseTime,
+                                            attempts        = attempts,
+                                            touchQualityScore = touchQualityScore
+                                        )
+                                    }
+                                )
+
+                                "LISTEN_AND_CHOOSE" -> ListenAndChooseGameScreen(
+                                    currentItem = currentItem,
+                                    isCalmMode = settings.isCalmMode,
+                                    isTest = settings.isTest,
+                                    onComplete = { isCorrect, encodedMs ->
+                                        val attempts = (encodedMs / 100_000L).toInt()
+                                            .coerceAtLeast(1)
+                                        val responseTime = encodedMs % 100_000L
+                                        viewModel.onAnswerSubmitted(
+                                            isCorrect = isCorrect,
+                                            contentId = currentItem.contentId,
+                                            responseTimeMs = responseTime,
+                                            attempts = attempts
+                                        )
+                                    }
+                                )
+
+                                else -> GamePlaceholder("Unknown: ${activity.activityType}")
+                            }
+                        }
+                    }
+
+                    // ── Parent lock overlay ───────────────────────────────
+                    if (state.showParentLock) {
+                        ParentLockScreen(
+                            onUnlocked = {
+                                viewModel.pauseNormalSessionForExit()
+                                viewModel.dismissParentLock()
+                                onExit()
+                            },
+                            onDismiss = { viewModel.dismissParentLock() }
                         )
                     }
                 }
-
-                // ── Big content card ──────────────────────────────────────
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.88f)
-                        .align(Alignment.BottomCenter)
-                        .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-                        .background(MaterialTheme.colorScheme.surface)
-                        .padding(16.dp)
-                ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-
-                        if (state.showOfflineSpeechBanner) {
-                            OfflineSpeechBanner()
-                            Spacer(Modifier.height(8.dp))
-                        }
-
-                        // ── Game router ───────────────────────────────────
-                        when (activity.activityType) {
-                            "STORY" -> StoryScreen(
-                                currentItem = currentItem,
-                                isCalmMode = settings.isCalmMode,
-                                onComplete = { elapsedMs ->
-                                    viewModel.onAnswerSubmitted(
-                                        isCorrect = true,
-                                        contentId = currentItem.contentId,
-                                        responseTimeMs = elapsedMs
-                                    )
-                                }
-                            )
-                            "MATCH"  -> GamePlaceholder("MATCH Game — coming soon")
-                            "TRACE"  -> GamePlaceholder("TRACE Game — coming soon")
-                            "SPEECH" -> GamePlaceholder("SPEECH Game — coming soon")
-                            "COUNT"  -> GamePlaceholder("COUNT Game — coming soon")
-                            "DRAG"   -> GamePlaceholder("DRAG Game — coming soon")
-                            else     -> GamePlaceholder("Unknown: ${activity.activityType}")
-                        }
-                    }
-                }
-
-                // ── Parent lock overlay — on top of everything ────────────
-                if (state.showParentLock) {
-                    ParentLockScreen(
-                        onUnlocked = {
-                            viewModel.dismissParentLock()
-                            onExit()
-                        },
-                        onDismiss = { viewModel.dismissParentLock() }
-                    )
-                }
-            }
+            } // end CompositionLocalProvider
         }
     }
 }
 
-// ── Placeholder ───────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// How to consume GameColorScheme inside any game screen
+// ─────────────────────────────────────────────────────────────────────────────
+//
+//  @Composable
+//  fun MatchScreen(...) {
+//      val colors = LocalGameColorScheme.current
+//
+//      // accent  → card borders, icon tints, highlighted labels
+//      // background → this screen's card/surface background
+//      // correct → green feedback
+//      // wrong   → red feedback
+//
+//      Box(modifier = Modifier.background(colors.background)) { ... }
+//      Text(color = colors.correct) { ... }
+//  }
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
 @Composable
 private fun GamePlaceholder(label: String) {
     Box(
-        modifier = Modifier
+        modifier         = Modifier
             .fillMaxSize()
             .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = label,
+            text  = label,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.outline
         )
     }
 }
 
-// ── Loading ───────────────────────────────────────────────────────────────────
+@Composable
+private fun ModeBirdsDecoration(isAnimated: Boolean) {
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val birdSize = (screenWidth * 0.18f).coerceIn(52.dp, 84.dp)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .zIndex(1f)
+    ) {
+        BirdDecoration(
+            resId = R.drawable.ic_bird2,
+            size = birdSize,
+            alignment = Alignment.TopStart,
+            top = 55.dp,
+            verticalRange = 8f,
+            horizontalRange = 4f,
+            rotationRange = 3.5f,
+            durationMs = 3600,
+            isAnimated = isAnimated
+        )
+        BirdDecoration(
+            resId = R.drawable.ic_bird1,
+            size = birdSize,
+            alignment = Alignment.TopEnd,
+            top = 35.dp,
+            verticalRange = 6f,
+            horizontalRange = 3f,
+            rotationRange = 2.5f,
+            durationMs = 3000,
+            isAnimated = isAnimated
+        )
+    }
+}
+
+@Composable
+private fun BoxScope.BirdDecoration(
+    resId: Int,
+    size: Dp,
+    alignment: Alignment,
+    top: Dp,
+    verticalRange: Float,
+    horizontalRange: Float,
+    rotationRange: Float,
+    durationMs: Int,
+    isAnimated: Boolean
+) {
+    val transition = rememberInfiniteTransition(label = "bird_motion_$resId")
+    val animatedFloatY by transition.animateFloat(
+        initialValue = -verticalRange,
+        targetValue = verticalRange,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = durationMs, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bird_y_$resId"
+    )
+    val animatedFloatX by transition.animateFloat(
+        initialValue = -horizontalRange,
+        targetValue = horizontalRange,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = durationMs + 700, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bird_x_$resId"
+    )
+    val animatedRotation by transition.animateFloat(
+        initialValue = -rotationRange,
+        targetValue = rotationRange,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = durationMs + 300, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bird_rotation_$resId"
+    )
+    val floatY = if (isAnimated) animatedFloatY else 0f
+    val floatX = if (isAnimated) animatedFloatX else 0f
+    val rotation = if (isAnimated) animatedRotation else 0f
+
+    Image(
+        painter = painterResource(id = resId),
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        modifier = Modifier
+            .align(alignment)
+            .padding(top = top)
+            .offset(x = floatX.dp, y = floatY.dp)
+            .rotate(rotation)
+            .size(size)
+    )
+}
+
 @Composable
 fun ActivityLoadingScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
     }
 }
 
-// ── Error ─────────────────────────────────────────────────────────────────────
+@Composable
+private fun ActivityTransitionScreen() {
+    Box(Modifier.fillMaxSize())
+}
+
 @Composable
 fun ActivityErrorScreen(message: String, onExit: () -> Unit) {
     Column(
-        modifier = Modifier
+        modifier            = Modifier
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = message,
+            text  = message,
             color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodyLarge
         )
@@ -245,37 +623,128 @@ fun ActivityErrorScreen(message: String, onExit: () -> Unit) {
     }
 }
 
-// ── Completed ─────────────────────────────────────────────────────────────────
 @Composable
-fun ActivityCompletedScreen(score: Int, total: Int, onFinish: () -> Unit) {
-    Column(
+private fun OfflineSpeechFallbackContent(isCalmMode: Boolean) {
+    val backgroundColor = if (isCalmMode) GameCalmBackground else GameActiveBackground
+    val accentColor = if (isCalmMode) GameCalmSwatch1 else GameActiveSwatch1
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .background(backgroundColor),
+        contentAlignment = Alignment.Center
     ) {
-        Text("أحسنت!", style = MaterialTheme.typography.headlineLarge)
-        Spacer(Modifier.height(8.dp))
-        Text("درجتك: $score من $total", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(24.dp))
-        Button(onClick = onFinish) { Text("تم") }
+        Column(
+            modifier = Modifier.padding(horizontal = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(CircleShape)
+                    .background(accentColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WifiOff,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+
+            Text(
+                text = stringResource(R.string.session_speech_fallback_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp,
+                color = DarkPurple,
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = stringResource(R.string.session_speech_fallback_subtitle),
+                style = MaterialTheme.typography.bodyLarge,
+                fontSize = 16.sp,
+                color = TextSecondary,
+                lineHeight = 26.sp,
+                textAlign = TextAlign.Center
+            )
+
+            OfflineCountdownBar(
+                durationMs = 3_000L,
+                accentColor = accentColor
+            )
+        }
     }
 }
 
-// ── Offline Speech Banner ─────────────────────────────────────────────────────
 @Composable
-private fun OfflineSpeechBanner() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.errorContainer)
-            .padding(8.dp),
-        contentAlignment = Alignment.Center
+private fun OfflineCountdownBar(durationMs: Long, accentColor: Color) {
+    var progress by remember(durationMs) { mutableStateOf(1f) }
+
+    LaunchedEffect(durationMs) {
+        val steps = 60
+        val stepDelay = (durationMs / steps).coerceAtLeast(1L)
+        repeat(steps) { index ->
+            progress = 1f - ((index + 1).toFloat() / steps.toFloat())
+            delay(stepDelay)
+        }
+        progress = 0f
+    }
+
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.session_speech_fallback_countdown),
+                style = MaterialTheme.typography.bodySmall,
+                fontSize = 13.sp,
+                color = TextSecondary,
+                textAlign = TextAlign.Center
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(accentColor.copy(alpha = 0.2f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                        .clip(RoundedCornerShape(50))
+                        .background(accentColor)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AssessmentStepBadge(
+    current: Int,
+    total: Int
+) {
+    val formattedCurrent = remember(current) { current.toArabicDigits() }
+    val formattedTotal = remember(total) { total.toArabicDigits() }
+
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = MaterialTheme.colorScheme.primaryContainer
     ) {
         Text(
-            text = "وضع الكلام يحتاج إنترنت",
-            color = MaterialTheme.colorScheme.onErrorContainer
+            text = "$formattedTotal / $formattedCurrent",
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelMedium.copy(
+                textDirection = TextDirection.Ltr
+            ),
+            color = MaterialTheme.colorScheme.onPrimaryContainer
         )
     }
 }
