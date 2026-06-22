@@ -5,12 +5,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babybloom.R
 import com.babybloom.data.local.dao.ChildDao
+import com.babybloom.data.local.dao.ChildProfileSnapshotDao
 import com.babybloom.data.local.entity.ChildEntity
 import com.babybloom.di.SessionManager
 import com.babybloom.domain.model.AppNotification
 import com.babybloom.domain.model.ChildStatus
+import com.babybloom.domain.model.ParsedInsight
 import com.babybloom.domain.notifications.ParentNotificationHandler
+import com.babybloom.domain.repository.AiInsightRepository
 import com.babybloom.domain.repository.AppNotificationRepository
+import com.babybloom.domain.repository.ChildProfileRepository
+import com.babybloom.domain.repository.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,10 +57,19 @@ data class ParentHomeUiState(
     val error: String? = null
 )
 
+data class SelectedChildInsightUiState(
+    val briefMessage: String = "",
+    val hasInsight: Boolean = false
+)
+
 @HiltViewModel
 class ParentHomeViewModel @Inject constructor(
     private val sessionManager: SessionManager,
     private val childDao: ChildDao,
+    private val childProfileRepository: ChildProfileRepository,
+    private val childProfileSnapshotDao: ChildProfileSnapshotDao,
+    private val aiInsightRepository: AiInsightRepository,
+    private val sessionRepository: SessionRepository,
     private val notificationRepository: AppNotificationRepository,
     private val notificationHandler: ParentNotificationHandler,
     @ApplicationContext private val context: Context
@@ -89,6 +103,25 @@ class ParentHomeViewModel @Inject constructor(
 
     private val _selectedChild = MutableStateFlow<ChildEntity?>(null)
     val selectedChild: StateFlow<ChildEntity?> = _selectedChild.asStateFlow()
+
+    val selectedChildInsightUiState: StateFlow<SelectedChildInsightUiState?> = selectedChild
+        .flatMapLatest { child ->
+            if (child == null) {
+                flowOf(null)
+            } else {
+                aiInsightRepository.getLatestInsight(child.id).map { insight ->
+                    if (insight == null) {
+                        SelectedChildInsightUiState(hasInsight = false)
+                    } else {
+                        SelectedChildInsightUiState(
+                            briefMessage = buildBriefInsight(insight.insightText),
+                            hasInsight = true
+                        )
+                    }
+                }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun selectChild(child: ChildEntity) {
         _selectedChild.value = child
@@ -132,6 +165,7 @@ class ParentHomeViewModel @Inject constructor(
                 val total = children.size
                 val active = children.count { it.status == ChildStatus.ACTIVE.name }
                 val needsSupport = children.count { it.status == ChildStatus.NEEDS_SUPPORT.name }
+                val weeklyStats = buildWeeklyStats(children)
 
                 _uiState.value = ParentHomeUiState(
                     isLoading = false,
@@ -140,9 +174,9 @@ class ParentHomeViewModel @Inject constructor(
                     totalChildren = total,
                     activeChildrenToday = active,
                     childrenNeedingSupport = needsSupport,
-                    weeklyAchievementsCount = 0,
-                    totalPointsThisWeek = 0,
-                    weeklyProgressPercentage = 0.0,
+                    weeklyAchievementsCount = weeklyStats.achievementsCount,
+                    totalPointsThisWeek = weeklyStats.averageSessionMinutes,
+                    weeklyProgressPercentage = weeklyStats.averageProgressPercent,
                     aiInsightMessage = generateAIInsight(active),
                     hasUnreadNotifications = notifications.any { !it.isRead }
                 )
@@ -167,8 +201,108 @@ class ParentHomeViewModel @Inject constructor(
     }
 
     private fun generateAIInsight(activeToday: Int): String =
-        if (activeToday > 0) context.getString(R.string.parent_home_featured_desc)
-        else context.getString(R.string.ai_empty_subtitle)
+        if (activeToday > 0) context.getString(R.string.parent_home_ai_overview_message)
+        else context.getString(R.string.parent_home_ai_select_prompt)
+
+    private suspend fun buildWeeklyStats(children: List<ChildEntity>): WeeklyStats {
+        if (children.isEmpty()) return WeeklyStats()
+
+        val weekStartMillis = startOfCurrentWeekMillis()
+
+        val completedSessionsThisWeek = children
+            .flatMap { child -> sessionRepository.getAllSessions(child.id) }
+            .filter { session ->
+                val endTime = session.endTime ?: return@filter false
+                endTime >= weekStartMillis
+            }
+
+        val averageProgressPercent = children
+            .mapNotNull { child ->
+                childProfileRepository.getByChildId(child.id)?.overallProgressPercent?.toDouble()
+            }
+            .takeIf { it.isNotEmpty() }
+            ?.average()
+            ?: 0.0
+
+        val achievementsCount = children.sumOf { child ->
+            countWeeklyLevelUps(
+                childId = child.id,
+                weekStartMillis = weekStartMillis
+            )
+        }
+
+        val averageSessionMinutes = completedSessionsThisWeek
+            .mapNotNull { session ->
+                session.endTime?.let { endTime ->
+                    ((endTime - session.startTime).coerceAtLeast(0L) / 60_000L).toInt()
+                }
+            }
+            .takeIf { it.isNotEmpty() }
+            ?.average()
+            ?.toInt()
+            ?: 0
+
+        return WeeklyStats(
+            averageProgressPercent = averageProgressPercent,
+            achievementsCount = achievementsCount,
+            averageSessionMinutes = averageSessionMinutes
+        )
+    }
+
+    private suspend fun countWeeklyLevelUps(
+        childId: Long,
+        weekStartMillis: Long
+    ): Int {
+        val snapshots = childProfileSnapshotDao.getForChild(childId)
+        if (snapshots.size < 2) return 0
+
+        return snapshots
+            .zipWithNext()
+            .filter { (_, current) -> current.capturedAt >= weekStartMillis }
+            .sumOf { (previous, current) ->
+                (current.languageLevel - previous.languageLevel).coerceAtLeast(0) +
+                    (current.numeracyLevel - previous.numeracyLevel).coerceAtLeast(0) +
+                    (current.motorLevel - previous.motorLevel).coerceAtLeast(0)
+            }
+    }
+
+    private fun startOfCurrentWeekMillis(): Long {
+        val calendar = Calendar.getInstance().apply {
+            firstDayOfWeek = Calendar.SATURDAY
+            set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        return calendar.timeInMillis
+    }
+
+    private fun buildBriefInsight(insightText: String): String {
+        val parsed = ParsedInsight.from(insightText)
+        val parts = buildList {
+            parsed.guidanceIntro.takeIf { it.isNotBlank() }?.let { add(it.trim()) }
+            parsed.development.takeIf { it.isNotBlank() }?.let { add(it.trim()) }
+            parsed.strengths.takeIf { it.isNotBlank() }?.let { add(it.trim()) }
+            parsed.tip1Body.takeIf { it.isNotBlank() }?.let { add(it.trim()) }
+            parsed.tip2Body.takeIf { it.isNotBlank() }?.let { add(it.trim()) }
+            parsed.learningStyle.takeIf { it.isNotBlank() }?.let { add(it.trim()) }
+        }
+
+        if (parts.isEmpty()) return context.getString(R.string.parent_home_ai_summary_fallback)
+
+        val summary = parts
+            .take(3)
+            .joinToString(separator = "\n\n") { part ->
+                part.replace(Regex("\\s+"), " ").trim()
+            }
+
+        return if (summary.length <= 320) {
+            summary
+        } else {
+            summary.take(317).trimEnd() + "..."
+        }
+    }
 
     private fun toNotificationUi(notification: AppNotification): HomeNotificationUi =
         HomeNotificationUi(
@@ -199,3 +333,9 @@ class ParentHomeViewModel @Inject constructor(
         }
     }
 }
+
+private data class WeeklyStats(
+    val averageProgressPercent: Double = 0.0,
+    val achievementsCount: Int = 0,
+    val averageSessionMinutes: Int = 0
+)

@@ -71,30 +71,20 @@
     <string name="parent_home_stats_title">أبرز إنجازات الأسبوع</string>
 
     <string name="parent_home_stat_1_number">18</string>
-    <string name="parent_home_stat_1_label">متوسط التقدم هذا الأسبوع</string>
+    <string name="parent_home_stat_1_label">متوسط التقدم الحالي للأطفال</string>
 
     <string name="parent_home_stat_2_number">47</string>
     <string name="parent_home_stat_2_label">إجمالي الإنجازات المحققة</string>
 
     <string name="parent_home_stat_3_number">+12%</string>
-    <string name="parent_home_stat_3_label">متوسط التقدم هذا الأسبوع</string>
+    <string name="parent_home_stat_3_label">متوسط مدة الجلسة</string>
 
     <!-- Section 3: AI Insights (رؤى الذكاء الاصطناعي) -->
     <string name="parent_home_featured_title">رؤى الذكاء الاصطناعي</string>-----------------------------------------------
-    <string name="parent_home_featured_desc">أظهر 3 أطفال تحسّنًا في مستوى التركيز مع أنشطة الصباح.</string>
-    <string name="parent_home_featured_more">اضغط لعرض المزيد...</string>
-
-    <!-- Quick Actions Section (for future use) -->
-    <string name="parent_home_sections_title">إجراءات سريعة</string>
-
-    <string name="parent_home_section_1_title">البحث عن محتوى</string>
-    <string name="parent_home_section_1_desc">ابحث عن تفاصيل جميع الاطفال</string>
-
-    <string name="parent_home_section_2_title">إضافة طفل</string>
-    <string name="parent_home_section_2_desc">إضافة طفل جديد</string>
-
-    <string name="parent_home_section_3_title">الأطفال الذين يحتاجون إلى دعم</string>
-    <string name="parent_home_section_3_desc">طفل بحاجة إلى اهتمام</string>
+    <string name="parent_home_ai_overview_message">يمكن اختيار طفل لعرض أحدث ملخص من رؤى الذكاء الاصطناعي الخاصة به.</string>
+    <string name="parent_home_ai_select_prompt">يمكن فتح القائمة لاختيار طفل ومراجعة أحدث رؤية محفوظة له.</string>
+    <string name="parent_home_ai_summary_fallback">توجد رؤية محفوظة لهذا الطفل، لكن الملخص المختصر غير متاح حالياً.</string>
+    <string name="parent_home_ai_open_child_insights">لا توجد رؤية محفوظة لهذا الطفل بعد. يمكن الضغط هنا لفتح صفحة رؤى الذكاء الاصطناعي الخاصة به.</string>
 
     <!-- Common -->
 
